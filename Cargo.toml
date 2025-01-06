@@ -1,0 +1,13 @@
+[package]
+name = "walkers-editor"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+walkers = "0.32.0"
+eframe = { version = "0.30.0", default-features = false, features = [
+	"glow",
+	"default_fonts",
+] }
+osm-parser = { git = "https://github.com/Swarkin/osm-parser.git", features = ["f64"] }
+#osm-parser = { path = "../osm-parser", features = ["f64"] }
