@@ -1,6 +1,6 @@
+use super::consts::*;
 use eframe::egui::Color32;
 use osm_parser::Tags;
-use crate::app::editor::consts::{SIDEWALK_NO_COLOR, SIDEWALK_SEPARATE_COLOR, SIDEWALK_UNKNOWN_COLOR, SIDEWALK_YES_COLOR};
 
 #[derive(Debug, Default)]
 pub struct Attribute2D {
