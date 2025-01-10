@@ -3,7 +3,7 @@ mod windows;
 mod editor;
 mod providers;
 
-use editor::visualizers::{Visualization, Visualizer};
+use editor::visualizers::Visualization;
 use editor::EditorPluginState;
 use eframe::egui;
 use egui::{Context, Frame};
@@ -14,7 +14,6 @@ use walkers::{Map, MapMemory, Tiles};
 
 pub struct MyApp {
 	providers: HashMap<Provider, Box<dyn Tiles + Send>>,
-	visualizers: HashMap<Visualization, Box<dyn Visualizer>>,
 	selected_provider: Provider,
 	selected_visualizer: Visualization,
 	map_memory: MapMemory,
@@ -27,7 +26,6 @@ impl MyApp {
 	pub fn new(egui_ctx: Context) -> Self {
 		Self {
 			providers: providers::providers(egui_ctx),
-			visualizers: editor::visualizers::visualizers(),
 			selected_provider: Default::default(),
 			selected_visualizer: Default::default(),
 			map_memory: Default::default(),
@@ -55,7 +53,7 @@ impl eframe::App for MyApp {
 						state: &mut self.editor_state, 
 						osm_data: &self.osm_data, 
 						scale_factor: self.scale_factor, 
-						visualizer: self.visualizers.get(&self.selected_visualizer).unwrap(), 
+						visualization: self.selected_visualizer,
 					})
 				);
 				

@@ -1,6 +1,6 @@
 mod app;
 
-use crate::app::MyApp;
+use app::MyApp;
 
 fn main() -> Result<(), eframe::Error> {
     eframe::run_native(

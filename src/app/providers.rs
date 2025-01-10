@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use eframe::egui::Context;
+use std::collections::HashMap;
 use walkers::sources::{Attribution, TileSource};
 use walkers::{HttpOptions, HttpTiles, TileId, Tiles};
 

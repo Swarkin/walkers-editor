@@ -1,9 +1,8 @@
-use crate::app::providers::Provider;
+use super::editor::visualizers::Visualization;
+use super::providers::Provider;
 use eframe::egui;
-use eframe::egui::Grid;
-use egui::{Align2, RichText, Ui, Window};
+use egui::{Align2, Grid, RichText, Ui, Window};
 use walkers::{sources::Attribution, MapMemory};
-use crate::app::editor::visualizers::Visualization;
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution) {
     Window::new("Acknowledge")
@@ -47,11 +46,11 @@ pub fn controls(
                 egui::ComboBox::from_label("Visualization")
                     .selected_text(format!("{selected_visualization:?}"))
                     .show_ui(ui, |ui| {
-                        ui.selectable_value(selected_visualization, Visualization::Default, "iD");
+                        ui.selectable_value(selected_visualization, Visualization::Default, "Default");
                         ui.selectable_value(selected_visualization, Visualization::Sidewalks, "Sidewalks");
                     });
 
-                ui.add(egui::Slider::new(scale_factor, 0.1..=2.0).text("OSM data scale"));
+                ui.add(egui::Slider::new(scale_factor, 0.1..=2.0).text("Scale factor"));
             });
         });
 }

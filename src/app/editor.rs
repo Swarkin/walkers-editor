@@ -1,18 +1,18 @@
-pub(crate) mod visualizers;
+pub mod visualizers;
 mod consts;
 mod attribute2d;
 
 use consts::*;
 use eframe::egui::{Pos2, Response, Ui};
 use osm_parser::*;
-use visualizers::*;
+use visualizers::Visualization;
 use walkers::{Plugin, Position, Projector};
 
 pub struct EditorPlugin<'a> {
 	pub state: &'a mut EditorPluginState,
 	pub osm_data: &'a OsmData,
 	#[allow(clippy::borrowed_box)]
-	pub visualizer: &'a Box<dyn Visualizer>,
+	pub visualization: Visualization,
 	pub scale_factor: f32,
 }
 
@@ -43,9 +43,15 @@ impl Plugin for EditorPlugin<'_> {
 						}
 					}
 					
-					let width = self.visualizer.determine_width(way);
-					let color = self.visualizer.determine_color(way);
-					self.visualizer.paint(ui.painter(), way, width * self.scale_factor, color, [p1, p2]);
+					let width = visualizers::determine_width_default(way) * self.scale_factor;
+					let color = visualizers::determine_color_default(way);
+					
+					ui.painter().extend(
+						match self.visualization {
+							Visualization::Default => visualizers::default([p1, p2], color, width),
+							Visualization::Sidewalks => visualizers::sidewalks(way, [p1, p2], color, width),
+						}
+					);				
 				}
 			}
 		}
@@ -59,15 +65,15 @@ impl Plugin for EditorPlugin<'_> {
 					let p1 = projector.project(coordinate_to_pos(&self.osm_data.nodes[curr_id].pos)).to_pos2();
 					let p2 = projector.project(coordinate_to_pos(&self.osm_data.nodes[next_id].pos)).to_pos2();
 
-					let width = self.visualizer.determine_width(way);
-					self.visualizer.paint(ui.painter(), way, width * self.scale_factor + SELECTION_SIZE_INCREASE, SELECTION_COLOR, [p1, p2]);
+					let width = visualizers::determine_width_default(way) * self.scale_factor + SELECTION_SIZE_INCREASE;
+					ui.painter().extend(
+						visualizers::default([p1, p2], SELECTION_COLOR, width)
+					);
 				}
 			}
 
 			self.state.hovered = Some(id);
-			if response.clicked() && self.visualizer.can_select(way) {
-				self.state.selected = Some(id);
-			}
+			self.state.selected = Some(id);
 		} else {
 			self.state.hovered = None;
 			if response.clicked() { self.state.selected = None; }
