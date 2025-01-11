@@ -83,11 +83,9 @@ pub fn sidewalks(way: &Way, points: [Pos2; 2], color: Color32, width: f32) -> Ve
 
 			let start = points[0];
 			let end = points[1];
-			let distance = width;
-
-			let between = (end - start).normalized();           // difference and normalize
-			let orthogonal = Vec2::new(between.y, -between.x);  // flip x and y and make one negative
-			let offset = orthogonal * distance;                 // apply offset and distance
+			
+			let orthogonal = (end - start).normalized().rot90();
+			let offset = orthogonal * width;
 
 			let attr = Attribute2D::new(tags, "sidewalk");
 
