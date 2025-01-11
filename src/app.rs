@@ -3,7 +3,7 @@ mod windows;
 mod editor;
 mod providers;
 
-use editor::visualizers::Visualization;
+use editor::visual::Visualization;
 use editor::EditorPluginState;
 use eframe::egui;
 use egui::{Context, Frame};

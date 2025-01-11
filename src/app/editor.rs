@@ -1,11 +1,11 @@
-pub mod visualizers;
+pub mod visual;
 mod consts;
 mod attribute2d;
 
 use consts::*;
 use eframe::egui::{Pos2, Response, Ui};
 use osm_parser::*;
-use visualizers::Visualization;
+use visual::Visualization;
 use walkers::{Plugin, Position, Projector};
 
 pub struct EditorPlugin<'a> {
@@ -42,32 +42,32 @@ impl Plugin for EditorPlugin<'_> {
 							hovering_feature_id = Some(way.id);
 						}
 					}
-					
-					let width = visualizers::determine_width_default(way) * self.scale_factor;
-					let color = visualizers::determine_color_default(way);
-					
+
+					let width = visual::determine_width_default(way) * self.scale_factor;
+					let color = visual::determine_color_default(way);
+
 					ui.painter().extend(
 						match self.visualization {
-							Visualization::Default => visualizers::default([p1, p2], color, width),
-							Visualization::Sidewalks => visualizers::sidewalks(way, [p1, p2], color, width),
+							Visualization::Default => visual::default([p1, p2], color, width),
+							Visualization::Sidewalks => visual::sidewalks(way, [p1, p2], color, width),
 						}
 					);				
 				}
 			}
 		}
-		
+
 		if let Some(id) = hovering_feature_id {
 			let way = &self.osm_data.ways[&id];
 			let mut iter = way.nodes.iter().peekable();
-			
+
 			while let Some(curr_id) = iter.next() {
 				if let Some(next_id) = iter.peek() {
 					let p1 = projector.project(coordinate_to_pos(&self.osm_data.nodes[curr_id].pos)).to_pos2();
 					let p2 = projector.project(coordinate_to_pos(&self.osm_data.nodes[next_id].pos)).to_pos2();
 
-					let width = visualizers::determine_width_default(way) * self.scale_factor + SELECTION_SIZE_INCREASE;
+					let width = visual::determine_width_default(way) * self.scale_factor + SELECTION_SIZE_INCREASE;
 					ui.painter().extend(
-						visualizers::default([p1, p2], SELECTION_COLOR, width)
+						visual::default([p1, p2], SELECTION_COLOR, width)
 					);
 				}
 			}

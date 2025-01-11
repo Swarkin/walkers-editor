@@ -1,4 +1,4 @@
-use super::editor::visualizers::Visualization;
+use super::editor::visual::Visualization;
 use super::providers::Provider;
 use eframe::egui;
 use egui::{Align2, Grid, RichText, Ui, Window};
