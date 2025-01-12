@@ -102,8 +102,13 @@ impl Plugin for EditorPlugin<'_> {
 				);
 			}
 
-			if resp.clicked() && way_is_relevant(&way.tags, self.visualization) { self.state.selected = Some(hover); }
-		} else if resp.clicked() { self.state.selected = None; }
+			if resp.clicked() && way_is_relevant(&way.tags, self.visualization) {
+				self.state.selected = Some(hover);
+			}
+		} else if resp.clicked() {
+			self.state.selected = None;
+			self.state.edit_window_pos = None;
+		}
 		
 		// submit priority shapes
 		ui.painter().extend(shapes_top);
