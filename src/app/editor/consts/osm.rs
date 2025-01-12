@@ -2,12 +2,12 @@
 
 use eframe::egui::Color32;
 
-pub const DEFAULT_WIDTH: f32 = 0.5;
-pub const PATH_WIDTH: f32 = 1.5;
-pub const SERVICE_ROAD_WIDTH: f32 = 3.0;
-pub const MINOR_ROAD_WIDTH: f32 = 4.0;
+pub const DEFAULT_WIDTH: f32 = 1.0;
+pub const PATH_WIDTH: f32 = 2.5;
+pub const SERVICE_ROAD_WIDTH: f32 = 4.0;
+pub const MINOR_ROAD_WIDTH: f32 = 5.0;
 pub const MAJOR_ROAD_WIDTH: f32 = 6.0;
-pub const BUILDING_WIDTH: f32 = 1.0;
+pub const BUILDING_WIDTH: f32 = 2.0;
 
 pub const BUILDING_COLOR: Color32 = Color32::from_rgb(224, 110, 95);
 pub const PATH_COLOR: Color32 = Color32::from_rgb(221, 204, 170);
