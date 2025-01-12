@@ -47,24 +47,22 @@ impl eframe::App for MyApp {
 					.unwrap()
 					.as_mut();
 				let attribution = tiles.attribution();
-				
+
 				ui.add(Map::new(Some(tiles), &mut self.map_memory, places::school())
-					.with_plugin(editor::EditorPlugin { 
-						state: &mut self.editor_state, 
-						osm_data: &self.osm_data, 
-						scale_factor: self.scale_factor, 
+					.with_plugin(editor::EditorPlugin {
+						state: &mut self.editor_state,
+						osm_data: &self.osm_data,
+						scale_factor: self.scale_factor,
 						visualization: self.selected_visualizer,
 					})
 				);
-				
+
 				windows::zoom(ui, &mut self.map_memory);
 				windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor);
 				windows::acknowledge(ui, attribution);
 
 				if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
-					if let Some(tags) = &self.osm_data.ways[&id].tags {
-						windows::tags(ui, tags);
-					}
+					windows::tags(ui, &self.osm_data.ways[&id].tags);
 				}
 			});
 	}
