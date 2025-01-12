@@ -9,5 +9,5 @@ eframe = { version = "0.30.0", default-features = false, features = [
 	"glow",
 	"default_fonts",
 ] }
-osm-parser = { git = "https://github.com/Swarkin/osm-parser.git", features = ["f64"] }
-#osm-parser = { path = "../osm-parser", features = ["f64"] }
+osm-parser = { git = "https://github.com/Swarkin/osm-parser.git" }
+#osm-parser = { path = "../osm-parser" }
