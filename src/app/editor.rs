@@ -3,8 +3,8 @@ mod consts;
 mod attribute2d;
 
 use consts::*;
-use eframe::egui::{Pos2, Response, Shape, Ui};
-use eframe::epaint::PathStroke;
+use eframe::egui::{Color32, Pos2, Response, Shape, Ui};
+use eframe::epaint::{PathShape, PathStroke};
 use osm_parser::*;
 use visual::Visualization;
 use walkers::{Plugin, Position, Projector};
@@ -26,57 +26,69 @@ pub struct EditorPluginState {
 }
 
 impl Plugin for EditorPlugin<'_> {
-	// todo: use Shape::Path to draw lines
 	fn run(self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
 		let mut shapes_top = Vec::with_capacity(2);
 		self.state.hovered = None;
 
 		for way in self.osm_data.ways.values() {
-			for v in way.nodes.windows(2) {
-				let points = [
-					projector.project(coordinate_to_pos(&self.osm_data.nodes[&v[0]].pos)).to_pos2(),
-					projector.project(coordinate_to_pos(&self.osm_data.nodes[&v[1]].pos)).to_pos2(),
-				];
+			let points = self.project_way_to_points(way, projector);
+			let width = self.way_width(way);
+			let color = self.way_color(way);
 
-				let width = visual::determine_width_default(way) * self.scale_factor;
-				let color = visual::determine_color_default(way);
-
-				// detect mouse hover
+			// detect hover
+			if self.state.hovered.is_none() {
 				if let Some(mouse) = resp.hover_pos() {
-					let mouse_dist = distance_to_segment(mouse, points);
-					if mouse_dist < width {
+					if points.windows(2).any(|p| distance_to_segment(mouse, &[p[0], p[1]]) < width) {
 						self.state.hovered = Some(way.id);
 					}
 				}
-
-				// draw osm data based on selected visualization method
-				let shapes = match self.visualization {
-					Visualization::Default => visual::default(points, color, width),
-					Visualization::Sidewalks => {
-						if let Some(mouse) = resp.hover_pos() {
-							if self.state.selected == Some(way.id) && distance_to_segment(mouse, points) < width {
-                                self.state.edit_window_pos = Some(mouse);
-                            }
-						}
-
-						visual::sidewalks(way, points, color, width)
-					},
-				};
-
-				// draw selection
-				if self.state.selected == Some(way.id) {
-					shapes_top.push(Shape::LineSegment {
-						points,
-						stroke: PathStroke::new(width + SELECTION_SIZE_INCREASE, SELECTION_COLOR),
-					});
-				}
-
-				// submit shapes
-				ui.painter().extend(shapes);
 			}
+
+			// draw way using selected visualization
+			let shapes = match self.visualization {
+				Visualization::Default => visual::default(points, color, width),
+				Visualization::Sidewalks => visual::sidewalks(way, points, color, width),
+			};
+
+			ui.painter().extend(shapes);
 		}
 
+		// draw hovered way and handle logic
+		if let Some(hover) = self.state.hovered {
+			let way = &self.osm_data.ways[&hover];
+			let points = self.project_way_to_points(way, projector);
+
+			shapes_top.push(
+				Shape::Path(PathShape::line(
+					points, PathStroke::new(self.way_width(way) + HOVER_SIZE_INCREASE, HOVER_COLOR)
+				))
+			);
+
+			if resp.clicked() && self.is_way_relevant(&way.tags) {
+				self.state.selected = Some(hover);
+			}
+		} else if resp.clicked() { // discard hovered way
+			self.state.selected = None;
+			self.state.edit_window_pos = None;
+		}
+
+		// draw selected way
+		if let Some(selected) = self.state.selected {
+			let way = &self.osm_data.ways[&selected];
+			let points = self.project_way_to_points(way, projector);
+
+			shapes_top.push(
+				Shape::Path(PathShape::line(
+					points,
+					PathStroke::new(self.way_width(way) + SELECTION_SIZE_INCREASE, SELECTION_COLOR),
+				))
+			)
+		}
+
+		ui.painter().extend(shapes_top);
+
 		// display editing window
+		// todo: remove self::edit_window_pos variable and make use of state.selected / is_relevant
 		if let Some(pos) = self.state.edit_window_pos {
 			let window_open = match self.visualization {
 				Visualization::Sidewalks => visual::sidewalks_ui(ui, pos),
@@ -87,47 +99,45 @@ impl Plugin for EditorPlugin<'_> {
 				self.state.edit_window_pos = None;
 			}
 		}
+	}
+}
 
-		// draw hovered way
-		if let Some(hover) = self.state.hovered {
-			let way = &self.osm_data.ways[&hover];
-
-			for v in way.nodes.windows(2) {
-				let p1 = projector.project(coordinate_to_pos(&self.osm_data.nodes[&v[0]].pos)).to_pos2();
-				let p2 = projector.project(coordinate_to_pos(&self.osm_data.nodes[&v[1]].pos)).to_pos2();
-				let width = visual::determine_width_default(way) * self.scale_factor + HOVER_SIZE_INCREASE;
-				
-				shapes_top.extend(
-					visual::default([p1, p2], HOVER_COLOR, width)
-				);
-			}
-
-			if resp.clicked() && way_is_relevant(&way.tags, self.visualization) {
-				self.state.selected = Some(hover);
-			}
-		} else if resp.clicked() {
-			self.state.selected = None;
-			self.state.edit_window_pos = None;
+impl EditorPlugin<'_> {
+	fn way_width(&self, way: &Way) -> f32 {
+		match self.visualization {
+			Visualization::Default => visual::width_default(way) * self.scale_factor,
+			Visualization::Sidewalks => visual::width_sidewalk(way) * self.scale_factor,
 		}
-		
-		// submit priority shapes
-		ui.painter().extend(shapes_top);
+	}
 
+	fn way_color(&self, way: &Way) -> Color32 {
+		match self.visualization {
+			Visualization::Default => visual::color_default(way),
+			Visualization::Sidewalks => visual::color_sidewalk(way),
+		}
+	}
+
+	fn project_way_to_points(&self, way: &Way, projector: &Projector) -> Vec<Pos2> {
+		way.nodes.iter()
+			.map(|id| &self.osm_data.nodes[id])
+			.map(|n| projector.project(coordinate_to_pos(&n.pos)).to_pos2())
+			.collect()
+	}
+
+	fn is_way_relevant(&self, tags: &Tags) -> bool {
+		match self.visualization {
+			Visualization::Default => true,
+			Visualization::Sidewalks => visual::sidewalks_relevant(tags),
+		}
 	}
 }
 
-fn way_is_relevant(tags: &Tags, visualization: Visualization) -> bool {
-	match visualization {
-		Visualization::Default => true,
-		Visualization::Sidewalks => visual::sidewalks_relevant(tags),
-	}
-}
 
 pub fn coordinate_to_pos(c: &Coordinate) -> Position {
 	Position::from_lon_lat(c.lon, c.lat)
 }
 
-fn distance_to_segment(p: Pos2, points: [Pos2; 2]) -> f32 {
+fn distance_to_segment(p: Pos2, points: &[Pos2; 2]) -> f32 {
 	let x = points[0];
 	let y = points[1];
 

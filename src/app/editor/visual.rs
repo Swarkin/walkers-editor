@@ -2,7 +2,7 @@ use super::attribute2d::Attribute2D;
 use super::consts::osm::*;
 use super::consts::*;
 use eframe::egui;
-use eframe::epaint::PathStroke;
+use eframe::epaint::{PathShape, PathStroke};
 use egui::{Color32, Pos2, Shape, Window};
 use osm_parser::Way;
 
@@ -19,7 +19,7 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 	MOTORWAY_LINK, TRUNK_LINK, PRIMARY_LINK, SECONDARY_LINK, TERTIARY_LINK,
 ];
 
-pub fn determine_width_default(w: &Way) -> f32 {
+pub fn width_default(w: &Way) -> f32 {
 	if let Some(building) = w.tags.get("building") {
 		return match building.as_str() {
 			"no" => DEFAULT_WIDTH,
@@ -37,7 +37,11 @@ pub fn determine_width_default(w: &Way) -> f32 {
 	} else { DEFAULT_WIDTH }
 }
 
-pub fn determine_color_default(w: &Way) -> Color32 {
+pub fn width_sidewalk(w: &Way) -> f32 {
+	width_default(w)
+}
+
+pub fn color_default(w: &Way) -> Color32 {
 	if let Some(building) = w.tags.get("building") {
 		return match building.as_str() {
 			"no" => DEFAULT_COLOR,
@@ -54,45 +58,46 @@ pub fn determine_color_default(w: &Way) -> Color32 {
 	} else { DEFAULT_COLOR }
 }
 
-
-pub fn default(points: [Pos2; 2], color: Color32, width: f32) -> Vec<Shape> {
-	vec![Shape::LineSegment {
-		points,
-		stroke: PathStroke::new(width, color),
-	}]
+pub fn color_sidewalk(w: &Way) -> Color32 {
+	color_default(w)
 }
 
-pub fn sidewalks(way: &Way, points: [Pos2; 2], color: Color32, width: f32) -> Vec<Shape> {
-	let mut shapes = Vec::with_capacity(3);
-
-	shapes.push(Shape::LineSegment {
+pub fn default(points: Vec<Pos2>, color: Color32, width: f32) -> Vec<Shape> {
+	vec![Shape::Path(PathShape::line(
 		points,
-		stroke: PathStroke::new(width, color),
-	});
+		PathStroke::new(width, color),
+	))]
+}
 
+pub fn sidewalks(way: &Way, points: Vec<Pos2>, color: Color32, width: f32) -> Vec<Shape> {
+	let mut shapes = vec![];
 
 	if way.tags.keys().any(|k| k.starts_with("sidewalk")) {
 		if !sidewalks_relevant(&way.tags) { return shapes; };
 		let attr = Attribute2D::new(&way.tags, "sidewalk");
 
-		let from = points[0];
-		let to = points[1];
+		for points in points.windows(2) {
+			let from = points[0];
+			let to = points[1];
 
-		let orthogonal = (to - from).normalized().rot90();
-		let offset = orthogonal * width;
+			let orthogonal = (to - from).normalized().rot90();
+			let offset = orthogonal * width;
 
-		shapes.push(Shape::LineSegment {
-			points: [from + offset, to + offset],
-			stroke: PathStroke::new(width, attr.left),
-		});
-		shapes.push(Shape::LineSegment {
-			points: [from - offset, to - offset],
-			stroke: PathStroke::new(width, attr.right),
-		});
-
-		return shapes;
+			shapes.push(Shape::LineSegment {
+				points: [from + offset, to + offset],
+				stroke: PathStroke::new(width, attr.left),
+			});
+			shapes.push(Shape::LineSegment {
+				points: [from - offset, to - offset],
+				stroke: PathStroke::new(width, attr.right),
+			});
+		}
 	}
 
+	shapes.push(Shape::Path(PathShape::line(
+		points,
+		PathStroke::new(width, color),
+	)));
 
 	shapes
 }
