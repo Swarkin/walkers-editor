@@ -1,4 +1,6 @@
 use eframe::egui::Context;
+use osm_parser::convert::{Convert, Projection};
+use osm_parser::Coordinate;
 use std::collections::HashMap;
 use walkers::sources::{Attribution, TileSource};
 use walkers::{HttpOptions, HttpTiles, TileId, Tiles};
@@ -9,6 +11,7 @@ pub enum Provider {
 	Geoportal,
 	MapboxSatellite,
 	EsriWorldImagery,
+	Bavaria20cm,
 }
 
 // https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/0/0/0
@@ -28,19 +31,50 @@ impl TileSource for EsriWorldImagery {
 	}
 
 	fn tile_size(&self) -> u32 { 256 }
-	
+
 	fn max_zoom(&self) -> u8 { 19 }
+}
+
+pub struct Bavaria20cm {}
+
+impl TileSource for Bavaria20cm {
+	fn tile_url(&self, tile_id: TileId) -> String {
+		let tile_tl = webmercator_tiles::tile2lonlat(tile_id.x, tile_id.y, tile_id.zoom);
+		let min = Coordinate::new(tile_tl.1, tile_tl.0);
+		let tile_br = webmercator_tiles::tile2lonlat(tile_id.x + 1, tile_id.y + 1, tile_id.zoom);
+		let max = Coordinate::new(tile_br.1, tile_br.0);
+
+		let mut tr = Coordinate::new(max.lat, min.lon);
+		let mut bl = Coordinate::new(min.lat, max.lon);
+		tr.convert_to(Projection::WebMercator);
+		bl.convert_to(Projection::WebMercator);
+
+		format!("https://geoservices.bayern.de/od/wms/dop/v1/dop20?FORMAT=image%2Fpng&VERSION=1.1.1&SERVICE=WMS&REQUEST=GetMap&LAYERS=by_dop20c&SRS=EPSG%3A3857&WIDTH=256&HEIGHT=256&BBOX={},{},{},{}", tr.lon, tr.lat, bl.lon, bl.lat)
+	}
+
+	fn attribution(&self) -> Attribution {
+		Attribution {
+			text: "Kostenfreie Geodaten der Bayerischen Vermessungsverwaltung",
+			url: "https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dop20rgb&active=SERVICE",
+			logo_light: None, logo_dark: None,
+		}
+	}
+
+	fn tile_size(&self) -> u32 { 256 }
+
+	fn max_zoom(&self) -> u8 { 20 }
 }
 
 pub fn http_options() -> HttpOptions {
 	HttpOptions {
-		// Not sure where to put cache on Android, so it will be disabled for now.
-		cache: if cfg!(target_os = "android") || std::env::var("NO_HTTP_CACHE").is_ok() {
+		cache: if std::env::var("NO_HTTP_CACHE").is_ok() {
 			None
 		} else {
 			Some(".cache".into())
 		},
-		..Default::default()
+		user_agent: Some(
+			walkers::HeaderValue::from_static(concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))),
+		),
 	}
 }
 
@@ -57,6 +91,15 @@ pub fn providers(egui_ctx: Context) -> HashMap<Provider, Box<dyn Tiles + Send>> 
 	);
 
 	providers.insert(
+		Provider::Geoportal,
+		Box::new(HttpTiles::with_options(
+			walkers::sources::Geoportal,
+			http_options(),
+			egui_ctx.to_owned(),
+		)),
+	);
+
+	providers.insert(
 		Provider::EsriWorldImagery,
 		Box::new(HttpTiles::with_options(
 			EsriWorldImagery {},
@@ -66,15 +109,14 @@ pub fn providers(egui_ctx: Context) -> HashMap<Provider, Box<dyn Tiles + Send>> 
 	);
 
 	providers.insert(
-		Provider::Geoportal,
+		Provider::Bavaria20cm,
 		Box::new(HttpTiles::with_options(
-			walkers::sources::Geoportal,
+			Bavaria20cm {},
 			http_options(),
 			egui_ctx.to_owned(),
 		)),
 	);
 
-	// We only show the mapbox map if we have an access token
 	if let Some(token) = option_env!("MAPBOX_ACCESS_TOKEN") {
 		providers.insert(
 			Provider::MapboxSatellite,
@@ -89,6 +131,6 @@ pub fn providers(egui_ctx: Context) -> HashMap<Provider, Box<dyn Tiles + Send>> 
 			)),
 		);
 	}
-	
+
 	providers
 }
