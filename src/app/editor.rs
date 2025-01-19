@@ -23,6 +23,7 @@ pub struct EditorPluginState {
 	pub hovered: Option<Id>,
 	pub selected: Option<Id>,
 	pub edit_window_pos: Option<Pos2>,
+	pub map_bbox: (f64, f64, f64, f64),
 }
 
 impl Plugin for EditorPlugin<'_> {
@@ -86,6 +87,15 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		ui.painter().extend(shapes_top);
+		
+		// update state.map_bbox
+		let tl = projector.unproject(resp.rect.min.to_vec2());
+		let br = projector.unproject(resp.rect.max.to_vec2());
+		let left = tl.lon();
+		let bottom = br.lat();
+		let right = br.lon();
+		let top = tl.lat();
+		self.state.map_bbox = (left, bottom, right, top);
 
 		// display editing window
 		// todo: remove self::edit_window_pos variable and make use of state.selected / is_relevant

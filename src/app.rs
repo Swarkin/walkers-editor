@@ -2,6 +2,7 @@ mod places;
 mod windows;
 mod editor;
 mod providers;
+mod api;
 
 use editor::visual::Visualization;
 use editor::EditorPluginState;
@@ -12,6 +13,7 @@ use providers::Provider;
 use std::collections::HashMap;
 use walkers::{Map, MapMemory, Tiles};
 
+#[derive(Default)]
 pub struct MyApp {
 	providers: HashMap<Provider, Box<dyn Tiles + Send>>,
 	selected_provider: Provider,
@@ -26,12 +28,8 @@ impl MyApp {
 	pub fn new(egui_ctx: Context) -> Self {
 		Self {
 			providers: providers::providers(egui_ctx),
-			selected_provider: Default::default(),
-			selected_visualizer: Default::default(),
-			map_memory: Default::default(),
-			osm_data: osm_parser::parse("school.osm").unwrap(),
 			scale_factor: 1.0,
-			editor_state: Default::default(),
+			..Default::default()
 		}
 	}
 }
@@ -54,15 +52,18 @@ impl eframe::App for MyApp {
 						osm_data: &self.osm_data,
 						scale_factor: self.scale_factor,
 						visualization: self.selected_visualizer,
-					})
-				);
+					}));
+
+				if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
+					windows::tags(ui, &self.osm_data.ways[&id].tags);
+				}
 
 				windows::zoom(ui, &mut self.map_memory);
 				windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor);
 				windows::acknowledge(ui, attribution);
 
-				if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
-					windows::tags(ui, &self.osm_data.ways[&id].tags);
+				if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
+					self.osm_data = downloaded_data;
 				}
 			});
 	}
