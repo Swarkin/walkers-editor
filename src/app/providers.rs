@@ -54,7 +54,7 @@ impl TileSource for Bavaria20cm {
 
 	fn attribution(&self) -> Attribution {
 		Attribution {
-			text: "Kostenfreie Geodaten der Bayerischen Vermessungsverwaltung",
+			text: "Digitales Orthophoto RGB 20cm\nKostenfreie Geodaten der Bayerischen Vermessungsverwaltung\nLicensed under CC BY 4.0",
 			url: "https://geodaten.bayern.de/opengeodata/OpenDataDetail.html?pn=dop20rgb&active=SERVICE",
 			logo_light: None, logo_dark: None,
 		}
