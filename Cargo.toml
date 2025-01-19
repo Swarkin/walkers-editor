@@ -9,6 +9,7 @@ eframe = { version = "*", default-features = false, features = [
 	"glow",
 	"default_fonts",
 ] }
-osm-parser = { git = "https://github.com/Swarkin/osm-parser.git" }
+reqwest = { version = "*", default-features = false, features = ["rustls-tls", "json", "blocking"] }
+osm-parser = { version = "2.0", git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"
 #osm-parser = { path = "../osm-parser" }

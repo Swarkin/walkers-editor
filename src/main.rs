@@ -3,6 +3,8 @@ mod app;
 use app::MyApp;
 use eframe::egui::ViewportBuilder;
 
+const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
 fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: ViewportBuilder::default().with_inner_size([1000.0, 800.0]),
