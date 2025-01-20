@@ -2,7 +2,7 @@ mod places;
 mod windows;
 mod editor;
 mod providers;
-mod api;
+mod osm;
 
 use editor::visual::Visualization;
 use editor::EditorPluginState;
@@ -63,7 +63,8 @@ impl eframe::App for MyApp {
 				windows::acknowledge(ui, attribution);
 
 				if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
-					self.osm_data = downloaded_data;
+					osm::append_new_nodes_ways(&mut self.osm_data, downloaded_data);
+					println!("{:?}", self.osm_data.copyright);
 				}
 			});
 	}
