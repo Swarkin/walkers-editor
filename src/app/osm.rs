@@ -12,3 +12,23 @@ pub fn get_map(left: f64, bottom: f64, right: f64, top: f64) -> Result<OsmData, 
 	let raw = resp.json::<raw::RawOsmData>()?;
 	raw.try_into()
 }
+
+pub fn append_new_nodes_ways(to: &mut OsmData, from: OsmData) {
+	for (id, way) in from.ways.into_iter() {
+		// skip existing keys
+		if to.ways.contains_key(&id) {
+			continue;
+		}
+
+		to.ways.insert(id, way);
+	}
+
+	for (id, node) in from.nodes.into_iter() {
+		// skip existing keys
+		if to.nodes.contains_key(&id) {
+			continue;
+		}
+
+		to.nodes.insert(id, node);
+	}
+}

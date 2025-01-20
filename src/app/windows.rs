@@ -103,7 +103,7 @@ pub fn download(ui: &Ui, bbox: (f64, f64, f64, f64)) -> Option<OsmData> {
 				println!("{bbox:?}");
 				let diff_x = (bbox.0 - bbox.2) / 2.0;
 				let diff_y = (bbox.1 - bbox.3) / 2.0;
-				Some(super::api::get_map(bbox.0 + diff_x, bbox.1 - diff_y, bbox.2 + diff_x, bbox.3 - diff_y).unwrap())
+				Some(super::osm::get_map(bbox.0 + diff_x, bbox.1 - diff_y, bbox.2 + diff_x, bbox.3 - diff_y).unwrap())
 			} else { None }
 		});
 
