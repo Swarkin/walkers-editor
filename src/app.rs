@@ -4,11 +4,9 @@ mod editor;
 mod providers;
 mod osm;
 
-use editor::visual::Visualization;
-use editor::EditorPluginState;
+use editor::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
 use eframe::egui;
 use egui::{Context, Frame};
-use osm_parser::OsmData;
 use providers::Provider;
 use std::collections::HashMap;
 use walkers::{Map, MapMemory, Tiles};
@@ -19,7 +17,7 @@ pub struct MyApp {
 	selected_provider: Provider,
 	selected_visualizer: Visualization,
 	map_memory: MapMemory,
-	osm_data: OsmData,
+	editor_osm_data: EditorOsmData,
 	scale_factor: f32,
 	editor_state: EditorPluginState,
 }
@@ -49,13 +47,13 @@ impl eframe::App for MyApp {
 				ui.add(Map::new(Some(tiles), &mut self.map_memory, places::school())
 					.with_plugin(editor::EditorPlugin {
 						state: &mut self.editor_state,
-						osm_data: &self.osm_data,
+						editor_osm_data: &mut self.editor_osm_data,
 						scale_factor: self.scale_factor,
 						visualization: self.selected_visualizer,
 					}));
 
 				if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
-					windows::tags(ui, &self.osm_data.ways[&id].tags);
+					windows::tags(ui, &self.editor_osm_data.way(id).unwrap().tags);
 				}
 
 				windows::zoom(ui, &mut self.map_memory);
@@ -63,7 +61,7 @@ impl eframe::App for MyApp {
 				windows::acknowledge(ui, attribution);
 
 				if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
-					osm::append_new_nodes_ways(&mut self.osm_data, downloaded_data);
+					osm::append_new_nodes_ways(&mut self.editor_osm_data.original, downloaded_data);
 				}
 			});
 	}

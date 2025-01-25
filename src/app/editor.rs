@@ -1,7 +1,9 @@
 pub mod visual;
-mod consts;
-mod attribute2d;
+pub mod changes;
+pub mod consts;
+pub mod attribute2d;
 
+use changes::*;
 use consts::*;
 use eframe::egui::{Color32, Pos2, Response, Shape, Ui};
 use eframe::epaint::{PathShape, PathStroke};
@@ -12,7 +14,7 @@ use walkers::{Plugin, Position, Projector};
 // data received every frame
 pub struct EditorPlugin<'a> {
 	pub state: &'a mut EditorPluginState,
-	pub osm_data: &'a OsmData,
+	pub editor_osm_data: &'a mut EditorOsmData,
 	pub visualization: Visualization,
 	pub scale_factor: f32,
 }
@@ -36,7 +38,7 @@ impl Plugin for EditorPlugin<'_> {
 			self.state.last_click_coords = projector.unproject(pos);
 		}
 
-		for way in self.osm_data.ways.values() {
+		for way in self.editor_osm_data.original.ways.values() {
 			let points = self.project_way_to_points(way, projector);
 			let width = self.way_width(way);
 			let color = self.way_color(way);
@@ -61,7 +63,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		// draw hovered way and handle logic
 		if let Some(hover) = self.state.hovered {
-			let way = &self.osm_data.ways[&hover];
+			let way = self.editor_osm_data.way(hover).unwrap();
 			let points = self.project_way_to_points(way, projector);
 
 			shapes_top.push(
@@ -83,7 +85,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		// draw selected way
 		if let Some(selected) = self.state.selected {
-			let way = &self.osm_data.ways[&selected];
+			let way = self.editor_osm_data.way(selected).unwrap();
 			let points = self.project_way_to_points(way, projector);
 
 			shapes_top.push(
@@ -107,7 +109,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		// draw editing ui
 		if let Some(selected) = self.state.selected {
-			let way = &self.osm_data.ways[&selected];
+			let way = self.editor_osm_data.way(selected).unwrap();
 			if self.is_way_relevant(&way.tags) {
 				self.display_editing_ui(ui, way, projector.project(self.state.last_click_coords).to_pos2());
 			}
@@ -132,7 +134,7 @@ impl EditorPlugin<'_> {
 
 	fn project_way_to_points(&self, way: &Way, projector: &Projector) -> Vec<Pos2> {
 		way.nodes.iter()
-			.map(|id| &self.osm_data.nodes[id])
+			.map(|id| self.editor_osm_data.node(*id).unwrap())
 			.map(|n| projector.project(coordinate_to_pos(&n.pos)).to_pos2())
 			.collect()
 	}
