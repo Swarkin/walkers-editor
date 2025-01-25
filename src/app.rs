@@ -64,7 +64,6 @@ impl eframe::App for MyApp {
 
 				if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
 					osm::append_new_nodes_ways(&mut self.osm_data, downloaded_data);
-					println!("{:?}", self.osm_data.copyright);
 				}
 			});
 	}

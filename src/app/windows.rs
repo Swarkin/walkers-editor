@@ -100,7 +100,6 @@ pub fn download(ui: &Ui, bbox: (f64, f64, f64, f64)) -> Option<OsmData> {
 		.anchor(Align2::CENTER_BOTTOM, [0., -10.])
 		.show(ui.ctx(), |ui| {
 			if ui.button("Download Area").clicked() {
-				println!("{bbox:?}");
 				let diff_x = (bbox.0 - bbox.2) / 2.0;
 				let diff_y = (bbox.1 - bbox.3) / 2.0;
 				Some(super::osm::get_map(bbox.0 + diff_x, bbox.1 - diff_y, bbox.2 + diff_x, bbox.3 - diff_y).unwrap())
