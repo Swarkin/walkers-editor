@@ -2,14 +2,14 @@ use super::consts::*;
 use eframe::egui::Color32;
 use osm_parser::Tags;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Attribute2D {
 	pub left: TagValue,
 	pub right: TagValue,
 }
 
-// tag value: sidewalk:left=*yes*
-#[derive(Debug, Default, Copy, Clone)]
+// tag value: sidewalk:left=*
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub enum TagValue {
 	Yes,
 	No,
@@ -17,8 +17,8 @@ pub enum TagValue {
 	#[default] Unknown,
 }
 
-// tag suffix, sidewalk:*left*=yes
-#[derive(Debug, Default)]
+// tag suffix, sidewalk:*=yes
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub enum TagSuffix {
 	Left,
 	Right,
@@ -28,9 +28,9 @@ pub enum TagSuffix {
 	#[default] Unknown,
 }
 
-impl From<&String> for TagValue {
-	fn from(value: &String) -> Self {
-		match value.as_str() {
+impl From<&str> for TagValue {
+	fn from(value: &str) -> Self {
+		match value {
 			"yes" => TagValue::Yes,
 			"no" | "none" => TagValue::No,
 			"separate" => TagValue::Separate,
@@ -51,9 +51,9 @@ impl Into<Color32> for TagValue {
 	}
 }
 
-impl From<&String> for TagSuffix {
-	fn from(value: &String) -> Self {
-		match value.as_str() {
+impl From<&str> for TagSuffix {
+	fn from(value: &str) -> Self {
+		match value {
 			"left" => TagSuffix::Left,
 			"right" => TagSuffix::Right,
 			"both" => TagSuffix::Both,
@@ -100,22 +100,21 @@ impl From<TagSuffix> for Attribute2D {
 	}
 }
 
-
 impl Attribute2D {
 	pub fn new(tags: &Tags, tag: &str) -> Self {
 		let mut attribute2d = Attribute2D::default();
 
 		if let Some(v) = tags.get("sidewalk") {
-			attribute2d = Attribute2D::from(TagSuffix::from(v));
+			attribute2d = Attribute2D::from(TagSuffix::from(v.as_str()));
 		}
 		if let Some(v) = tags.get(&format!("{tag}:left")) {
-			attribute2d.left = TagValue::from(v);
+			attribute2d.left = TagValue::from(v.as_str());
 		}
 		if let Some(v) = tags.get(&format!("{tag}:right")) {
-			attribute2d.right = TagValue::from(v);
+			attribute2d.right = TagValue::from(v.as_str());
 		}
 		if let Some(v) = tags.get(&format!("{tag}:both")) {
-			let v = TagValue::from(v);
+			let v = TagValue::from(v.as_str());
 			attribute2d.left = v;
 			attribute2d.right = v;
 		}
