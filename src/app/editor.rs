@@ -107,8 +107,9 @@ impl Plugin for EditorPlugin<'_> {
 
 		// draw editing ui
 		if let Some(selected) = self.state.selected {
-			if self.is_way_relevant(&self.osm_data.ways[&selected].tags) {
-				self.display_editing_ui(ui, projector.project(self.state.last_click_coords).to_pos2());
+			let way = &self.osm_data.ways[&selected];
+			if self.is_way_relevant(&way.tags) {
+				self.display_editing_ui(ui, way, projector.project(self.state.last_click_coords).to_pos2());
 			}
 		}
 	}
@@ -143,10 +144,10 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	fn display_editing_ui(&self, ui: &mut Ui, pos: Pos2) {
+	fn display_editing_ui(&self, ui: &mut Ui, way: &Way, pos: Pos2) {
 		match self.visualization {
 			Visualization::Default => return,
-			Visualization::Sidewalks => visual::sidewalks_ui(ui, pos),
+			Visualization::Sidewalks => visual::sidewalks_ui(ui, way, pos),
 		};
 	}
 }

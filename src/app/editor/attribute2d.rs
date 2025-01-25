@@ -2,14 +2,14 @@ use super::consts::*;
 use eframe::egui::Color32;
 use osm_parser::Tags;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq)]
 pub struct Attribute2D {
 	pub left: TagValue,
 	pub right: TagValue,
 }
 
 // tag value: sidewalk:left=*
-#[derive(Debug, Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub enum TagValue {
 	Yes,
 	No,
@@ -18,7 +18,7 @@ pub enum TagValue {
 }
 
 // tag suffix, sidewalk:*=yes
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
 pub enum TagSuffix {
 	Left,
 	Right,
