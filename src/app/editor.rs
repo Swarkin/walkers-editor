@@ -22,14 +22,19 @@ pub struct EditorPlugin<'a> {
 pub struct EditorPluginState {
 	pub hovered: Option<Id>,
 	pub selected: Option<Id>,
-	pub edit_window_pos: Option<Pos2>,
 	pub map_bbox: (f64, f64, f64, f64),
+	pub last_click_coords: Position, // depends on https://github.com/podusowski/walkers/issues/246
 }
 
 impl Plugin for EditorPlugin<'_> {
 	fn run(self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
 		let mut shapes_top = Vec::with_capacity(2);
 		self.state.hovered = None;
+
+		if resp.clicked() {
+			let pos = resp.interact_pointer_pos().unwrap() - resp.rect.center();
+			self.state.last_click_coords = projector.unproject(pos);
+		}
 
 		for way in self.osm_data.ways.values() {
 			let points = self.project_way_to_points(way, projector);
@@ -65,12 +70,15 @@ impl Plugin for EditorPlugin<'_> {
 				))
 			);
 
-			if resp.clicked() && self.is_way_relevant(&way.tags) {
-				self.state.selected = Some(hover);
+			if resp.clicked() {
+				if self.is_way_relevant(&way.tags) {
+					self.state.selected = Some(hover);
+				} else { // deselect when clicking irrelevant object
+					self.state.selected = None;
+				}
 			}
 		} else if resp.clicked() { // discard hovered way
 			self.state.selected = None;
-			self.state.edit_window_pos = None;
 		}
 
 		// draw selected way
@@ -87,7 +95,7 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		ui.painter().extend(shapes_top);
-		
+
 		// update state.map_bbox
 		let tl = projector.unproject(resp.rect.min.to_vec2());
 		let br = projector.unproject(resp.rect.max.to_vec2());
@@ -97,16 +105,10 @@ impl Plugin for EditorPlugin<'_> {
 		let top = tl.lat();
 		self.state.map_bbox = (left, bottom, right, top);
 
-		// display editing window
-		// todo: remove self::edit_window_pos variable and make use of state.selected / is_relevant
-		if let Some(pos) = self.state.edit_window_pos {
-			let window_open = match self.visualization {
-				Visualization::Sidewalks => visual::sidewalks_ui(ui, pos),
-				_ => false,
-			};
-
-			if !window_open {
-				self.state.edit_window_pos = None;
+		// draw editing ui
+		if let Some(selected) = self.state.selected {
+			if self.is_way_relevant(&self.osm_data.ways[&selected].tags) {
+				self.display_editing_ui(ui, projector.project(self.state.last_click_coords).to_pos2());
 			}
 		}
 	}
@@ -139,6 +141,13 @@ impl EditorPlugin<'_> {
 			Visualization::Default => true,
 			Visualization::Sidewalks => visual::sidewalks_relevant(tags),
 		}
+	}
+
+	fn display_editing_ui(&self, ui: &mut Ui, pos: Pos2) {
+		match self.visualization {
+			Visualization::Default => return,
+			Visualization::Sidewalks => visual::sidewalks_ui(ui, pos),
+		};
 	}
 }
 
