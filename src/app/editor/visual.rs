@@ -1,9 +1,9 @@
-use super::attribute2d::Attribute2D;
+use super::attribute2d::{Attribute2D, TagValue};
 use super::consts::osm::*;
 use super::consts::*;
 use eframe::egui;
 use eframe::epaint::{PathShape, PathStroke};
-use egui::{Color32, Pos2, Shape, Window};
+use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::Way;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -109,7 +109,7 @@ pub fn sidewalks_relevant(tags: &osm_parser::Tags) -> bool {
 }
 
 
-pub fn sidewalks_ui(ui: &mut egui::Ui, pos: Pos2) -> bool {
+pub fn sidewalks_ui(ui: &mut Ui, way: &Way, pos: Pos2) -> bool {
 	let mut open = true;
 	Window::new("Sidewalks")
 		.current_pos(pos)
@@ -118,16 +118,28 @@ pub fn sidewalks_ui(ui: &mut egui::Ui, pos: Pos2) -> bool {
 		.movable(false)
 		.open(&mut open)
 		.show(ui.ctx(), |ui| {
-			// TODO: UI
-			egui::Sides::new().spacing(0.0).height(32.0).show(ui,
-				|ui| {
-					ui.label("Left");
-				},
-				|ui| {
-					ui.label("Right");
-				},
-			)
+			// depends on: storing edits in self
+			let mut attr = Attribute2D::new(&way.tags, "sidewalk");
+
+			ui.horizontal(|ui| {
+				ui.vertical(|ui| {
+					ui.strong(format!("Left: {:?}", attr.left));
+					attribute2d_selectable_value(ui, &mut attr.left);
+				});
+				ui.vertical(|ui| {
+					ui.strong(format!("Right: {:?}", attr.right));
+					attribute2d_selectable_value(ui, &mut attr.right);
+				});
+			});
 		});
 
 	open
+}
+
+
+fn attribute2d_selectable_value(ui: &mut Ui, selected: &mut TagValue) {
+	ui.selectable_value(selected, TagValue::Yes, format!("{:?}", TagValue::Yes));
+	ui.selectable_value(selected, TagValue::No, format!("{:?}", TagValue::No));
+	ui.selectable_value(selected, TagValue::Separate, format!("{:?}", TagValue::Separate));
+	ui.selectable_value(selected, TagValue::Unknown, format!("{:?}", TagValue::Unknown));
 }
