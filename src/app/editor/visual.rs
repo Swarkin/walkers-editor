@@ -111,13 +111,22 @@ pub fn sidewalks_relevant(tags: &osm_parser::Tags) -> bool {
 
 pub fn sidewalks_ui(ui: &mut egui::Ui, pos: Pos2) -> bool {
 	let mut open = true;
-
 	Window::new("Sidewalks")
-		.default_pos(pos)
+		.current_pos(pos)
+		.title_bar(false)
+		.resizable(false)
+		.movable(false)
 		.open(&mut open)
 		.show(ui.ctx(), |ui| {
 			// TODO: UI
-			ui.label("TODO");
+			egui::Sides::new().spacing(0.0).height(32.0).show(ui,
+				|ui| {
+					ui.label("Left");
+				},
+				|ui| {
+					ui.label("Right");
+				},
+			)
 		});
 
 	open
