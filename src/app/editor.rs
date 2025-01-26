@@ -33,79 +33,87 @@ impl Plugin for EditorPlugin<'_> {
 		let mut shapes_top = Vec::with_capacity(2);
 		self.state.hovered = None;
 
-		if resp.clicked() {
-			let pos = resp.interact_pointer_pos().unwrap() - resp.rect.center();
-			self.state.last_click_coords = projector.unproject(pos);
+		/* determine last clicked position */ {
+			if resp.clicked() {
+				let pos = resp.interact_pointer_pos().unwrap() - resp.rect.center();
+				self.state.last_click_coords = projector.unproject(pos);
+			}
 		}
 
-		for way in self.editor_osm_data.original.ways.values() {
-			let points = self.project_way_to_points(way, projector);
-			let width = self.way_width(way);
-			let color = self.way_color(way);
+		/* update state.map_bbox */ {
+			let tl = projector.unproject(resp.rect.min.to_vec2());
+			let br = projector.unproject(resp.rect.max.to_vec2());
+			let left = tl.lon();
+			let bottom = br.lat();
+			let right = br.lon();
+			let top = tl.lat();
+			self.state.map_bbox = (left, bottom, right, top);
+		}
 
-			// detect hover
-			if self.state.hovered.is_none() {
-				if let Some(mouse) = resp.hover_pos() {
-					if points.windows(2).any(|p| distance_to_segment(mouse, &[p[0], p[1]]) < width) {
-						self.state.hovered = Some(way.id);
+		/* draw osm data and determine hovered way */ {
+			for way in self.editor_osm_data.original.ways.values() {
+				let points = self.project_way_to_points(way, projector);
+				let width = self.way_width(way);
+				let color = self.way_color(way);
+
+				// determine hover
+				if self.state.hovered.is_none() {
+					if let Some(mouse) = resp.hover_pos() {
+						if points.windows(2).any(|p| distance_to_segment(mouse, &[p[0], p[1]]) < width) {
+							self.state.hovered = Some(way.id);
+						}
 					}
 				}
+
+				// draw using selected visualization
+				let shapes = match self.visualization {
+					Visualization::Default => visual::default(points, color, width),
+					Visualization::Sidewalks => visual::sidewalks(way, points, color, width),
+				};
+
+				ui.painter().extend(shapes);
 			}
-
-			// draw way using selected visualization
-			let shapes = match self.visualization {
-				Visualization::Default => visual::default(points, color, width),
-				Visualization::Sidewalks => visual::sidewalks(way, points, color, width),
-			};
-
-			ui.painter().extend(shapes);
 		}
 
-		// draw hovered way and handle logic
-		if let Some(hover) = self.state.hovered {
-			let way = self.editor_osm_data.way(hover).unwrap();
-			let points = self.project_way_to_points(way, projector);
+		/* draw hovered way and determine whether it was selected (clicked) */ {
+			if let Some(hover) = self.state.hovered {
+				let way = self.editor_osm_data.way(hover).unwrap();
+				let points = self.project_way_to_points(way, projector);
 
-			shapes_top.push(
-				Shape::Path(PathShape::line(
-					points, PathStroke::new(self.way_width(way) + HOVER_SIZE_INCREASE, HOVER_COLOR)
-				))
-			);
+				shapes_top.push(
+					Shape::Path(PathShape::line(
+						points, PathStroke::new(self.way_width(way) + HOVER_SIZE_INCREASE, HOVER_COLOR)
+					))
+				);
 
-			if resp.clicked() {
-				if self.is_way_relevant(&way.tags) {
-					self.state.selected = Some(hover);
-				} else { // deselect when clicking irrelevant object
-					self.state.selected = None;
+				if resp.clicked() { // selected
+					if self.is_way_relevant(&way.tags) {
+						self.state.selected = Some(hover);
+					} else { // deselect when clicking irrelevant object
+						self.state.selected = None;
+					}
 				}
+			} else if resp.clicked() { // discard hovered way
+				self.state.selected = None;
 			}
-		} else if resp.clicked() { // discard hovered way
-			self.state.selected = None;
 		}
 
-		// draw selected way
-		if let Some(selected) = self.state.selected {
-			let way = self.editor_osm_data.way(selected).unwrap();
-			let points = self.project_way_to_points(way, projector);
+		/* draw selected way */ {
+			if let Some(selected) = self.state.selected {
+				let way = self.editor_osm_data.way(selected).unwrap();
+				let points = self.project_way_to_points(way, projector);
 
-			shapes_top.push(
-				Shape::Path(PathShape::line(
-					points,
-					PathStroke::new(self.way_width(way) + SELECTION_SIZE_INCREASE, SELECTION_COLOR),
-				))
-			)
+				shapes_top.push(
+					Shape::Path(PathShape::line(
+						points,
+						PathStroke::new(self.way_width(way) + SELECTION_SIZE_INCREASE, SELECTION_COLOR),
+					))
+				)
+			}
 		}
 
 		ui.painter().extend(shapes_top);
 
-		// update state.map_bbox
-		let tl = projector.unproject(resp.rect.min.to_vec2());
-		let br = projector.unproject(resp.rect.max.to_vec2());
-		let left = tl.lon();
-		let bottom = br.lat();
-		let right = br.lon();
-		let top = tl.lat();
-		self.state.map_bbox = (left, bottom, right, top);
 
 		// draw editing ui
 		if let Some(selected) = self.state.selected {
