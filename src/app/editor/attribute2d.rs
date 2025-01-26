@@ -102,23 +102,23 @@ impl From<TagSuffix> for Attribute2D {
 
 impl Attribute2D {
 	pub fn new(tags: &Tags, tag: &str) -> Self {
-		let mut attribute2d = Attribute2D::default();
+		let mut attr = Attribute2D::default();
 
 		if let Some(v) = tags.get("sidewalk") {
-			attribute2d = Attribute2D::from(TagSuffix::from(v.as_str()));
+			attr = Attribute2D::from(TagSuffix::from(v.as_str()));
 		}
 		if let Some(v) = tags.get(&format!("{tag}:left")) {
-			attribute2d.left = TagValue::from(v.as_str());
+			attr.left = TagValue::from(v.as_str());
 		}
 		if let Some(v) = tags.get(&format!("{tag}:right")) {
-			attribute2d.right = TagValue::from(v.as_str());
+			attr.right = TagValue::from(v.as_str());
 		}
 		if let Some(v) = tags.get(&format!("{tag}:both")) {
 			let v = TagValue::from(v.as_str());
-			attribute2d.left = v;
-			attribute2d.right = v;
+			attr.left = v;
+			attr.right = v;
 		}
 
-		attribute2d
+		attr
 	}
 }
