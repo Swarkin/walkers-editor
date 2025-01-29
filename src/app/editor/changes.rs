@@ -32,9 +32,6 @@ impl EditorOsmData {
 	}
 
 	pub fn node(&self, id: Id) -> Option<&Node> {
-		// todo: make this function also return already existing data if there are no changes
-		//self.changes.nodes.get(&id)?.1.as_ref()
-
 		if let Some((change, node)) = self.changes.nodes.get(&id) {
 			match change {
 				Change::Deleted => None,
@@ -42,7 +39,7 @@ impl EditorOsmData {
 			}
 		} else {
 			self.original.nodes.get(&id)
-		}		
+		}
 	}
 
 	pub fn way(&self, id: Id) -> Option<&Way> {
@@ -56,7 +53,25 @@ impl EditorOsmData {
 		}
 	}
 
-	// get all elements while respecting changes
+	pub fn node_mut(&mut self, id: Id) -> Option<&mut Node> {
+		if let Some((change, node)) = self.changes.nodes.get_mut(&id) {
+			match change {
+				Change::Deleted => panic!("attempted to modify deleted node"),
+				_ => node.as_mut(),
+			}
+		} else { None }
+	}
+
+	pub fn way_mut(&mut self, id: Id) -> Option<&mut Way> {
+		if let Some((change, way)) = self.changes.ways.get_mut(&id) {
+			match change {
+				Change::Deleted => panic!("attempted to get a mutable reference to a deleted way"),
+				_ => way.as_mut(),
+			}
+		} else { None }
+	}
+
+	// get all nodes while respecting changes
 	pub fn nodes(&self) -> Vec<&Node> {
 		let mut nodes: Vec<_> = self.original.nodes.iter()
 			.filter_map(|(id, node)| {
@@ -67,13 +82,14 @@ impl EditorOsmData {
 					}
 				} else { Some(node) } // use unmodified element
 			}).collect();
-		
+
 		// append newly created elements
 		nodes.append(&mut self.changes.created_nodes());
-		
+
 		nodes
 	}
 
+	// get all ways while respecting changes
 	pub fn ways(&self) -> Vec<&Way> {
 		let mut ways: Vec<_> = self.original.ways.iter()
 			.filter_map(|(id, way)| {
@@ -93,6 +109,7 @@ impl EditorOsmData {
 }
 
 impl EditorOsmDiff {
+	// return references to created nodes
 	pub fn created_nodes(&self) -> Vec<&Node> {
 		self.nodes.iter().filter_map(|(_, (change, node))| {
 			match change {
@@ -101,7 +118,8 @@ impl EditorOsmDiff {
 			}
 		}).collect()
 	}
-	
+
+	// return references to created ways
 	pub fn created_ways(&self) -> Vec<&Way> {
 		self.ways.iter().filter_map(|(_, (change, way))| {
 			match change {

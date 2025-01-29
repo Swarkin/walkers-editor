@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use super::consts::*;
 use eframe::egui::Color32;
 use osm_parser::Tags;
@@ -8,59 +9,51 @@ pub struct Attribute2D {
 	pub right: TagValue,
 }
 
-// tag value: sidewalk:left=*
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
-pub enum TagValue {
-	Yes,
-	No,
-	Separate,
-	#[default] Unknown,
-}
+impl Attribute2D {
+	pub fn new(tags: &Tags, tag: &str) -> Self {
+		let mut attr = Attribute2D::default();
 
-// tag suffix, sidewalk:*=yes
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
-pub enum TagSuffix {
-	Left,
-	Right,
-	Both,
-	Separate,
-	No,
-	#[default] Unknown,
-}
-
-impl From<&str> for TagValue {
-	fn from(value: &str) -> Self {
-		match value {
-			"yes" => TagValue::Yes,
-			"no" | "none" => TagValue::No,
-			"separate" => TagValue::Separate,
-			_ => TagValue::Unknown,
+		if let Some(v) = tags.get("sidewalk") {
+			attr = Attribute2D::from(TagSuffix::from(v.as_str()));
 		}
+		if let Some(v) = tags.get(&format!("{tag}:left")) {
+			attr.left = TagValue::from(v.as_str());
+		}
+		if let Some(v) = tags.get(&format!("{tag}:right")) {
+			attr.right = TagValue::from(v.as_str());
+		}
+		if let Some(v) = tags.get(&format!("{tag}:both")) {
+			let v = TagValue::from(v.as_str());
+			attr.left = v;
+			attr.right = v;
+		}
+
+		attr
 	}
-}
 
-#[allow(clippy::from_over_into)]
-impl Into<Color32> for TagValue {
-	fn into(self) -> Color32 {
-		match self {
-			TagValue::Yes => SIDEWALK_YES_COLOR,
-			TagValue::No => SIDEWALK_NO_COLOR,
-			TagValue::Separate => SIDEWALK_SEPARATE_COLOR,
-			TagValue::Unknown => SIDEWALK_UNKNOWN_COLOR,
-		}
-	}
-}
+	pub fn into_tags(self, tag: &str) -> Tags {
+		let mut tags = Tags::new();
 
-impl From<&str> for TagSuffix {
-	fn from(value: &str) -> Self {
-		match value {
-			"left" => TagSuffix::Left,
-			"right" => TagSuffix::Right,
-			"both" => TagSuffix::Both,
-			"separate" => TagSuffix::Separate,
-			"no" | "none" => TagSuffix::No,
-			_ => TagSuffix::Unknown,
+		match self.left {
+			TagValue::Yes | TagValue::No | TagValue::Separate => {
+				if self.left == self.right {
+					tags.insert(format!("{tag}:both"), self.left.to_string());
+					return tags;
+				} else {
+					tags.insert(format!("{tag}:left"), self.left.to_string());
+				}
+			},
+			_ => {},
 		}
+
+		match self.right {
+			TagValue::Yes | TagValue::No | TagValue::Separate => {
+				tags.insert(format!("{tag}:right"), self.left.to_string());
+			},
+			_ => {},
+		}
+
+		tags
 	}
 }
 
@@ -100,25 +93,70 @@ impl From<TagSuffix> for Attribute2D {
 	}
 }
 
-impl Attribute2D {
-	pub fn new(tags: &Tags, tag: &str) -> Self {
-		let mut attr = Attribute2D::default();
+// tag value: sidewalk:left=*
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub enum TagValue {
+	Yes,
+	No,
+	Separate,
+	#[default] Unknown,
+}
 
-		if let Some(v) = tags.get("sidewalk") {
-			attr = Attribute2D::from(TagSuffix::from(v.as_str()));
+impl From<&str> for TagValue {
+	fn from(value: &str) -> Self {
+		match value {
+			"yes" => TagValue::Yes,
+			"no" | "none" => TagValue::No,
+			"separate" => TagValue::Separate,
+			_ => TagValue::Unknown,
 		}
-		if let Some(v) = tags.get(&format!("{tag}:left")) {
-			attr.left = TagValue::from(v.as_str());
-		}
-		if let Some(v) = tags.get(&format!("{tag}:right")) {
-			attr.right = TagValue::from(v.as_str());
-		}
-		if let Some(v) = tags.get(&format!("{tag}:both")) {
-			let v = TagValue::from(v.as_str());
-			attr.left = v;
-			attr.right = v;
-		}
+	}
+}
 
-		attr
+impl Display for TagValue {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", match self {
+			TagValue::Yes => "yes",
+			TagValue::No => "no",
+			TagValue::Separate => "separate",
+			TagValue::Unknown => "unknown",
+		})
+	}
+}
+
+#[allow(clippy::from_over_into)]
+impl Into<Color32> for TagValue {
+	fn into(self) -> Color32 {
+		match self {
+			TagValue::Yes => SIDEWALK_YES_COLOR,
+			TagValue::No => SIDEWALK_NO_COLOR,
+			TagValue::Separate => SIDEWALK_SEPARATE_COLOR,
+			TagValue::Unknown => SIDEWALK_UNKNOWN_COLOR,
+		}
+	}
+}
+
+
+// tag suffix, sidewalk:*=yes
+#[derive(Debug, Default, Copy, Clone, PartialEq)]
+pub enum TagSuffix {
+	Left,
+	Right,
+	Both,
+	Separate,
+	No,
+	#[default] Unknown,
+}
+
+impl From<&str> for TagSuffix {
+	fn from(value: &str) -> Self {
+		match value {
+			"left" => TagSuffix::Left,
+			"right" => TagSuffix::Right,
+			"both" => TagSuffix::Both,
+			"separate" => TagSuffix::Separate,
+			"no" | "none" => TagSuffix::No,
+			_ => TagSuffix::Unknown,
+		}
 	}
 }

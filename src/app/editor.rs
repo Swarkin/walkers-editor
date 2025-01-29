@@ -29,7 +29,7 @@ pub struct EditorPluginState {
 }
 
 impl Plugin for EditorPlugin<'_> {
-	fn run(self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
+	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
 		let mut shapes_top = Vec::with_capacity(2);
 		self.state.hovered = None;
 
@@ -114,12 +114,15 @@ impl Plugin for EditorPlugin<'_> {
 
 		ui.painter().extend(shapes_top);
 
-
-		// draw editing ui
-		if let Some(selected) = self.state.selected {
-			let way = self.editor_osm_data.way(selected).unwrap();
-			if self.is_way_relevant(&way.tags) {
-				self.display_editing_ui(ui, way, projector.project(self.state.last_click_coords).to_pos2());
+		/* draw editing ui */ {
+			if let Some(selected) = self.state.selected {
+				let way = self.editor_osm_data.way(selected).unwrap();
+				if self.is_way_relevant(&way.tags) {
+					if let Some(new_way) = self.display_way_editing_ui(ui, way.id, projector.project(self.state.last_click_coords).to_pos2()) {
+						// todo: this would override newly created or deleted ways
+						self.editor_osm_data.changes.ways.insert(new_way.id, (Change::Modified, Some(new_way)));
+					}
+				}
 			}
 		}
 	}
@@ -154,11 +157,14 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	fn display_editing_ui(&self, ui: &mut Ui, way: &Way, pos: Pos2) {
+	// returns the edited Way if something was changed
+	fn display_way_editing_ui(&mut self, ui: &mut Ui, id: Id, pos: Pos2) -> Option<Way> {
 		match self.visualization {
-			Visualization::Default => return,
-			Visualization::Sidewalks => visual::sidewalks_ui(ui, way, pos),
-		};
+			Visualization::Default => None,
+			Visualization::Sidewalks => {
+				visual::sidewalks_ui(ui, self.editor_osm_data.way(id)?, pos)
+			},
+		}
 	}
 }
 

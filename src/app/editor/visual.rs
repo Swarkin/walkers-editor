@@ -4,6 +4,7 @@ use super::consts::*;
 use eframe::egui;
 use eframe::epaint::{PathShape, PathStroke};
 use egui::{Color32, Pos2, Shape, Ui, Window};
+use osm_parser::types::merge_tags;
 use osm_parser::Way;
 
 #[derive(Debug, Default, Clone, Copy)]
@@ -109,37 +110,58 @@ pub fn sidewalks_relevant(tags: &osm_parser::Tags) -> bool {
 }
 
 
-pub fn sidewalks_ui(ui: &mut Ui, way: &Way, pos: Pos2) -> bool {
-	let mut open = true;
+pub fn sidewalks_ui(ui: &mut Ui, way: &Way, pos: Pos2) -> Option<Way> {
+	const TAG: &str = "sidewalk";
+	let mut edited = false;
+	
 	Window::new("Sidewalks")
 		.current_pos(pos)
 		.title_bar(false)
 		.resizable(false)
 		.movable(false)
-		.open(&mut open)
 		.show(ui.ctx(), |ui| {
-			// depends on: storing edits in self
-			let mut attr = Attribute2D::new(&way.tags, "sidewalk");
+			let mut attr = Attribute2D::new(&way.tags, TAG);
 
 			ui.horizontal(|ui| {
 				ui.vertical(|ui| {
 					ui.strong(format!("Left: {:?}", attr.left));
-					attribute2d_selectable_value(ui, &mut attr.left);
+					if attribute2d_selectable_value(ui, &mut attr.left) { edited = true; }
 				});
 				ui.vertical(|ui| {
 					ui.strong(format!("Right: {:?}", attr.right));
-					attribute2d_selectable_value(ui, &mut attr.right);
+					if attribute2d_selectable_value(ui, &mut attr.right) { edited = true; } // don't override
 				});
 			});
-		});
 
-	open
+			if edited {
+				println!("\nTags Changed");
+				let mut new_way = way.clone();
+				let sidewalk_tags = attr.into_tags(TAG);
+				
+				println!("Before: {:?}", new_way.tags);
+				
+				for k in sidewalk_tags.keys() {
+					println!("Removing {k} from way {}", way.id);
+					new_way.tags.remove(k);
+				}
+				new_way.tags.remove(TAG);
+				
+				merge_tags(&mut new_way.tags, sidewalk_tags);
+				println!("After:  {:?}", new_way.tags);
+
+				return Some(new_way);
+			}
+
+			None
+		})?.inner?
 }
 
 
-fn attribute2d_selectable_value(ui: &mut Ui, selected: &mut TagValue) {
+fn attribute2d_selectable_value(ui: &mut Ui, selected: &mut TagValue) -> bool {
+	let original = *selected;
 	ui.selectable_value(selected, TagValue::Yes, format!("{:?}", TagValue::Yes));
 	ui.selectable_value(selected, TagValue::No, format!("{:?}", TagValue::No));
 	ui.selectable_value(selected, TagValue::Separate, format!("{:?}", TagValue::Separate));
 	ui.selectable_value(selected, TagValue::Unknown, format!("{:?}", TagValue::Unknown));
+	original != *selected
 }
