@@ -17,7 +17,7 @@ pub struct MyApp {
 	selected_provider: Provider,
 	selected_visualizer: Visualization,
 	map_memory: MapMemory,
-	editor_osm_data: EditorOsmData,
+	editor_osm: EditorOsmData,
 	scale_factor: f32,
 	editor_state: EditorPluginState,
 }
@@ -47,21 +47,21 @@ impl eframe::App for MyApp {
 				ui.add(Map::new(Some(tiles), &mut self.map_memory, places::school())
 					.with_plugin(editor::EditorPlugin {
 						state: &mut self.editor_state,
-						editor_osm_data: &mut self.editor_osm_data,
+						osm: &mut self.editor_osm,
 						scale_factor: self.scale_factor,
 						visualization: self.selected_visualizer,
 					}));
 
 				if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
-					windows::tags(ui, &self.editor_osm_data.way(id).unwrap().tags);
+					windows::tags(ui, &self.editor_osm.data.ways.get(&id).unwrap().tags);
 				}
-
-				windows::zoom(ui, &mut self.map_memory);
+				
 				windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor);
+				windows::history(ui, &self.editor_osm.changes);
 				windows::acknowledge(ui, attribution);
 
 				if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
-					osm::append_new_nodes_ways(&mut self.editor_osm_data.original, downloaded_data);
+					osm::append_new_nodes_ways(&mut self.editor_osm.data, downloaded_data);
 				}
 			});
 	}
