@@ -14,7 +14,7 @@ use walkers::{Plugin, Position, Projector};
 // data received every frame
 pub struct EditorPlugin<'a> {
 	pub state: &'a mut EditorPluginState,
-	pub editor_osm_data: &'a mut EditorOsmData,
+	pub osm: &'a mut EditorOsmData,
 	pub visualization: Visualization,
 	pub scale_factor: f32,
 }
@@ -51,7 +51,7 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		/* draw osm data and determine hovered way */ {
-			for way in self.editor_osm_data.original.ways.values() {
+			for way in self.osm.data.ways.values() {
 				let points = self.project_way_to_points(way, projector);
 				let width = self.way_width(way);
 				let color = self.way_color(way);
@@ -77,7 +77,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		/* draw hovered way and determine whether it was selected (clicked) */ {
 			if let Some(hover) = self.state.hovered {
-				let way = self.editor_osm_data.way(hover).unwrap();
+				let way = self.osm.data.ways.get(&hover).expect("hovered way must be valid");
 				let points = self.project_way_to_points(way, projector);
 
 				shapes_top.push(
@@ -100,7 +100,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		/* draw selected way */ {
 			if let Some(selected) = self.state.selected {
-				let way = self.editor_osm_data.way(selected).unwrap();
+				let way = self.osm.data.ways.get(&selected).expect("selected way must be valid");
 				let points = self.project_way_to_points(way, projector);
 
 				shapes_top.push(
@@ -108,23 +108,18 @@ impl Plugin for EditorPlugin<'_> {
 						points,
 						PathStroke::new(self.way_width(way) + SELECTION_SIZE_INCREASE, SELECTION_COLOR),
 					))
-				)
-			}
-		}
+				);
 
-		ui.painter().extend(shapes_top);
-
-		/* draw editing ui */ {
-			if let Some(selected) = self.state.selected {
-				let way = self.editor_osm_data.way(selected).unwrap();
+				// draw editing ui
 				if self.is_way_relevant(&way.tags) {
-					if let Some(new_way) = self.display_way_editing_ui(ui, way.id, projector.project(self.state.last_click_coords).to_pos2()) {
-						// todo: this would override newly created or deleted ways
-						self.editor_osm_data.changes.ways.insert(new_way.id, (Change::Modified, Some(new_way)));
+					if let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.state.last_click_coords).to_pos2()) {
+						self.osm.apply_change(change);
 					}
 				}
 			}
 		}
+
+		ui.painter().extend(shapes_top);
 	}
 }
 
@@ -145,7 +140,7 @@ impl EditorPlugin<'_> {
 
 	fn project_way_to_points(&self, way: &Way, projector: &Projector) -> Vec<Pos2> {
 		way.nodes.iter()
-			.map(|id| self.editor_osm_data.node(*id).unwrap())
+			.map(|id| self.osm.data.nodes.get(id).unwrap())
 			.map(|n| projector.project(coordinate_to_pos(&n.pos)).to_pos2())
 			.collect()
 	}
@@ -156,14 +151,11 @@ impl EditorPlugin<'_> {
 			Visualization::Sidewalks => visual::sidewalks_relevant(tags),
 		}
 	}
-
-	// returns the edited Way if something was changed
-	fn display_way_editing_ui(&mut self, ui: &mut Ui, id: Id, pos: Pos2) -> Option<Way> {
+	
+	fn way_editing_ui(&mut self, ui: &mut Ui, id: Id, pos: Pos2) -> Option<Change> {
 		match self.visualization {
 			Visualization::Default => None,
-			Visualization::Sidewalks => {
-				visual::sidewalks_ui(ui, self.editor_osm_data.way(id)?, pos)
-			},
+			Visualization::Sidewalks => visual::sidewalks_ui(ui, self.osm.data.ways.get(&id).unwrap(), pos),
 		}
 	}
 }

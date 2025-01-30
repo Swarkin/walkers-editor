@@ -48,7 +48,7 @@ impl Attribute2D {
 
 		match self.right {
 			TagValue::Yes | TagValue::No | TagValue::Separate => {
-				tags.insert(format!("{tag}:right"), self.left.to_string());
+				tags.insert(format!("{tag}:right"), self.right.to_string());
 			},
 			_ => {},
 		}

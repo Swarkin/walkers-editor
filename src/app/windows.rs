@@ -1,16 +1,16 @@
-use super::editor::visual::Visualization;
+use super::editor::{changes::Change, visual::Visualization};
 use super::providers::Provider;
 use eframe::egui;
-use egui::{Align2, Grid, RichText, Ui, Window};
+use egui::{Align2, Grid, Ui, Window};
 use osm_parser::OsmData;
-use walkers::{sources::Attribution, MapMemory};
+use walkers::{sources::Attribution};
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution) {
 	Window::new("Acknowledge")
 		.collapsible(false)
 		.resizable(false)
 		.title_bar(false)
-		.anchor(Align2::LEFT_TOP, [10., 10.])
+		.anchor(Align2::LEFT_BOTTOM, [10., -10.])
 		.show(ui.ctx(), |ui| {
 			ui.horizontal(|ui| {
 				if let Some(logo) = attribution.logo_light {
@@ -56,31 +56,11 @@ pub fn controls(
 		});
 }
 
-pub fn zoom(ui: &Ui, map_memory: &mut MapMemory) {
-	Window::new("Zoom")
-		.collapsible(false)
-		.resizable(false)
-		.title_bar(false)
-		.anchor(Align2::LEFT_BOTTOM, [10., -10.])
-		.show(ui.ctx(), |ui| {
-			ui.horizontal(|ui| {
-				if ui.button(RichText::new("➕").heading()).clicked() {
-					let _ = map_memory.zoom_in();
-				}
-
-				if ui.button(RichText::new("➖").heading()).clicked() {
-					let _ = map_memory.zoom_out();
-				}
-			});
-		});
-}
-
 pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 	Window::new("Tags")
 		.collapsible(true)
 		.resizable(false)
-		.title_bar(true)
-		.anchor(Align2::RIGHT_TOP, [-10., 10.])
+		.anchor(Align2::LEFT_TOP, [10., 10.])
 		.show(ui.ctx(), |ui| {
 			Grid::new("tags").show(ui, |ui| {
 				for (k, v) in tags {
@@ -109,4 +89,19 @@ pub fn download(ui: &Ui, bbox: (f64, f64, f64, f64)) -> Option<OsmData> {
 	if let Some(inner) = resp {
 		inner.inner.unwrap()
 	} else { None }
+}
+
+pub fn history(ui: &Ui, history: &Vec<Change>) {
+	Window::new("History")
+		.max_height(256.0)
+		.anchor(Align2::RIGHT_TOP, [-10., 10.])
+		.show(ui.ctx(), |ui| {
+			if history.is_empty() {
+				ui.weak("Empty");
+			} else {
+				for change in history {
+					ui.label(format!("{change}"));
+				}
+			}
+		});
 }
