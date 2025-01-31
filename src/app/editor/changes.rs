@@ -10,8 +10,14 @@ pub enum Change {
 impl Display for Change {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Change::UpdateNode(id, _) => write!(f, "Update Node {id}"),
-			Change::UpdateWay(id, _) => write!(f, "Update Way {id}"),
+			Change::UpdateNode(id, _) => write!(f, "Updated Node {id}"),
+			Change::UpdateWay(id, way) => {
+				if let Some(name) = way.tags.get("name") {
+					write!(f, "Updated {name}")
+				} else {
+					write!(f, "Updated Way {id}")
+				}
+			},
 		}
 	}
 }
@@ -32,7 +38,7 @@ impl EditorOsmData {
 				self.data.ways.insert(*id, updated_way.clone());
 			}
 		}
-		
+
 		self.changes.push(change);
 	}
 }
