@@ -1,9 +1,9 @@
 use super::editor::{changes::Change, visual::Visualization};
 use super::providers::Provider;
 use eframe::egui;
-use egui::{Align2, Grid, Ui, Window};
+use egui::{Align2, Grid, Ui, Vec2b, Window};
 use osm_parser::OsmData;
-use walkers::{sources::Attribution};
+use walkers::sources::Attribution;
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution) {
 	Window::new("Acknowledge")
@@ -99,9 +99,11 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 			if history.is_empty() {
 				ui.weak("Empty");
 			} else {
-				for change in history {
-					ui.label(format!("{change}"));
-				}
+				egui::ScrollArea::vertical().auto_shrink(Vec2b::new(false, false)).show(ui, |ui| {
+					for change in history {
+						ui.label(format!("{change}"));
+					}
+				});
 			}
 		});
 }
