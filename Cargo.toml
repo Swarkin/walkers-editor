@@ -2,6 +2,7 @@
 name = "walkers-editor"
 version = "0.1.0"
 edition = "2021"
+build = "build.rs"
 
 [dependencies]
 walkers = "0.32.0"
@@ -13,3 +14,6 @@ reqwest = { version = "*", default-features = false, features = ["rustls-tls", "
 osm-parser = { version = "*", git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"
 #osm-parser = { path = "../osm-parser" }
+
+[build-dependencies]
+winresource = "0.1.19"
