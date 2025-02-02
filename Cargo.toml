@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2021"
 build = "build.rs"
 
+[features]
+debug = []
+
 [dependencies]
 walkers = "0.32.0"
 eframe = { version = "*", default-features = false, features = [
@@ -16,3 +19,8 @@ webmercator_tiles = "1.0"
 
 [build-dependencies]
 winresource = "0.1.19"
+
+[profile.release]
+opt-level = "s"
+strip = true
+lto = true

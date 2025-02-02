@@ -1,7 +1,7 @@
 use super::editor::{changes::Change, visual::Visualization};
 use super::providers::Provider;
 use eframe::egui;
-use egui::{Align2, Grid, Ui, Vec2b, Window};
+use egui::{Align2, Grid, Ui, Window};
 use osm_parser::OsmData;
 use walkers::sources::Attribution;
 
@@ -93,6 +93,7 @@ pub fn download(ui: &Ui, bbox: (f64, f64, f64, f64)) -> Option<OsmData> {
 			if ui.button("Download Area").clicked() {
 				let diff_x = (bbox.0 - bbox.2) / 2.0;
 				let diff_y = (bbox.1 - bbox.3) / 2.0;
+				// todo: error handling
 				Some(super::osm::get_map(bbox.0 + diff_x, bbox.1 - diff_y, bbox.2 + diff_x, bbox.3 - diff_y).unwrap())
 			} else { None }
 		});
@@ -111,11 +112,32 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 			if history.is_empty() {
 				ui.weak("Empty");
 			} else {
-				egui::ScrollArea::vertical().auto_shrink(Vec2b::new(true, false)).show(ui, |ui| {
+				egui::ScrollArea::vertical().auto_shrink([true, false]).show(ui, |ui| {
 					for change in history {
 						ui.label(format!("{change}"));
 					}
 				});
+			}
+		});
+}
+
+#[cfg(feature = "debug")]
+pub fn debug(ui: &Ui, debug_times: &super::DebugTimes) {
+	Window::new("Debug")
+		.collapsible(true)
+		.resizable(false)
+		.anchor(Align2::CENTER_TOP, [0., 10.])
+		.frame(transparent_frame(ui.style()))
+		.show(ui.ctx(), |ui| {
+			let biggest = debug_times.iter().map(|(_, time)| time).max().unwrap();
+
+			for (text, duration) in debug_times {
+				let text = egui::WidgetText::from(format!("{: >6.2} ms: {text}", *duration as f32 / 1000.)).monospace();
+				if duration == biggest {
+					ui.label(text.strong());
+				} else {
+					ui.label(text);
+				}
 			}
 		});
 }
