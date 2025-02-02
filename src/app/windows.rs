@@ -5,12 +5,20 @@ use egui::{Align2, Grid, Ui, Vec2b, Window};
 use osm_parser::OsmData;
 use walkers::sources::Attribution;
 
+fn transparent_frame(style: &egui::Style) -> egui::Frame {
+	let mut frame = egui::Frame::window(style);
+	frame.fill = frame.fill.gamma_multiply(0.85);
+	frame.shadow = egui::Shadow::NONE;
+	frame
+}
+
 pub fn acknowledge(ui: &Ui, attribution: Attribution) {
 	Window::new("Acknowledge")
 		.collapsible(false)
 		.resizable(false)
 		.title_bar(false)
 		.anchor(Align2::LEFT_BOTTOM, [10., -10.])
+		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			ui.horizontal(|ui| {
 				if let Some(logo) = attribution.logo_light {
@@ -32,8 +40,9 @@ pub fn controls(
 		.collapsible(false)
 		.resizable(false)
 		.title_bar(false)
-		.anchor(Align2::RIGHT_BOTTOM, [-10., -10.])
 		.fixed_size([150., 150.])
+		.anchor(Align2::RIGHT_BOTTOM, [-10., -10.])
+		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			ui.collapsing("Map", |ui| {
 				egui::ComboBox::from_label("Tile Provider")
@@ -61,6 +70,7 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 		.collapsible(true)
 		.resizable(false)
 		.anchor(Align2::LEFT_TOP, [10., 10.])
+		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			Grid::new("tags").show(ui, |ui| {
 				for (k, v) in tags {
@@ -78,6 +88,7 @@ pub fn download(ui: &Ui, bbox: (f64, f64, f64, f64)) -> Option<OsmData> {
 		.resizable(false)
 		.title_bar(false)
 		.anchor(Align2::CENTER_BOTTOM, [0., -10.])
+		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			if ui.button("Download Area").clicked() {
 				let diff_x = (bbox.0 - bbox.2) / 2.0;
@@ -95,11 +106,12 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 	Window::new("History")
 		.max_height(256.0)
 		.anchor(Align2::RIGHT_TOP, [-10., 10.])
+		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			if history.is_empty() {
 				ui.weak("Empty");
 			} else {
-				egui::ScrollArea::vertical().auto_shrink(Vec2b::new(false, false)).show(ui, |ui| {
+				egui::ScrollArea::vertical().auto_shrink(Vec2b::new(true, false)).show(ui, |ui| {
 					for change in history {
 						ui.label(format!("{change}"));
 					}
