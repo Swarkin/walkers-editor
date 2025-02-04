@@ -1,9 +1,31 @@
+use std::fmt::{Display, Formatter};
 use super::editor::{changes::Change, visual::Visualization};
 use super::providers::Provider;
 use eframe::egui;
 use egui::{Align2, Grid, Ui, Window};
 use osm_parser::OsmData;
 use walkers::sources::Attribution;
+
+pub enum Windows {
+	Tags = 1 << 0,
+	Controls = 1 << 1,
+	History = 1 << 2,
+	Download = 1 << 3,
+	#[cfg(feature = "debug")]
+	Debug = 1 << 4,
+}
+
+impl Display for Windows {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", match self {
+			Windows::Tags => "Tags",
+			Windows::Controls => "Controls",
+			Windows::History => "History",
+			Windows::Download => "Download",
+			Windows::Debug => "Debug",
+		})
+	}
+}
 
 fn transparent_frame(style: &egui::Style) -> egui::Frame {
 	let mut frame = egui::Frame::window(style);
