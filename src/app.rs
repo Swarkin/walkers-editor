@@ -10,13 +10,14 @@ use egui::{Context, Frame, Vec2};
 use providers::Provider;
 use std::collections::HashMap;
 use walkers::{Map, MapMemory, Position, Tiles};
+use windows::Windows;
 
 #[cfg(feature = "debug")]
 use std::time::Instant;
+
 #[cfg(feature = "debug")]
 type DebugTimes = Vec<(&'static str, u32)>;
 
-// todo: allow toggling visibility of windows using https://docs.rs/egui/latest/egui/menu
 #[derive(Default)]
 pub struct MyApp {
 	providers: HashMap<Provider, Box<dyn Tiles + Send>>,
@@ -25,6 +26,7 @@ pub struct MyApp {
 	map_memory: MapMemory,
 	editor_osm: EditorOsmData,
 	editor_state: EditorPluginState,
+	hidden_windows: u8,
 	scale_factor: f32,
 	prev_size: Vec2,
 	prev_zoom: f64,
@@ -46,12 +48,30 @@ impl MyApp {
 
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+		egui::TopBottomPanel::top("bar").show(ctx, |ui| {
+			use egui::menu;
+
+			menu::bar(ui, |ui| {
+				ui.menu_button("Windows", |ui| {
+					for window in [Windows::Tags, Windows::Controls, Windows::History, Windows::Download] {
+						let name = window.to_string();
+						let bit = window as u8;
+						let state = (self.hidden_windows & bit) == 0;
+						let mut change = state;
+
+						ui.toggle_value(&mut change, name);
+						if state != change {
+							self.hidden_windows ^= bit;
+						}
+					}
+				});
+			});
+		});
 		egui::CentralPanel::default()
 			.frame(Frame::none())
 			.show(ctx, |ui| {
 				#[cfg(feature = "debug")]
 				let time_total = Instant::now();
-
 				let tiles = self
 					.providers
 					.get_mut(&self.selected_provider)
@@ -73,6 +93,7 @@ impl eframe::App for MyApp {
 						debug_times: &mut self.debug_times,
 					}));
 
+				// determine whether regenerating the points cache is necessary
 				self.regenerate_points = self.prev_zoom != self.map_memory.zoom() || self.prev_pos != self.map_memory.detached().unwrap_or_else(places::school) || self.prev_size != ctx.screen_rect().size();
 
 				#[cfg(feature = "debug")]
@@ -81,23 +102,35 @@ impl eframe::App for MyApp {
 					Instant::now()
 				};
 
-				if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
-					windows::tags(ui, &self.editor_osm.data.ways.get(&id).unwrap().tags);
+				windows::acknowledge(ui, tiles.attribution());
+
+				if (self.hidden_windows & (Windows::Tags as u8)) == 0 {
+					if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
+						windows::tags(ui, &self.editor_osm.data.ways.get(&id).unwrap().tags);
+					}
 				}
 
-				windows::history(ui, &self.editor_osm.changes);
-				windows::acknowledge(ui, tiles.attribution());
-				windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor);
+				if (self.hidden_windows & (Windows::History as u8)) == 0 {
+					windows::history(ui, &self.editor_osm.changes);
+				}
 
-				if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
-					osm::append_new_nodes_ways(&mut self.editor_osm.data, downloaded_data);
-					self.regenerate_points = true;
+				if (self.hidden_windows & (Windows::Controls as u8)) == 0 {
+					windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor);
+				}
+				
+				if (self.hidden_windows & (Windows::Download as u8)) == 0 {
+					if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
+						osm::append_new_nodes_ways(&mut self.editor_osm.data, downloaded_data);
+						self.regenerate_points = true;
+					}
 				}
 
 				#[cfg(feature = "debug")] {
 					self.debug_times.push(("windows", time_windows.elapsed().as_micros() as u32));
 					self.debug_times.push(("App::update", time_total.elapsed().as_micros() as u32));
-					windows::debug(ui, &self.debug_times);
+					if (self.hidden_windows & (Windows::Debug as u8)) == 0 {
+						windows::debug(ui, &self.debug_times);
+					}
 				}
 
 				self.prev_size = ctx.screen_rect().size();
