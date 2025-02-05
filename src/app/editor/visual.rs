@@ -1,12 +1,12 @@
 use super::attribute2d::{Attribute2D, TagValue};
+use super::changes::Change;
 use super::consts::osm::*;
 use super::consts::*;
 use eframe::egui;
-use eframe::epaint::{PathShape, PathStroke};
+use eframe::epaint::{PathShape, PathStroke, Stroke};
 use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
 use osm_parser::Way;
-use super::changes::Change;
 
 #[derive(Debug, Default, Clone, Copy)]
 #[derive(PartialEq)]
@@ -87,18 +87,18 @@ pub fn sidewalks(way: &Way, points: Vec<Pos2>, color: Color32, width: f32) -> Ve
 
 			shapes.push(Shape::LineSegment {
 				points: [from + offset, to + offset],
-				stroke: PathStroke::new(width, attr.left),
+				stroke: Stroke::new(width, attr.left),
 			});
 			shapes.push(Shape::LineSegment {
 				points: [from - offset, to - offset],
-				stroke: PathStroke::new(width, attr.right),
+				stroke: Stroke::new(width, attr.right),
 			});
 		}
 	}
 
 	shapes.push(Shape::Path(PathShape::line(
 		points,
-		PathStroke::new(width, color),
+		Stroke::new(width, color),
 	)));
 
 	shapes

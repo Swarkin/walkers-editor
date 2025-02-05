@@ -68,7 +68,7 @@ impl eframe::App for MyApp {
 			});
 		});
 		egui::CentralPanel::default()
-			.frame(Frame::none())
+			.frame(Frame::NONE)
 			.show(ctx, |ui| {
 				#[cfg(feature = "debug")]
 				let time_total = Instant::now();
