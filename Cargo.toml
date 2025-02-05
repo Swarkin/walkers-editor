@@ -8,7 +8,7 @@ build = "build.rs"
 debug = []
 
 [dependencies]
-walkers = "0.32.0"
+walkers = "0.34.0"
 eframe = { version = "*", default-features = false, features = [
 	"glow",
 	"default_fonts",

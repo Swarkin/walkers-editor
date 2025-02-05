@@ -54,10 +54,10 @@ impl Plugin for EditorPlugin<'_> {
 		/* update state.map_bbox */ {
 			let tl = projector.unproject(resp.rect.min.to_vec2());
 			let br = projector.unproject(resp.rect.max.to_vec2());
-			let left = tl.lon();
-			let bottom = br.lat();
-			let right = br.lon();
-			let top = tl.lat();
+			let left = tl.x();
+			let bottom = br.y();
+			let right = br.x();
+			let top = tl.y();
 			self.state.map_bbox = (left, bottom, right, top);
 		}
 
@@ -206,7 +206,7 @@ impl EditorPlugin<'_> {
 
 
 pub fn coordinate_to_pos(c: &Coordinate) -> Position {
-	Position::from_lon_lat(c.lon, c.lat)
+	Position::new(c.lon, c.lat)
 }
 
 fn distance_to_segment(p: Pos2, points: &[Pos2; 2]) -> f32 {
