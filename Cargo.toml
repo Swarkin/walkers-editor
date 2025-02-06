@@ -9,10 +9,7 @@ debug = []
 
 [dependencies]
 walkers = "0.34.0"
-eframe = { version = "*", default-features = false, features = [
-	"glow",
-	"default_fonts",
-] }
+eframe = { version = "*", default-features = false, features = ["glow", "default_fonts"] }
 reqwest = { version = "*", default-features = false, features = ["rustls-tls", "json", "blocking"] }
 osm-parser = { version = "*", git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"
