@@ -22,6 +22,7 @@ impl Display for Windows {
 			Windows::Controls => "Controls",
 			Windows::History => "History",
 			Windows::Download => "Download",
+			#[cfg(feature = "debug")]
 			Windows::Debug => "Debug",
 		})
 	}

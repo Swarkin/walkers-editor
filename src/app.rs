@@ -53,7 +53,7 @@ impl eframe::App for MyApp {
 
 			menu::bar(ui, |ui| {
 				ui.menu_button("Windows", |ui| {
-					for window in [Windows::Tags, Windows::Controls, Windows::History, Windows::Download] {
+					for window in [Windows::Tags, Windows::Controls, Windows::History, Windows::Download, #[cfg(feature = "debug")] Windows::Debug] {
 						let name = window.to_string();
 						let bit = window as u8;
 						let state = (self.hidden_windows & bit) == 0;
