@@ -3,12 +3,12 @@ pub mod changes;
 pub mod consts;
 pub mod attribute2d;
 
-use std::collections::HashMap;
 use changes::*;
 use consts::*;
 use eframe::egui::{Color32, Pos2, Response, Shape, Ui};
 use eframe::epaint::{PathShape, PathStroke};
 use osm_parser::*;
+use std::collections::HashMap;
 use visual::Visualization;
 use walkers::{Plugin, Position, Projector};
 
@@ -34,7 +34,7 @@ pub struct EditorPluginState {
 	pub hovered: Option<Id>,
 	pub selected: Option<Id>,
 	pub map_bbox: (f64, f64, f64, f64),
-	pub last_click_coords: Position, // depends on https://github.com/podusowski/walkers/issues/246
+	pub last_click_coords: Position,
 	pub projected_points_cache: ProjectedPointsCache,
 }
 
