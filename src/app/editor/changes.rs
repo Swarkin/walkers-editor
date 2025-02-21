@@ -1,3 +1,5 @@
+pub mod osmchange;
+
 use osm_parser::{Id, OsmData, Way};
 use std::fmt::{Display, Formatter};
 
@@ -38,7 +40,7 @@ impl EditorOsmData {
 						return; // do not record a new change
 					}
 				}
-				
+
 				self.changes.push(Change::UpdateWay(id, way));
 			}
 		}

@@ -65,6 +65,12 @@ impl eframe::App for MyApp {
 						}
 					}
 				});
+				if ui.button("Upload").clicked() {
+					// temporary for testing
+					// osmchange seems to work now? code is very rough
+					let osmchange = editor::changes::osmchange::OsmChange::from(&self.editor_osm.changes);
+					println!("{:?}", quick_xml::se::to_string_with_root("osmChange", &osmchange).unwrap());
+				}
 			});
 		});
 		egui::CentralPanel::default()
