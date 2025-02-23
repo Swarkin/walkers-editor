@@ -38,7 +38,7 @@ impl EditorOsmData {
 						return; // do not record a new change
 					}
 				}
-				
+
 				self.changes.push(Change::UpdateWay(id, way));
 			}
 		}

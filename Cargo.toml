@@ -1,23 +1,28 @@
 [package]
 name = "walkers-editor"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 build = "build.rs"
 
 [features]
+default = ["enable-syntaxhighlight"]
 debug = []
+enable-syntaxhighlight = ["egui_extras"]
 
 [dependencies]
 walkers = "0.34.0"
 eframe = { version = "*", default-features = false, features = ["glow", "default_fonts"] }
+egui_extras = { version = "*", default-features = false, features = ["syntect"], optional = true }
 reqwest = { version = "*", default-features = false, features = ["rustls-tls", "json", "blocking"] }
 osm-parser = { version = "*", git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"
+serde = { version = "1", features = ["derive"] }
+quick-xml = { version = "0.37.2", features = ["serialize"] }
 
 [build-dependencies]
 winresource = "0.1.19"
 
 [profile.release]
-opt-level = "s"
+opt-level = 3
 strip = true
 lto = true
