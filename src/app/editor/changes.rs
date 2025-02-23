@@ -1,5 +1,3 @@
-pub mod osmchange;
-
 use osm_parser::{Id, OsmData, Way};
 use std::fmt::{Display, Formatter};
 
