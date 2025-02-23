@@ -48,6 +48,7 @@ pub struct MyApp {
 	editor_state: EditorPluginState,
 	hidden_windows: u8,
 	scale_factor: f32,
+	zoom_with_ctrl: bool,
 	prev_size: Vec2,
 	prev_zoom: f64,
 	prev_pos: Position,
@@ -119,6 +120,7 @@ impl eframe::App for MyApp {
 
 					// todo: option to disable displaying tiles
 					let map = Map::new(Some(tiles), &mut self.map_memory, places::school())
+						.zoom_with_ctrl(self.zoom_with_ctrl)
 						.with_plugin(editor::EditorPlugin {
 							state: &mut self.editor_state,
 							osm: &mut self.editor_osm,
@@ -151,7 +153,7 @@ impl eframe::App for MyApp {
 						windows::history(ui, &self.editor_osm.changes);
 					}
 					if (self.hidden_windows & (Windows::Controls as u8)) == 0 {
-						windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor);
+						windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor, &mut self.zoom_with_ctrl);
 					}
 					if (self.hidden_windows & (Windows::Download as u8)) == 0 {
 						if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {

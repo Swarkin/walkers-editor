@@ -58,6 +58,7 @@ pub fn controls(
 	possible_providers: &mut dyn Iterator<Item = &Provider>,
 	selected_visualization: &mut Visualization,
 	scale_factor: &mut f32,
+	zoom_with_ctrl: &mut bool,
 ) {
 	Window::new("Controls")
 		.collapsible(false)
@@ -84,6 +85,7 @@ pub fn controls(
 					});
 
 				ui.add(egui::Slider::new(scale_factor, 0.1..=2.0).text("Scale factor"));
+				ui.checkbox(zoom_with_ctrl, "Zoom with Ctrl");
 			});
 		});
 }
