@@ -17,7 +17,6 @@ use {super::DebugTimes, std::time::Instant};
 
 type ProjectedPointsCache = HashMap<Id, Vec<Pos2>>;
 
-// data received
 pub struct EditorPlugin<'a> {
 	pub state: &'a mut EditorPluginState,
 	pub osm: &'a mut EditorOsmData,
@@ -28,13 +27,12 @@ pub struct EditorPlugin<'a> {
 	pub debug_times: &'a mut DebugTimes,
 }
 
-// data produced
 #[derive(Default)]
 pub struct EditorPluginState {
 	pub hovered: Option<Id>,
 	pub selected: Option<Id>,
 	pub map_bbox: (f64, f64, f64, f64),
-	pub last_click_coords: Position, // depends on https://github.com/podusowski/walkers/issues/246
+	pub last_click_coords: Position,
 	pub projected_points_cache: ProjectedPointsCache,
 }
 
