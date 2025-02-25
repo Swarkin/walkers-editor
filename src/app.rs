@@ -70,20 +70,22 @@ impl MyApp {
 
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-		TopBottomPanel::top("bar").show(ctx, |ui| {
-			use egui::menu;
+		TopBottomPanel::top("bar")
+			.frame(Frame { fill: Color32::from_gray(32), inner_margin: Margin::same(4), ..Default::default() })
+			.exact_height(34.0)
+			.show(ctx, |ui| {
+				ui.horizontal_centered(|ui| {
+					ui.menu_image_button(egui::include_image!("../assets/ui/layout.svg"), |ui| {
+						for window in Windows::ITER {
+							let name = window.to_string();
+							let bit = window as u8;
+							let state = (self.hidden_windows & bit) == 0;
+							let mut change = state;
 
-			menu::bar(ui, |ui| {
-				ui.menu_button("Windows", |ui| {
-					for window in [Windows::Tags, Windows::Controls, Windows::History, Windows::Download, #[cfg(feature = "debug")] Windows::Debug] {
-						let name = window.to_string();
-						let bit = window as u8;
-						let state = (self.hidden_windows & bit) == 0;
-						let mut change = state;
-
-						ui.toggle_value(&mut change, name);
-						if state != change {
-							self.hidden_windows ^= bit;
+							ui.toggle_value(&mut change, name);
+							if state != change {
+								self.hidden_windows ^= bit;
+							}
 						}
 					});
 					ui.separator();
