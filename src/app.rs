@@ -4,38 +4,36 @@ mod editor;
 mod providers;
 mod osm;
 mod osmchange;
+mod config;
 
+use config::TargetServer;
 use editor::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
 use eframe::egui;
-use egui::{CentralPanel, Context, Frame, ScrollArea, SelectableLabel, TopBottomPanel, Vec2};
+use egui::{CentralPanel, Color32, ComboBox, Context, Frame, Grid, Margin, ScrollArea, SelectableLabel, TopBottomPanel, Vec2};
+use osmchange::OsmChange;
 use providers::Provider;
 use std::collections::HashMap;
 #[cfg(feature = "debug")]
 use std::time::Instant;
-use osmchange::OsmChange;
 use walkers::{Map, MapMemory, Position, Tiles};
 use windows::Windows;
 
 #[derive(Default, PartialEq)]
 enum View {
 	#[default]
-	Editor,
-	Uploader,
+	Edit,
+	Upload,
+	Auth,
 }
 
 #[cfg(feature = "debug")]
 type DebugTimes = Vec<(&'static str, u32)>;
 
-#[derive(Default, PartialEq)]
-pub enum UploaderState {
-	#[default]
-	Viewing,
-	//Authenticating,
-	//Uploading,
-}
 #[derive(Default)]
 pub struct MyApp {
 	view: View,
+	target_server: TargetServer,
+
 	#[cfg(feature = "debug")]
 	debug_times: DebugTimes,
 
@@ -55,13 +53,13 @@ pub struct MyApp {
 	regenerate_points: bool,
 
 	// uploader
-	//uploader_state: UploaderState,
 	osmchange: OsmChange,
 	osmchange_text: String,
 }
 
 impl MyApp {
 	pub fn new(egui_ctx: Context) -> Self {
+		egui_extras::install_image_loaders(&egui_ctx);
 		Self {
 			providers: providers::providers(egui_ctx),
 			scale_factor: 1.0,
@@ -87,25 +85,26 @@ impl eframe::App for MyApp {
 						if state != change {
 							self.hidden_windows ^= bit;
 						}
+					});
+					ui.separator();
+					if ui.add(SelectableLabel::new(self.view == View::Edit, "Editor")).clicked() {
+						self.view = View::Edit;
+					}
+					if ui.add(SelectableLabel::new(self.view == View::Upload, "Upload")).clicked() {
+						self.view = View::Upload;
+						// todo: clean up osmchange memory usage after no longer in use
+						self.osmchange = OsmChange::from(&self.editor_osm.changes);
+						self.osmchange.prepare_upload(0); // temporary
+						// todo: handle Err case
+						self.osmchange_text = self.osmchange.to_string_pretty().unwrap();
+					}
+					if ui.add(SelectableLabel::new(self.view == View::Auth, "Auth")).clicked() {
+						self.view = View::Auth;
 					}
 				});
-				ui.separator();
-
-				if ui.add(SelectableLabel::new(self.view == View::Editor, "Editor")).clicked() {
-					self.view = View::Editor;
-					self.osmchange.clear_contents(); // clear some memory
-				}
-				if ui.add(SelectableLabel::new(self.view == View::Uploader, "Upload")).clicked() {
-					self.view = View::Uploader;
-					self.osmchange = OsmChange::from(&self.editor_osm.changes);
-					self.osmchange.prepare_upload(0); // temporary
-					// todo: handle Err case
-					self.osmchange_text = self.osmchange.to_string_pretty().unwrap();
-				}
 			});
-		});
 		match self.view {
-			View::Editor => {
+			View::Edit => {
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
 					#[cfg(feature = "debug")]
 					let time_total = Instant::now();
@@ -172,19 +171,20 @@ impl eframe::App for MyApp {
 					self.prev_size = ctx.screen_rect().size();
 				});
 			}
-			View::Uploader => {
+			View::Upload => {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading("Upload to OpenStreetMap");
-
 					ui.collapsing("View osmChange", |ui| {
 						ScrollArea::vertical().show(ui, |ui| {
-							#[cfg(feature = "enable-syntaxhighlight")]
-							// enhancement: get rid of egui_extras in favor of using syntect directly for smaller binary
 							egui_extras::syntax_highlighting::code_view_ui(ui, &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()), &self.osmchange_text, "xml");
-							#[cfg(not(feature = "enable-syntaxhighlight"))]
-							ui.monospace(&self.osmchange_text);
 						});
 					});
+				});
+			}
+			View::Auth => {
+				CentralPanel::default().show(ctx, |ui| {
+					ui.heading("Authenticate to OpenStreetMap");
+					server_selector(ui, &mut self.target_server);
 				});
 			}
 		}
@@ -192,4 +192,21 @@ impl eframe::App for MyApp {
 		#[cfg(feature = "debug")]
 		self.debug_times.clear();
 	}
+}
+
+fn server_selector(ui: &mut egui::Ui, value: &mut TargetServer) {
+	ui.horizontal(|ui| {
+		ui.label("Server");
+		ComboBox::from_id_salt(ui.id())
+			.selected_text(value.description())
+			.show_ui(ui, |ui| {
+				Grid::new(ui.id()).num_columns(TargetServer::ITER.len()).show(ui, |ui| {
+					for server in TargetServer::ITER {
+						ui.selectable_value(value, server, server.description());
+						ui.hyperlink(format!("https://{}", server.url()));
+						ui.end_row();
+					}
+				});
+			});
+	});
 }
