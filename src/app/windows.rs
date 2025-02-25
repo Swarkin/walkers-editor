@@ -28,6 +28,13 @@ impl Display for Windows {
 	}
 }
 
+impl Windows {
+	#[cfg(not(feature = "debug"))]
+	pub const ITER: [Windows; 4] = [Windows::Tags, Windows::Controls, Windows::History, Windows::Download];
+	#[cfg(feature = "debug")]
+	pub const ITER: [Windows; 5] = [Windows::Tags, Windows::Controls, Windows::History, Windows::Download, Windows::Debug];
+}
+
 fn transparent_frame(style: &egui::Style) -> egui::Frame {
 	let mut frame = egui::Frame::window(style);
 	frame.fill = frame.fill.gamma_multiply(0.85);
@@ -94,7 +101,7 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 	Window::new("Tags")
 		.collapsible(true)
 		.resizable(false)
-		.anchor(Align2::LEFT_TOP, [10., 10.])
+		.anchor(Align2::LEFT_TOP, [10., 42.])
 		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			Grid::new("tags").show(ui, |ui| {
@@ -131,7 +138,7 @@ pub fn download(ui: &Ui, bbox: (f64, f64, f64, f64)) -> Option<OsmData> {
 pub fn history(ui: &Ui, history: &Vec<Change>) {
 	Window::new("History")
 		.max_height(256.0)
-		.anchor(Align2::RIGHT_TOP, [-10., 10.])
+		.anchor(Align2::RIGHT_TOP, [-10., 42.])
 		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			if history.is_empty() {
@@ -151,7 +158,7 @@ pub fn debug(ui: &Ui, debug_times: &super::DebugTimes) {
 	Window::new("Debug")
 		.collapsible(true)
 		.resizable(false)
-		.anchor(Align2::CENTER_TOP, [0., 10.])
+		.anchor(Align2::CENTER_TOP, [0., 42.])
 		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			let biggest = debug_times.iter().map(|(_, time)| time).max().unwrap();
