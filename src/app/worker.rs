@@ -1,10 +1,11 @@
+use super::config::TargetServer;
+use super::osm;
 use crossbeam_channel::{Receiver, Sender};
 use osm_parser::OsmData;
-use std::thread::{sleep, JoinHandle};
-use std::time::Duration;
+use std::thread::JoinHandle;
 
 pub struct Worker {
-	pub http_client: reqwest::Client,
+	pub osm_client: osm::OsmClient,
 	pub sender: Sender<Response>,
 	pub receiver: Receiver<Request>,
 }
@@ -16,21 +17,25 @@ pub struct WorkerHandle {
 }
 
 pub enum Request {
-	GetMap(super::osm::Bbox),
+	GetMap(osm::Bbox),
+	SetTargetServer(TargetServer)
 }
 
+#[derive(Debug)]
 pub enum Response {
 	Map(Result<Box<OsmData>, Box<dyn std::error::Error + Sync + Send>>),
 }
 
 impl Worker {
-	pub fn run(&self) {
+	pub fn run(&mut self) {
 		for request in self.receiver.iter() {
 			match request {
 				Request::GetMap(bbox) => {
-					dbg!(bbox);
-					sleep(Duration::from_secs(1));
-					self.sender.send(Response::Map(Ok(Box::from(OsmData::default())))).unwrap();
+					let data = self.osm_client.get_map(&bbox);
+					self.sender.send(Response::Map(Ok(Box::from(data)))).unwrap();
+				},
+				Request::SetTargetServer(target) => {
+					self.osm_client.target_server = target;
 				}
 			}
 		}

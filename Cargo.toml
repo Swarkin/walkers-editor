@@ -11,7 +11,7 @@ debug = []
 walkers = "0.34.0"
 eframe = { version = "*", default-features = false, features = ["glow", "default_fonts"] }
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
-reqwest = { version = "*", default-features = false, features = ["rustls-tls", "json"] }
+ureq = { version = "3.0", default-features = false, features = ["rustls", "json"] }
 serde = { version = "1", features = ["derive"] }
 quick-xml = { version = "0.37.2", features = ["serialize"] }
 crossbeam-channel = "0.5"
