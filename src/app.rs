@@ -5,6 +5,7 @@ mod providers;
 mod osm;
 mod osmchange;
 mod config;
+mod worker;
 
 use config::TargetServer;
 use editor::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
@@ -13,10 +14,13 @@ use egui::{CentralPanel, Color32, ComboBox, Context, Frame, Grid, Margin, Scroll
 use osmchange::OsmChange;
 use providers::Provider;
 use std::collections::HashMap;
+use std::error::Error;
 #[cfg(feature = "debug")]
 use std::time::Instant;
+use osm_parser::OsmData;
 use walkers::{Map, MapMemory, Position, Tiles};
 use windows::Windows;
+use worker::{Worker, WorkerHandle};
 
 #[derive(Default, PartialEq)]
 enum View {
@@ -29,8 +33,9 @@ enum View {
 #[cfg(feature = "debug")]
 type DebugTimes = Vec<(&'static str, u32)>;
 
-#[derive(Default)]
+// todo: split the fields into their own structs based on usage
 pub struct MyApp {
+	worker_handle: WorkerHandle,
 	view: View,
 	target_server: TargetServer,
 
@@ -51,6 +56,7 @@ pub struct MyApp {
 	prev_zoom: f64,
 	prev_pos: Position,
 	regenerate_points: bool,
+	map_download_pending: bool,
 
 	// uploader
 	osmchange: OsmChange,
@@ -60,16 +66,73 @@ pub struct MyApp {
 impl MyApp {
 	pub fn new(egui_ctx: Context) -> Self {
 		egui_extras::install_image_loaders(&egui_ctx);
+
+		let http_client = reqwest::Client::builder()
+			.user_agent(crate::USER_AGENT)
+			.https_only(true)
+			.redirect(reqwest::redirect::Policy::none())
+			.build().expect("reqwest client should build");
+
+		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<worker::Request>();
+		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<worker::Response>();
+
+		let worker = Worker {
+			http_client,
+			sender: response_sender,
+			receiver: request_receiver,
+		};
+
+		let worker_handle = WorkerHandle {
+			thread: std::thread::spawn(move || worker.run()),
+			sender: request_sender,
+			receiver: response_receiver,
+		};
+
 		Self {
+			worker_handle,
 			providers: providers::providers(egui_ctx),
-			scale_factor: 1.0,
-			..Default::default()
+
+			view: Default::default(),
+			target_server: Default::default(),
+			debug_times: Default::default(),
+			selected_provider: Default::default(),
+			selected_visualizer: Default::default(),
+			map_memory: Default::default(),
+			editor_osm: Default::default(),
+			editor_state: Default::default(),
+			hidden_windows: Default::default(),
+			scale_factor: Default::default(),
+			zoom_with_ctrl: Default::default(),
+			prev_size: Default::default(),
+			prev_zoom: Default::default(),
+			prev_pos: Default::default(),
+			regenerate_points: Default::default(),
+			map_download_pending: Default::default(),
+			osmchange: Default::default(),
+			osmchange_text: Default::default(),
 		}
 	}
 }
 
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+		self.worker_handle.receiver.try_iter().for_each(|req| {
+			match req {
+				worker::Response::Map(result) => {
+					match result {
+						Ok(downloaded_data) => {
+							osm::append_new_nodes_ways(&mut self.editor_osm.data, *downloaded_data);
+							self.regenerate_points = true;
+						}
+						Err(err) => {
+							println!("{err}");
+						}
+					}
+					self.map_download_pending = false;
+				}
+			}
+		});
+
 		TopBottomPanel::top("bar")
 			.frame(Frame { fill: Color32::from_gray(32), inner_margin: Margin::same(4), ..Default::default() })
 			.exact_height(34.0)
@@ -105,6 +168,7 @@ impl eframe::App for MyApp {
 					}
 				});
 			});
+
 		match self.view {
 			View::Edit => {
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
@@ -135,6 +199,7 @@ impl eframe::App for MyApp {
 					ui.add(map);
 
 					// determine whether regenerating the points cache is necessary
+					// todo(optimization): store and use a simple pan offset to avoid recalculating points on move
 					self.regenerate_points = self.prev_zoom != self.map_memory.zoom() || self.prev_pos != self.map_memory.detached().unwrap_or_else(places::school) || self.prev_size != ctx.screen_rect().size();
 
 					#[cfg(feature = "debug")]
@@ -157,9 +222,9 @@ impl eframe::App for MyApp {
 						windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor, &mut self.zoom_with_ctrl);
 					}
 					if (self.hidden_windows & (Windows::Download as u8)) == 0 {
-						if let Some(downloaded_data) = windows::download(ui, self.editor_state.map_bbox) {
-							osm::append_new_nodes_ways(&mut self.editor_osm.data, downloaded_data);
-							self.regenerate_points = true;
+						if let Some(request) = windows::download(ui, &self.editor_state.map_bbox, self.map_download_pending) {
+							self.worker_handle.sender.send(request).unwrap();
+							self.map_download_pending = true;
 						}
 					}
 					#[cfg(feature = "debug")] {
