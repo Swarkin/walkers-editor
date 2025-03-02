@@ -7,17 +7,17 @@ mod osmchange;
 mod config;
 mod worker;
 
+use crate::app::worker::Request;
 use config::TargetServer;
 use editor::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
 use eframe::egui;
 use egui::{CentralPanel, Color32, ComboBox, Context, Frame, Grid, Margin, ScrollArea, SelectableLabel, TopBottomPanel, Vec2};
+use osm::OsmClient;
 use osmchange::OsmChange;
 use providers::Provider;
 use std::collections::HashMap;
-use std::error::Error;
 #[cfg(feature = "debug")]
 use std::time::Instant;
-use osm_parser::OsmData;
 use walkers::{Map, MapMemory, Position, Tiles};
 use windows::Windows;
 use worker::{Worker, WorkerHandle};
@@ -37,7 +37,7 @@ type DebugTimes = Vec<(&'static str, u32)>;
 pub struct MyApp {
 	worker_handle: WorkerHandle,
 	view: View,
-	target_server: TargetServer,
+	target_server: TargetServer, // todo: get rid of second target_server in worker
 
 	#[cfg(feature = "debug")]
 	debug_times: DebugTimes,
@@ -67,17 +67,29 @@ impl MyApp {
 	pub fn new(egui_ctx: Context) -> Self {
 		egui_extras::install_image_loaders(&egui_ctx);
 
-		let http_client = reqwest::Client::builder()
+		// let http_client = reqwest::Client::builder()
+		// 	.user_agent(crate::USER_AGENT)
+		// 	.https_only(true)
+		// 	.redirect(reqwest::redirect::Policy::none())
+		// 	.build().expect("reqwest client should build");
+
+		// todo: timeout
+		let http_client = ureq::Agent::config_builder()
 			.user_agent(crate::USER_AGENT)
 			.https_only(true)
-			.redirect(reqwest::redirect::Policy::none())
-			.build().expect("reqwest client should build");
+			.max_redirects(0)
+			.build().into();
+
+		let osm_client = OsmClient {
+			http_client,
+			target_server: TargetServer::default(),
+		};
 
 		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<worker::Request>();
 		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<worker::Response>();
 
-		let worker = Worker {
-			http_client,
+		let mut worker = Worker {
+			osm_client,
 			sender: response_sender,
 			receiver: request_receiver,
 		};
@@ -94,6 +106,7 @@ impl MyApp {
 
 			view: Default::default(),
 			target_server: Default::default(),
+			#[cfg(feature = "debug")]
 			debug_times: Default::default(),
 			selected_provider: Default::default(),
 			selected_visualizer: Default::default(),
@@ -251,7 +264,11 @@ impl eframe::App for MyApp {
 			View::Auth => {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading("Authenticate to OpenStreetMap");
+					let prev_server = self.target_server;
 					server_selector(ui, &mut self.target_server);
+					if prev_server != self.target_server {
+						self.worker_handle.sender.send(Request::SetTargetServer(self.target_server)).unwrap();
+					}
 				});
 			}
 		}
