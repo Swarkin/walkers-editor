@@ -1,9 +1,9 @@
-use std::fmt::{Display, Formatter};
 use super::editor::{changes::Change, visual::Visualization};
+use super::osm::Bbox;
 use super::providers::Provider;
 use eframe::egui;
 use egui::{Align2, Grid, Ui, Window};
-use osm_parser::OsmData;
+use std::fmt::{Display, Formatter};
 use walkers::sources::Attribution;
 
 pub enum Windows {
@@ -35,6 +35,7 @@ impl Windows {
 	pub const ITER: [Windows; 5] = [Windows::Tags, Windows::Controls, Windows::History, Windows::Download, Windows::Debug];
 }
 
+// todo: make const
 fn transparent_frame(style: &egui::Style) -> egui::Frame {
 	let mut frame = egui::Frame::window(style);
 	frame.fill = frame.fill.gamma_multiply(0.85);
@@ -114,25 +115,28 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 		});
 }
 
-pub fn download(ui: &Ui, bbox: (f64, f64, f64, f64)) -> Option<OsmData> {
-	let resp = Window::new("Download")
+pub fn download(ui: &Ui, bbox: &Bbox, busy: bool) -> Option<super::worker::Request> {
+	Window::new("Download")
 		.collapsible(true)
 		.resizable(false)
 		.title_bar(false)
 		.anchor(Align2::CENTER_BOTTOM, [0., -10.])
 		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
-			if ui.button("Download Area").clicked() {
-				let diff_x = (bbox.0 - bbox.2) / 2.0;
-				let diff_y = (bbox.1 - bbox.3) / 2.0;
-				// todo: error handling
-				Some(super::osm::get_map(bbox.0 + diff_x, bbox.1 - diff_y, bbox.2 + diff_x, bbox.3 - diff_y).unwrap())
-			} else { None }
-		});
+			ui.horizontal(|ui| {
+				if busy {
+					ui.spinner();
+				}
 
-	if let Some(inner) = resp {
-		inner.inner.unwrap()
-	} else { None }
+				// todo: icon
+				if ui.add_enabled(!busy, egui::Button::new("Download Area")).clicked() {
+					let diff_x = (bbox.left - bbox.right) / 2.0;
+					let diff_y = (bbox.bottom - bbox.top) / 2.0;
+					// todo: error handling
+					Some(super::worker::Request::GetMap(Bbox{ left: bbox.left + diff_x, bottom: bbox.bottom - diff_y, right: bbox.right + diff_x, top: bbox.top - diff_y }))
+				} else { None }
+			}).inner
+		})?.inner?
 }
 
 pub fn history(ui: &Ui, history: &Vec<Change>) {

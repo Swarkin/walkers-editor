@@ -3,6 +3,7 @@ pub mod changes;
 pub mod consts;
 pub mod attribute2d;
 
+use super::osm::Bbox;
 use changes::*;
 use consts::*;
 use eframe::egui::{Color32, Pos2, Response, Shape, Ui};
@@ -31,7 +32,7 @@ pub struct EditorPlugin<'a> {
 pub struct EditorPluginState {
 	pub hovered: Option<Id>,
 	pub selected: Option<Id>,
-	pub map_bbox: (f64, f64, f64, f64),
+	pub map_bbox: Bbox,
 	pub last_click_coords: Position,
 	pub projected_points_cache: ProjectedPointsCache,
 }
@@ -56,7 +57,7 @@ impl Plugin for EditorPlugin<'_> {
 			let bottom = br.y();
 			let right = br.x();
 			let top = tl.y();
-			self.state.map_bbox = (left, bottom, right, top);
+			self.state.map_bbox = Bbox { left, bottom, right, top };
 		}
 
 		#[cfg(feature = "debug")]
