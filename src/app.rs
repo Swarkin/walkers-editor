@@ -9,9 +9,9 @@ mod worker;
 
 use crate::app::worker::Request;
 use config::TargetServer;
-use editor::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
+use editor::{changes::EditorOsmData, consts::*, visual::Visualization, EditorPluginState};
 use eframe::egui;
-use egui::{CentralPanel, Color32, ComboBox, Context, Frame, Grid, Margin, ScrollArea, SelectableLabel, TopBottomPanel, Vec2};
+use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, ImageSource, Margin, RichText, ScrollArea, TopBottomPanel, Vec2};
 use osm::OsmClient;
 use osmchange::OsmChange;
 use providers::Provider;
@@ -22,6 +22,9 @@ use walkers::{Map, MapMemory, Position, Tiles};
 use windows::Windows;
 use worker::{Worker, WorkerHandle};
 
+#[cfg(feature = "debug")]
+type DebugTimes = Vec<(&'static str, u32)>;
+
 #[derive(Default, PartialEq)]
 enum View {
 	#[default]
@@ -29,9 +32,6 @@ enum View {
 	Upload,
 	Auth,
 }
-
-#[cfg(feature = "debug")]
-type DebugTimes = Vec<(&'static str, u32)>;
 
 // todo: split the fields into their own structs based on usage
 pub struct MyApp {
@@ -66,12 +66,6 @@ pub struct MyApp {
 impl MyApp {
 	pub fn new(egui_ctx: Context) -> Self {
 		egui_extras::install_image_loaders(&egui_ctx);
-
-		// let http_client = reqwest::Client::builder()
-		// 	.user_agent(crate::USER_AGENT)
-		// 	.https_only(true)
-		// 	.redirect(reqwest::redirect::Policy::none())
-		// 	.build().expect("reqwest client should build");
 
 		// todo: timeout
 		let http_client = ureq::Agent::config_builder()
@@ -148,37 +142,51 @@ impl eframe::App for MyApp {
 
 		TopBottomPanel::top("bar")
 			.frame(Frame { fill: Color32::from_gray(32), inner_margin: Margin::same(4), ..Default::default() })
-			.exact_height(34.0)
+			.exact_height(TOP_BAR_HEIGHT)
 			.show(ctx, |ui| {
+				ui.spacing_mut().button_padding = Vec2::splat(2.0);
+				ui.spacing_mut().item_spacing = Vec2::splat(4.0);
 				ui.horizontal_centered(|ui| {
-					ui.menu_image_button(egui::include_image!("../assets/ui/layout.svg"), |ui| {
-						for window in Windows::ITER {
-							let name = window.to_string();
-							let bit = window as u8;
-							let state = (self.hidden_windows & bit) == 0;
-							let mut change = state;
-
-							ui.toggle_value(&mut change, name);
-							if state != change {
-								self.hidden_windows ^= bit;
+					egui::Sides::new().show(ui,
+						|ui| {
+							let btn = title_bar_button("Editor", egui::include_image!("../assets/ui/line.svg"));
+							if ui.add_enabled(self.view != View::Edit, btn).clicked() {
+								self.view = View::Edit;
 							}
+
+							let btn = title_bar_button("Upload", egui::include_image!("../assets/ui/upload.svg"));
+							if ui.add_enabled(self.view != View::Upload, btn).clicked() {
+								self.view = View::Upload;
+								// todo: clean up osmchange memory usage after no longer in use
+								self.osmchange = OsmChange::from(&self.editor_osm.changes);
+								self.osmchange.prepare_upload(0); // temporary
+								// todo: handle Err case
+								self.osmchange_text = self.osmchange.to_string_pretty().unwrap();
+							}
+
+							let btn = title_bar_button("Auth", egui::include_image!("../assets/ui/user.svg"));
+							if ui.add_enabled(self.view != View::Auth, btn).clicked() {
+								self.view = View::Auth;
+							}
+						},
+						|ui| {
+							let img = Image::new(egui::include_image!("../assets/ui/layout.svg"))
+								.fit_to_exact_size(Vec2::splat(TOP_BAR_ICON_SIZE));
+							ui.menu_image_button(img, |ui| {
+								for window in Windows::ITER {
+									let name = window.to_string();
+									let bit = window as u8;
+									let state = (self.hidden_windows & bit) == 0;
+									let mut change = state;
+
+									ui.toggle_value(&mut change, name);
+									if state != change {
+										self.hidden_windows ^= bit;
+									}
+								}
+							});
 						}
-					});
-					ui.separator();
-					if ui.add(SelectableLabel::new(self.view == View::Edit, "Editor")).clicked() {
-						self.view = View::Edit;
-					}
-					if ui.add(SelectableLabel::new(self.view == View::Upload, "Upload")).clicked() {
-						self.view = View::Upload;
-						// todo: clean up osmchange memory usage after no longer in use
-						self.osmchange = OsmChange::from(&self.editor_osm.changes);
-						self.osmchange.prepare_upload(0); // temporary
-						// todo: handle Err case
-						self.osmchange_text = self.osmchange.to_string_pretty().unwrap();
-					}
-					if ui.add(SelectableLabel::new(self.view == View::Auth, "Auth")).clicked() {
-						self.view = View::Auth;
-					}
+					);
 				});
 			});
 
@@ -276,6 +284,12 @@ impl eframe::App for MyApp {
 		#[cfg(feature = "debug")]
 		self.debug_times.clear();
 	}
+}
+
+fn title_bar_button<'a>(text: &str, icon: ImageSource<'a>) -> Button<'a> {
+	let img = Image::new(icon).fit_to_exact_size(Vec2::splat(TOP_BAR_ICON_SIZE));
+	Button::image_and_text(img, RichText::new(format!("{text} ")).strong().size(TOP_BAR_FONT_SIZE))
+		.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
 }
 
 fn server_selector(ui: &mut egui::Ui, value: &mut TargetServer) {
