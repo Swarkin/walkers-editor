@@ -103,18 +103,18 @@ impl MyApp {
 		Self {
 			worker_handle,
 			providers: providers::providers(egui_ctx),
+			selected_provider: Provider::EsriWorldImagery,
+			scale_factor: 1.0,
 
 			view: Default::default(),
 			target_server: Default::default(),
 			#[cfg(feature = "debug")]
 			debug_times: Default::default(),
-			selected_provider: Default::default(),
 			selected_visualizer: Default::default(),
 			map_memory: Default::default(),
 			editor_osm: Default::default(),
 			editor_state: Default::default(),
 			hidden_windows: Default::default(),
-			scale_factor: Default::default(),
 			zoom_with_ctrl: Default::default(),
 			prev_size: Default::default(),
 			prev_zoom: Default::default(),
