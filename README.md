@@ -9,4 +9,4 @@
 
 **walkers** is an OpenStreetMap editor inspired by the overlays of [StreetComplete](https://github.com/streetcomplete/StreetComplete).
 
-![preview](https://github.com/user-attachments/assets/a302c33b-4599-4de2-a935-650db6b6b9e2)
+![preview](https://github.com/user-attachments/assets/3842b037-41dc-4fae-9770-534e78624ef8)
