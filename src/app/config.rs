@@ -8,8 +8,8 @@ pub struct UploaderConfig {
 
 #[derive(Default, Copy, Clone, PartialEq)]
 pub enum TargetServer {
-	OpenStreetMap,
 	#[default]
+	OpenStreetMap,
 	OpenStreetMapDev,
 }
 
