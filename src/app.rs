@@ -37,7 +37,7 @@ enum View {
 pub struct MyApp {
 	worker_handle: WorkerHandle,
 	view: View,
-	target_server: TargetServer, // todo: get rid of second target_server in worker
+	target_server_ui: TargetServer,
 
 	#[cfg(feature = "debug")]
 	debug_times: DebugTimes,
@@ -101,7 +101,7 @@ impl MyApp {
 			scale_factor: 1.0,
 
 			view: Default::default(),
-			target_server: Default::default(),
+			target_server_ui: Default::default(),
 			#[cfg(feature = "debug")]
 			debug_times: Default::default(),
 			selected_visualizer: Default::default(),
@@ -272,10 +272,11 @@ impl eframe::App for MyApp {
 			View::Auth => {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading("Authenticate to OpenStreetMap");
-					let prev_server = self.target_server;
-					server_selector(ui, &mut self.target_server);
-					if prev_server != self.target_server {
-						self.worker_handle.sender.send(Request::SetTargetServer(self.target_server)).unwrap();
+					let prev_server = self.target_server_ui;
+					server_selector(ui, &mut self.target_server_ui);
+					if prev_server != self.target_server_ui {
+						// update target server for OsmClient of worker
+						self.worker_handle.sender.send(Request::SetTargetServer(self.target_server_ui)).unwrap();
 					}
 				});
 			}
