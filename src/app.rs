@@ -67,23 +67,11 @@ impl MyApp {
 	pub fn new(egui_ctx: Context) -> Self {
 		egui_extras::install_image_loaders(&egui_ctx);
 
-		// todo: timeout
-		let http_client = ureq::Agent::config_builder()
-			.user_agent(crate::USER_AGENT)
-			.https_only(true)
-			.max_redirects(0)
-			.build().into();
-
-		let osm_client = OsmClient {
-			http_client,
-			target_server: TargetServer::default(),
-		};
-
 		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<worker::Request>();
 		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<worker::Response>();
 
 		let mut worker = Worker {
-			osm_client,
+			osm_client: OsmClient::new(TargetServer::default()),
 			sender: response_sender,
 			receiver: request_receiver,
 		};
