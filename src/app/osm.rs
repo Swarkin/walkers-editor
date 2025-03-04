@@ -1,6 +1,6 @@
 use super::config::TargetServer;
 use osm_parser::types::*;
-use std::ops::Deref;
+use std::{ops::Deref, time::Duration};
 
 pub struct OsmClient {
 	pub http_client: ureq::Agent,
@@ -12,6 +12,20 @@ impl Deref for OsmClient {
 
 	fn deref(&self) -> &Self::Target {
 		&self.http_client
+	}
+}
+
+impl OsmClient {
+	pub fn new(target_server: TargetServer) -> Self {
+		Self {
+			http_client: ureq::Agent::config_builder()
+				.user_agent(crate::USER_AGENT)
+				.https_only(true)
+				.max_redirects(0)
+				.timeout_global(Some(Duration::from_secs(30)))
+				.build().into(),
+			target_server,
+		}
 	}
 }
 
