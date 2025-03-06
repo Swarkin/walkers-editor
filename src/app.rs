@@ -7,7 +7,6 @@ mod osmchange;
 mod config;
 mod worker;
 
-use crate::app::worker::Request;
 use config::TargetServer;
 use editor::{changes::EditorOsmData, consts::*, visual::Visualization, EditorPluginState};
 use eframe::egui;
@@ -264,7 +263,7 @@ impl eframe::App for MyApp {
 					server_selector(ui, &mut self.target_server_ui);
 					if prev_server != self.target_server_ui {
 						// update target server for OsmClient of worker
-						self.worker_handle.sender.send(Request::SetTargetServer(self.target_server_ui)).unwrap();
+						self.worker_handle.sender.send(worker::Request::SetTargetServer(self.target_server_ui)).unwrap();
 					}
 				});
 			}
