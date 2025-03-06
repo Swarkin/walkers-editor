@@ -6,17 +6,19 @@ mod osm;
 mod osmchange;
 mod config;
 mod worker;
+mod visual;
 
 use config::TargetServer;
 use editor::{changes::EditorOsmData, consts::*, visual::Visualization, EditorPluginState};
 use eframe::egui;
-use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, ImageSource, Margin, RichText, ScrollArea, TopBottomPanel, Vec2};
+use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TopBottomPanel, Vec2};
 use osm::OsmClient;
 use osmchange::OsmChange;
 use providers::Provider;
 use std::collections::HashMap;
 #[cfg(feature = "debug")]
 use std::time::Instant;
+use visual::load_icon;
 use walkers::{Map, MapMemory, Position, Tiles};
 use windows::Windows;
 use worker::{Worker, WorkerHandle};
@@ -128,7 +130,7 @@ impl eframe::App for MyApp {
 		});
 
 		TopBottomPanel::top("bar")
-			.frame(Frame { fill: Color32::from_gray(32), inner_margin: Margin::same(4), ..Default::default() })
+			.frame(Frame { fill: if ctx.style().visuals.dark_mode { Color32::from_gray(32) } else { Color32::from_gray(243) }, inner_margin: Margin::same(4), ..Default::default() })
 			.exact_height(TOP_BAR_HEIGHT)
 			.show(ctx, |ui| {
 				ui.spacing_mut().button_padding = Vec2::splat(2.0);
@@ -136,12 +138,12 @@ impl eframe::App for MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
-							let btn = title_bar_button("Editor", egui::include_image!("../assets/ui/line.svg"));
+							let btn = title_bar_button("Editor", load_icon(ctx, egui::include_image!("../assets/ui/line.svg")));
 							if ui.add_enabled(self.view != View::Edit, btn).clicked() {
 								self.view = View::Edit;
 							}
 
-							let btn = title_bar_button("Upload", egui::include_image!("../assets/ui/upload.svg"));
+							let btn = title_bar_button("Upload", load_icon(ctx, egui::include_image!("../assets/ui/upload.svg")));
 							if ui.add_enabled(self.view != View::Upload, btn).clicked() {
 								self.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
@@ -151,15 +153,13 @@ impl eframe::App for MyApp {
 								self.osmchange_text = self.osmchange.to_string_pretty().unwrap();
 							}
 
-							let btn = title_bar_button("Auth", egui::include_image!("../assets/ui/user.svg"));
+							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg")));
 							if ui.add_enabled(self.view != View::Auth, btn).clicked() {
 								self.view = View::Auth;
 							}
 						},
 						|ui| {
-							let img = Image::new(egui::include_image!("../assets/ui/layout.svg"))
-								.fit_to_exact_size(Vec2::splat(TOP_BAR_ICON_SIZE));
-							ui.menu_image_button(img, |ui| {
+							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg")), |ui| {
 								for window in Windows::ITER {
 									let name = window.to_string();
 									let bit = window as u8;
@@ -274,8 +274,7 @@ impl eframe::App for MyApp {
 	}
 }
 
-fn title_bar_button<'a>(text: &str, icon: ImageSource<'a>) -> Button<'a> {
-	let img = Image::new(icon).fit_to_exact_size(Vec2::splat(TOP_BAR_ICON_SIZE));
+fn title_bar_button<'a>(text: &str, img: Image<'a>) -> Button<'a> {
 	Button::image_and_text(img, RichText::new(format!("{text} ")).strong().size(TOP_BAR_FONT_SIZE))
 		.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
 }
