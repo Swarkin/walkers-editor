@@ -45,14 +45,13 @@ impl Plugin for EditorPlugin<'_> {
 
 		/* determine last clicked position */ {
 			if resp.clicked() {
-				let pos = resp.interact_pointer_pos().unwrap() - resp.rect.center();
-				self.state.last_click_coords = projector.unproject(pos);
+				self.state.last_click_coords = projector.unproject(resp.interact_pointer_pos().unwrap().to_vec2());
 			}
 		}
 
 		/* update state.map_bbox */ {
-			let tl = projector.unproject(resp.rect.min.to_vec2());
-			let br = projector.unproject(resp.rect.max.to_vec2());
+			let tl = projector.unproject(resp.rect.min.to_vec2() + resp.rect.center().to_vec2());
+			let br = projector.unproject(resp.rect.max.to_vec2() + resp.rect.center().to_vec2());
 			let left = tl.x();
 			let bottom = br.y();
 			let right = br.x();
