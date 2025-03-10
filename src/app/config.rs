@@ -37,4 +37,18 @@ impl TargetServer {
 			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org",
 		}
 	}
+
+	pub fn token_url(&self) -> &'static str {
+		match self {
+			TargetServer::OpenStreetMap => "www.openstreetmap.org/oauth2/token",
+			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/token",
+		}
+	}
+
+	pub fn auth_url(&self) -> &'static str {
+		match self {
+			TargetServer::OpenStreetMap => "www.openstreetmap.org/oauth2/authorize",
+			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/authorize",
+		}
+	}
 }
