@@ -11,7 +11,7 @@ mod visual;
 use config::TargetServer;
 use editor::{changes::EditorOsmData, consts::*, visual::Visualization, EditorPluginState};
 use eframe::egui;
-use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TopBottomPanel, Vec2};
+use egui::{Button, CentralPanel, Color32, ComboBox, TextEdit, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TopBottomPanel, Vec2};
 use osm::OsmClient;
 use osmchange::OsmChange;
 use providers::Provider;
@@ -38,7 +38,7 @@ enum View {
 pub struct MyApp {
 	worker_handle: WorkerHandle,
 	view: View,
-	target_server_ui: TargetServer,
+	target_server_ui: TargetServer, // todo: use Arc<Mutex<T>> for data shared with worker
 
 	#[cfg(feature = "debug")]
 	debug_times: DebugTimes,
@@ -62,6 +62,10 @@ pub struct MyApp {
 	// uploader
 	osmchange: OsmChange,
 	osmchange_text: String,
+
+	// authenticator
+	token_text: String,
+	auth_request_pending: bool,
 }
 
 impl MyApp {
@@ -106,6 +110,8 @@ impl MyApp {
 			map_download_pending: Default::default(),
 			osmchange: Default::default(),
 			osmchange_text: Default::default(),
+			token_text: Default::default(),
+			auth_request_pending: Default::default(),
 		}
 	}
 }
@@ -125,6 +131,10 @@ impl eframe::App for MyApp {
 						}
 					}
 					self.map_download_pending = false;
+				},
+				// todo: error handling using Result<String>
+				worker::Response::Token(_) => {
+					self.auth_request_pending = false;
 				}
 			}
 		});
@@ -259,11 +269,24 @@ impl eframe::App for MyApp {
 			View::Auth => {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading("Authenticate to OpenStreetMap");
+
 					let prev_server = self.target_server_ui;
 					server_selector(ui, &mut self.target_server_ui);
 					if prev_server != self.target_server_ui {
 						// update target server for OsmClient of worker
 						self.worker_handle.sender.send(worker::Request::SetTargetServer(self.target_server_ui)).unwrap();
+					}
+					
+					ui.add_space(10.0);
+					ui.label("1. Open this URL and follow the authorization process:");
+					ui.hyperlink(format!("https://{}", osm::auth_url(self.target_server_ui)));
+					
+					ui.add_space(10.0);
+					ui.label("2. Paste the resulting code into the field below:");
+					let widget = TextEdit::singleline(&mut self.token_text);
+					if ui.add_enabled(!self.auth_request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+						self.worker_handle.sender.send(worker::Request::RequestToken(self.token_text.clone())).unwrap();
+						self.auth_request_pending = true;
 					}
 				});
 			}
@@ -288,7 +311,7 @@ fn server_selector(ui: &mut egui::Ui, value: &mut TargetServer) {
 				Grid::new(ui.id()).num_columns(TargetServer::ITER.len()).show(ui, |ui| {
 					for server in TargetServer::ITER {
 						ui.selectable_value(value, server, server.description());
-						ui.hyperlink(format!("https://{}", server.url()));
+						ui.hyperlink(format!("https://{}", server.base_url()));
 						ui.end_row();
 					}
 				});
