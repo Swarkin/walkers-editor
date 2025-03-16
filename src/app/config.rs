@@ -6,10 +6,10 @@ pub struct UploaderConfig {
 	//uploader_state: UploaderState,
 }
 
-#[derive(Default, Copy, Clone, PartialEq)]
+#[derive(Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TargetServer {
-	#[default]
 	OpenStreetMap,
+	#[default]
 	OpenStreetMapDev,
 }
 
@@ -31,21 +31,21 @@ impl TargetServer {
 		}
 	}
 
-	pub fn url(&self) -> &'static str {
+	pub fn base_url(&self) -> &'static str {
 		match self {
 			TargetServer::OpenStreetMap => "www.openstreetmap.org",
 			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org",
 		}
 	}
 
-	pub fn token_url(&self) -> &'static str {
+	pub fn base_token_url(&self) -> &'static str {
 		match self {
 			TargetServer::OpenStreetMap => "www.openstreetmap.org/oauth2/token",
 			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/token",
 		}
 	}
 
-	pub fn auth_url(&self) -> &'static str {
+	pub fn base_auth_url(&self) -> &'static str {
 		match self {
 			TargetServer::OpenStreetMap => "www.openstreetmap.org/oauth2/authorize",
 			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/authorize",

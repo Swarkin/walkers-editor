@@ -1,10 +1,31 @@
 use super::config::TargetServer;
 use osm_parser::types::*;
-use std::{ops::Deref, time::Duration};
+use std::{collections::HashMap, ops::Deref, time::Duration};
+
+const CLIENT_ID_DEV: &str = "55c2UqVCKGU_KEhQj4B5wGZHL6fR2dVS5zkwBfkiGd0";
+const REDIRECT_URI: &str = "urn:ietf:wg:oauth:2.0:oob";
+const SCOPES: &str = "write_api";
+
+#[derive(Debug, Default)]
+pub struct Bbox {
+	pub left: f64,
+	pub bottom: f64,
+	pub right: f64,
+	pub top: f64,
+}
+
+#[derive(Debug, serde::Deserialize)]
+pub struct OsmToken {
+	pub access_token: String,
+	pub token_type: String, // "Bearer"
+	pub scope: String,
+	pub created_at: u64,
+}
 
 pub struct OsmClient {
 	pub http_client: ureq::Agent,
 	pub target_server: TargetServer,
+	pub auth_token: HashMap<TargetServer, OsmToken>,
 }
 
 impl Deref for OsmClient {
@@ -25,27 +46,37 @@ impl OsmClient {
 				.timeout_global(Some(Duration::from_secs(30)))
 				.build().into(),
 			target_server,
+			auth_token: HashMap::new(),
 		}
 	}
-}
 
-#[derive(Debug, Default)]
-pub struct Bbox {
-	pub left: f64,
-	pub bottom: f64,
-	pub right: f64,
-	pub top: f64,
-}
+	pub fn auth_url(&self) -> String {
+		auth_url(self.target_server)
+	}
 
-// todo: error type and unwraps
-// todo: move to xml api calls at some point to get rid of json crates
-impl OsmClient {
+	// todo: error type and unwraps
+	// todo: move to xml api calls at some point to get rid of json crates
 	pub fn get_map(&self, bbox: &Bbox) -> OsmData {
-		let url = format!("https://{}/api/0.6/map.json?bbox={},{},{},{}", self.target_server.url(), bbox.left, bbox.bottom, bbox.right, bbox.top);
+		let url = format!("https://{}/api/0.6/map.json?bbox={},{},{},{}", self.target_server.base_url(), bbox.left, bbox.bottom, bbox.right, bbox.top);
 		let resp = self.get(url).call().unwrap();
 		let raw = resp.into_body().read_json::<raw::RawOsmData>().unwrap();
 		raw.try_into().unwrap()
 	}
+
+	// todo: error type and unwraps
+	pub fn fetch_token(&self, auth_code: String) -> OsmToken {
+		let url = format!("https://{}", self.target_server.base_token_url());
+		let body = format!("grant_type=authorization_code&code={auth_code}&redirect_uri={REDIRECT_URI}&client_id={CLIENT_ID_DEV}");
+		let resp = self.post(url).header("content-type", "application/x-www-form-urlencoded").send(body).unwrap();
+		resp.into_body().read_json::<OsmToken>().unwrap()
+	}
+}
+
+pub fn auth_url(target_server: TargetServer) -> String {
+	if target_server == TargetServer::OpenStreetMap {
+		todo!();
+	}
+	format!("{}?response_type=code&client_id={CLIENT_ID_DEV}&redirect_uri={REDIRECT_URI}&scope={SCOPES}", target_server.base_auth_url())
 }
 
 pub fn append_new_nodes_ways(to: &mut OsmData, from: OsmData) {

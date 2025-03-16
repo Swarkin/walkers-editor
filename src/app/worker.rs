@@ -18,12 +18,14 @@ pub struct WorkerHandle {
 
 pub enum Request {
 	GetMap(osm::Bbox),
-	SetTargetServer(TargetServer)
+	SetTargetServer(TargetServer),
+	RequestToken(String),
 }
 
 #[derive(Debug)]
 pub enum Response {
 	Map(Result<Box<OsmData>, Box<dyn std::error::Error + Sync + Send>>),
+	Token(String),
 }
 
 impl Worker {
@@ -36,7 +38,13 @@ impl Worker {
 				},
 				Request::SetTargetServer(target) => {
 					self.osm_client.target_server = target;
-				}
+				},
+				Request::RequestToken(auth_code) => {
+					let target_server = self.osm_client.target_server;
+					let token = self.osm_client.fetch_token(auth_code);
+					self.sender.send(Response::Token(token.access_token.clone())).unwrap();
+					self.osm_client.auth_token.insert(target_server, token);
+				},
 			}
 		}
 	}
