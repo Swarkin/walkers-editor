@@ -62,6 +62,7 @@ pub struct MyApp {
 	// uploader
 	osmchange: OsmChange,
 	osmchange_text: String,
+	changeset_id: Option<std::num::NonZeroU32>,
 
 	// authenticator
 	token_text: String,
@@ -110,6 +111,7 @@ impl MyApp {
 			map_download_pending: Default::default(),
 			osmchange: Default::default(),
 			osmchange_text: Default::default(),
+			changeset_id: Default::default(),
 			token_text: Default::default(),
 			auth_request_pending: Default::default(),
 		}
@@ -126,15 +128,16 @@ impl eframe::App for MyApp {
 							osm::append_new_nodes_ways(&mut self.editor_osm.data, *downloaded_data);
 							self.regenerate_points = true;
 						}
-						Err(err) => {
-							println!("{err}");
-						}
+						Err(err) => println!("{err}"), // todo: error handling
 					}
 					self.map_download_pending = false;
 				},
 				// todo: error handling using Result<String>
 				worker::Response::Token(_) => {
 					self.auth_request_pending = false;
+				}
+				worker::Response::CreatedChangeset(id) => {
+					self.changeset_id = Some(std::num::NonZeroU32::new(id).unwrap());
 				}
 			}
 		});
@@ -264,6 +267,17 @@ impl eframe::App for MyApp {
 							egui_extras::syntax_highlighting::code_view_ui(ui, &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()), &self.osmchange_text, "xml");
 						});
 					});
+					
+					if ui.button("Create Changeset").clicked() {
+						self.worker_handle.sender.send(worker::Request::CreateChangeset).unwrap();
+					}
+
+					if let Some(id) = self.changeset_id {
+						ui.horizontal(|ui| {
+							ui.label("Changeset ID: ");
+							ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.target_server_ui.base_url(), id));
+						});
+					}
 				});
 			}
 			View::Auth => {
@@ -276,11 +290,11 @@ impl eframe::App for MyApp {
 						// update target server for OsmClient of worker
 						self.worker_handle.sender.send(worker::Request::SetTargetServer(self.target_server_ui)).unwrap();
 					}
-					
+
 					ui.add_space(10.0);
 					ui.label("1. Open this URL and follow the authorization process:");
 					ui.hyperlink(format!("https://{}", osm::auth_url(self.target_server_ui)));
-					
+
 					ui.add_space(10.0);
 					ui.label("2. Paste the resulting code into the field below:");
 					let widget = TextEdit::singleline(&mut self.token_text);

@@ -20,12 +20,14 @@ pub enum Request {
 	GetMap(osm::Bbox),
 	SetTargetServer(TargetServer),
 	RequestToken(String),
+	CreateChangeset,
 }
 
 #[derive(Debug)]
 pub enum Response {
 	Map(Result<Box<OsmData>, Box<dyn std::error::Error + Sync + Send>>),
 	Token(String),
+	CreatedChangeset(u32),
 }
 
 impl Worker {
@@ -45,6 +47,10 @@ impl Worker {
 					self.sender.send(Response::Token(token.access_token.clone())).unwrap();
 					self.osm_client.auth_token.insert(target_server, token);
 				},
+				Request::CreateChangeset => {
+					let id = self.osm_client.create_changeset(vec![super::osmchange::Tag { k: "uwu".into(), v: "owo".into() }]);
+					self.sender.send(Response::CreatedChangeset(id)).unwrap()
+				}
 			}
 		}
 	}

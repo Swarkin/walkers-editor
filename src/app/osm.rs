@@ -1,4 +1,5 @@
 use super::config::TargetServer;
+use super::osmchange::Tag;
 use osm_parser::types::*;
 use std::{collections::HashMap, ops::Deref, time::Duration};
 
@@ -20,6 +21,18 @@ pub struct OsmToken {
 	pub token_type: String, // "Bearer"
 	pub scope: String,
 	pub created_at: u64,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename = "osm")]
+pub struct OsmCreateChangeset {
+	changeset: RawChangeset,
+}
+
+#[derive(Debug, serde::Serialize)]
+#[serde(rename = "changeset")]
+pub struct RawChangeset {
+	tags: Vec<Tag>
 }
 
 pub struct OsmClient {
@@ -61,6 +74,18 @@ impl OsmClient {
 		let resp = self.get(url).call().unwrap();
 		let raw = resp.into_body().read_json::<raw::RawOsmData>().unwrap();
 		raw.try_into().unwrap()
+	}
+
+	// todo: error type and unwraps
+	pub fn create_changeset(&self, tags: Vec<Tag>) -> u32 {
+		let url = format!("https://{}/api/0.6/changeset/create", self.target_server.base_url());
+		let auth = self.auth_token.get(&self.target_server).unwrap();
+		let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
+		let body = quick_xml::se::to_string(&data).unwrap();
+		let resp = self.put(url).header("authorization", format!("{} {}", auth.token_type, auth.access_token)).send(body).unwrap();
+		resp.into_body()
+			.read_to_string().unwrap()
+			.parse().unwrap()
 	}
 
 	// todo: error type and unwraps
