@@ -2,7 +2,10 @@ use super::config::TargetServer;
 use super::osm;
 use crossbeam_channel::{Receiver, Sender};
 use osm_parser::OsmData;
+use std::num::NonZeroU32;
 use std::thread::JoinHandle;
+
+pub type AnyError = Box<dyn std::error::Error + Sync + Send>;
 
 pub struct Worker {
 	pub osm_client: osm::OsmClient,
@@ -21,13 +24,15 @@ pub enum Request {
 	SetTargetServer(TargetServer),
 	RequestToken(String),
 	CreateChangeset,
+	CloseChangeset(NonZeroU32),
 }
 
 #[derive(Debug)]
 pub enum Response {
-	Map(Result<Box<OsmData>, Box<dyn std::error::Error + Sync + Send>>),
+	Map(Result<Box<OsmData>, AnyError>),
 	Token(String),
-	CreatedChangeset(u32),
+	CreatedChangeset(Result<NonZeroU32, AnyError>),
+	ClosedChangeset(Result<NonZeroU32, AnyError>),
 }
 
 impl Worker {
@@ -48,8 +53,13 @@ impl Worker {
 					self.osm_client.auth_token.insert(target_server, token);
 				},
 				Request::CreateChangeset => {
-					let id = self.osm_client.create_changeset(vec![super::osmchange::Tag { k: "uwu".into(), v: "owo".into() }]);
-					self.sender.send(Response::CreatedChangeset(id)).unwrap()
+					let result = self.osm_client.create_changeset(vec![super::osmchange::Tag { k: "uwu".into(), v: "owo".into() }]);
+					self.sender.send(Response::CreatedChangeset(result)).unwrap()
+				}
+				Request::CloseChangeset(id) => {
+					let result = self.osm_client.close_changeset(id)
+						.map(|_| id).map_err(|e| e.into());
+					self.sender.send(Response::ClosedChangeset(result)).unwrap()
 				}
 			}
 		}

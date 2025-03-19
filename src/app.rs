@@ -16,12 +16,13 @@ use osm::OsmClient;
 use osmchange::OsmChange;
 use providers::Provider;
 use std::collections::HashMap;
+use std::num::NonZeroU32;
 #[cfg(feature = "debug")]
 use std::time::Instant;
 use visual::load_icon;
 use walkers::{Map, MapMemory, Position, Tiles};
 use windows::Windows;
-use worker::{Worker, WorkerHandle};
+use worker::{Worker, WorkerHandle, AnyError, Response};
 
 #[cfg(feature = "debug")]
 type DebugTimes = Vec<(&'static str, u32)>;
@@ -62,7 +63,7 @@ pub struct MyApp {
 	// uploader
 	osmchange: OsmChange,
 	osmchange_text: String,
-	changeset_id: Option<std::num::NonZeroU32>,
+	changeset_creation: Option<Result<NonZeroU32, AnyError>>,
 
 	// authenticator
 	token_text: String,
@@ -74,7 +75,7 @@ impl MyApp {
 		egui_extras::install_image_loaders(&egui_ctx);
 
 		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<worker::Request>();
-		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<worker::Response>();
+		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<Response>();
 
 		let mut worker = Worker {
 			osm_client: OsmClient::new(TargetServer::default()),
@@ -111,7 +112,7 @@ impl MyApp {
 			map_download_pending: Default::default(),
 			osmchange: Default::default(),
 			osmchange_text: Default::default(),
-			changeset_id: Default::default(),
+			changeset_creation: Default::default(),
 			token_text: Default::default(),
 			auth_request_pending: Default::default(),
 		}
@@ -122,7 +123,7 @@ impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
 		self.worker_handle.receiver.try_iter().for_each(|req| {
 			match req {
-				worker::Response::Map(result) => {
+				Response::Map(result) => {
 					match result {
 						Ok(downloaded_data) => {
 							osm::append_new_nodes_ways(&mut self.editor_osm.data, *downloaded_data);
@@ -133,11 +134,14 @@ impl eframe::App for MyApp {
 					self.map_download_pending = false;
 				},
 				// todo: error handling using Result<String>
-				worker::Response::Token(_) => {
+				Response::Token(_) => {
 					self.auth_request_pending = false;
 				}
-				worker::Response::CreatedChangeset(id) => {
-					self.changeset_id = Some(std::num::NonZeroU32::new(id).unwrap());
+				Response::CreatedChangeset(result) => {
+					self.changeset_creation = Some(result);
+				}
+				Response::ClosedChangeset(result) => {
+					todo!();
 				}
 			}
 		});
@@ -267,16 +271,25 @@ impl eframe::App for MyApp {
 							egui_extras::syntax_highlighting::code_view_ui(ui, &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()), &self.osmchange_text, "xml");
 						});
 					});
-					
+
+					ui.add_space(10.0);
 					if ui.button("Create Changeset").clicked() {
 						self.worker_handle.sender.send(worker::Request::CreateChangeset).unwrap();
 					}
 
-					if let Some(id) = self.changeset_id {
-						ui.horizontal(|ui| {
-							ui.label("Changeset ID: ");
-							ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.target_server_ui.base_url(), id));
-						});
+					if let Some(result) = &self.changeset_creation {
+						match result {
+							Ok(id) => {
+								ui.horizontal(|ui| {
+									ui.label("Changeset ID: ");
+									ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.target_server_ui.base_url(), id));
+								});
+							}
+							Err(err) => {
+								ui.label(RichText::new(format!("Failed to create changeset:\n{err}")).color(ui.visuals().error_fg_color));
+							}
+						}
+
 					}
 				});
 			}
