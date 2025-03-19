@@ -2,6 +2,8 @@ use super::config::TargetServer;
 use super::osmchange::Tag;
 use osm_parser::types::*;
 use std::{collections::HashMap, ops::Deref, time::Duration};
+use std::num::NonZeroU32;
+use crate::app::worker::AnyError;
 
 const CLIENT_ID_DEV: &str = "55c2UqVCKGU_KEhQj4B5wGZHL6fR2dVS5zkwBfkiGd0";
 const REDIRECT_URI: &str = "urn:ietf:wg:oauth:2.0:oob";
@@ -76,16 +78,28 @@ impl OsmClient {
 		raw.try_into().unwrap()
 	}
 
-	// todo: error type and unwraps
-	pub fn create_changeset(&self, tags: Vec<Tag>) -> u32 {
+	// todo: error type
+	pub fn create_changeset(&self, tags: Vec<Tag>) -> Result<NonZeroU32, AnyError> {
 		let url = format!("https://{}/api/0.6/changeset/create", self.target_server.base_url());
-		let auth = self.auth_token.get(&self.target_server).unwrap();
+		let auth = self.auth_token.get(&self.target_server).ok_or("missing auth token")?;
 		let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
-		let body = quick_xml::se::to_string(&data).unwrap();
-		let resp = self.put(url).header("authorization", format!("{} {}", auth.token_type, auth.access_token)).send(body).unwrap();
+		let body = quick_xml::se::to_string(&data)?;
+		let resp = self.put(url)
+			.header("authorization", format!("{} {}", auth.token_type, auth.access_token))
+			.send(body)?;
 		resp.into_body()
-			.read_to_string().unwrap()
-			.parse().unwrap()
+			.read_to_string()?
+			.parse().map_err(Box::from)
+	}
+
+	// todo: error type
+	pub fn close_changeset(&self, id: NonZeroU32) -> Result<(), ureq::Error> {
+		let url = format!("https://{}/api/0.6/changeset/{id}/close", self.target_server.base_url());
+		let auth = self.auth_token.get(&self.target_server).unwrap();
+		self.put(url)
+			.header("authorization", format!("{} {}", auth.token_type, auth.access_token))
+			.send_empty()
+			.map(|_| ())
 	}
 
 	// todo: error type and unwraps
