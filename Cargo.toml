@@ -8,7 +8,7 @@ build = "build.rs"
 debug = []
 
 [dependencies]
-walkers = "0.35.0"
+walkers = "0.36"
 eframe = { version = "*", default-features = false, features = ["glow", "default_fonts"] }
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
 ureq = { version = "3.0", default-features = false, features = ["rustls", "json"] }
@@ -19,7 +19,7 @@ osm-parser = { version = "*", git = "https://github.com/Swarkin/osm-parser.git" 
 webmercator_tiles = "1.0"
 
 [build-dependencies]
-winresource = "0.1.19"
+winresource = "0.1"
 
 [profile.release]
 opt-level = 3
