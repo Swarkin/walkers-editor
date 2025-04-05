@@ -1,6 +1,8 @@
 use super::editor::{changes::Change, visual::Visualization};
 use super::osm::Bbox;
 use super::providers::Provider;
+#[cfg(feature = "debug")]
+use super::providers::TilesKind;
 use eframe::egui;
 use egui::{Align2, Grid, Ui, Window};
 use std::fmt::{Display, Formatter};
@@ -60,10 +62,10 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution) {
 		});
 }
 
-pub fn controls(
+pub fn controls<'a>(
 	ui: &Ui,
-	selected_provider: &mut Provider,
-	possible_providers: &mut dyn Iterator<Item = &Provider>,
+	selected_provider: &mut Option<Provider>,
+	possible_providers: &mut impl Iterator<Item = &'a Provider>,
 	selected_visualization: &mut Visualization,
 	scale_factor: &mut f32,
 	zoom_with_ctrl: &mut bool,
@@ -77,11 +79,18 @@ pub fn controls(
 		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			ui.collapsing("Map", |ui| {
+				let selected_text = if let Some(selected_provider) = selected_provider {
+					format!("{selected_provider:?}")
+				} else { "None".into() };
+
 				egui::ComboBox::from_label("Tile Provider")
-					.selected_text(format!("{:?}", selected_provider))
+					.selected_text(selected_text)
 					.show_ui(ui, |ui| {
 						for p in possible_providers {
-							ui.selectable_value(selected_provider, *p, format!("{p:?}"));
+							let mut selected = *selected_provider == Some(*p);
+							if ui.toggle_value(&mut selected, format!("{p:?}")).changed() {
+								*selected_provider = if selected { Some(*p) } else { None }
+							}
 						}
 					});
 
@@ -158,7 +167,7 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 }
 
 #[cfg(feature = "debug")]
-pub fn debug(ui: &Ui, debug_times: &super::DebugTimes) {
+pub fn debug(ui: &Ui, debug_times: &super::DebugTimes, selected_provider: Option<&Provider>, provider: Option<&TilesKind>) {
 	Window::new("Debug")
 		.collapsible(true)
 		.resizable(false)
@@ -174,6 +183,12 @@ pub fn debug(ui: &Ui, debug_times: &super::DebugTimes) {
 				} else {
 					ui.label(text);
 				}
+			}
+
+			if let Some(p) = provider {
+				let TilesKind::Http(http_tiles) = p;
+				let stats = http_tiles.stats();
+				ui.label(format!("in-progress requests for {:?}: {}", selected_provider.unwrap(), stats.in_progress));
 			}
 		});
 }
