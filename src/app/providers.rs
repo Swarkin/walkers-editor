@@ -7,15 +7,35 @@ use walkers::{HttpOptions, HttpTiles, TileId, Tiles};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Provider {
-	#[default] OpenStreetMap,
-	Geoportal,
+	#[default]
+	OpenStreetMap,
 	MapboxSatellite,
 	EsriWorldImagery,
 	Bavaria20cm,
 }
 
+pub enum TilesKind {
+	Http(HttpTiles),
+}
+
+impl AsMut<dyn Tiles> for TilesKind {
+	fn as_mut(&mut self) -> &mut (dyn Tiles + 'static) {
+		match self {
+			TilesKind::Http(tiles) => tiles,
+		}
+	}
+}
+
+impl AsRef<dyn Tiles> for TilesKind {
+	fn as_ref(&self) -> &(dyn Tiles + 'static) {
+		match self {
+			TilesKind::Http(tiles) => tiles,
+		}
+	}
+}
+
 // https://services.arcgisonline.com/arcgis/rest/services/World_Imagery/MapServer/tile/0/0/0
-pub struct EsriWorldImagery {}
+pub struct EsriWorldImagery;
 
 impl TileSource for EsriWorldImagery {
 	fn tile_url(&self, tile_id: TileId) -> String {
@@ -35,7 +55,7 @@ impl TileSource for EsriWorldImagery {
 	fn max_zoom(&self) -> u8 { 19 }
 }
 
-pub struct Bavaria20cm {}
+pub struct Bavaria20cm;
 
 impl TileSource for Bavaria20cm {
 	fn tile_url(&self, tile_id: TileId) -> String {
@@ -49,7 +69,10 @@ impl TileSource for Bavaria20cm {
 		tr.convert_to(Projection::WebMercator);
 		bl.convert_to(Projection::WebMercator);
 
-		format!("https://geoservices.bayern.de/od/wms/dop/v1/dop20?FORMAT=image%2Fpng&VERSION=1.1.1&SERVICE=WMS&REQUEST=GetMap&LAYERS=by_dop20c&SRS=EPSG%3A3857&WIDTH=256&HEIGHT=256&BBOX={},{},{},{}", tr.lon, tr.lat, bl.lon, bl.lat)
+		format!(
+			"https://geoservices.bayern.de/od/wms/dop/v1/dop20?FORMAT=image%2Fpng&VERSION=1.1.1&SERVICE=WMS&REQUEST=GetMap&LAYERS=by_dop20c&SRS=EPSG%3A3857&WIDTH=256&HEIGHT=256&BBOX={},{},{},{}",
+			tr.lon, tr.lat, bl.lon, bl.lat
+		)
 	}
 
 	fn attribution(&self) -> Attribution {
@@ -67,23 +90,17 @@ impl TileSource for Bavaria20cm {
 
 pub fn http_options() -> HttpOptions {
 	HttpOptions {
-		cache: if std::env::var("NO_HTTP_CACHE").is_ok() {
-			None
-		} else {
-			Some(".cache".into())
-		},
-		user_agent: Some(
-			walkers::HeaderValue::from_static(concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"))),
-		),
+		cache: Some(".cache".into()),
+		user_agent: Some(walkers::HeaderValue::from_static(crate::USER_AGENT)),
 	}
 }
 
-pub fn providers(egui_ctx: Context) -> HashMap<Provider, Box<dyn Tiles + Send>> {
-	let mut providers: HashMap<Provider, Box<dyn Tiles + Send>> = HashMap::default();
+pub fn providers(egui_ctx: Context) -> HashMap<Provider, TilesKind> {
+	let mut providers: HashMap<Provider, TilesKind> = HashMap::default();
 
 	providers.insert(
 		Provider::OpenStreetMap,
-		Box::new(HttpTiles::with_options(
+		TilesKind::Http(HttpTiles::with_options(
 			walkers::sources::OpenStreetMap,
 			http_options(),
 			egui_ctx.to_owned(),
@@ -91,18 +108,9 @@ pub fn providers(egui_ctx: Context) -> HashMap<Provider, Box<dyn Tiles + Send>> 
 	);
 
 	providers.insert(
-		Provider::Geoportal,
-		Box::new(HttpTiles::with_options(
-			walkers::sources::Geoportal,
-			http_options(),
-			egui_ctx.to_owned(),
-		)),
-	);
-
-	providers.insert(
 		Provider::EsriWorldImagery,
-		Box::new(HttpTiles::with_options(
-			EsriWorldImagery {},
+		TilesKind::Http(HttpTiles::with_options(
+			EsriWorldImagery,
 			http_options(),
 			egui_ctx.to_owned(),
 		)),
@@ -110,20 +118,20 @@ pub fn providers(egui_ctx: Context) -> HashMap<Provider, Box<dyn Tiles + Send>> 
 
 	providers.insert(
 		Provider::Bavaria20cm,
-		Box::new(HttpTiles::with_options(
-			Bavaria20cm {},
+		TilesKind::Http(HttpTiles::with_options(
+			Bavaria20cm,
 			http_options(),
 			egui_ctx.to_owned(),
 		)),
 	);
 
-	if let Some(token) = option_env!("MAPBOX_ACCESS_TOKEN") {
+	if let Ok(access_token) = std::env::var("MAPBOX_ACCESS_TOKEN") {
 		providers.insert(
 			Provider::MapboxSatellite,
-			Box::new(HttpTiles::with_options(
+			TilesKind::Http(HttpTiles::with_options(
 				walkers::sources::Mapbox {
 					style: walkers::sources::MapboxStyle::Satellite,
-					access_token: token.to_string(),
+					access_token,
 					high_resolution: true,
 				},
 				http_options(),
