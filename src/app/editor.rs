@@ -2,6 +2,7 @@ pub mod visual;
 pub mod changes;
 pub mod consts;
 pub mod attribute2d;
+pub mod states;
 
 use super::osm::Bbox;
 use changes::*;

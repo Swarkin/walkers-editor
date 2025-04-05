@@ -9,20 +9,17 @@ mod worker;
 mod visual;
 
 use config::TargetServer;
-use editor::{changes::EditorOsmData, consts::*, visual::Visualization, EditorPluginState};
+use editor::{consts::*, states::*};
 use eframe::egui;
-use egui::{Button, CentralPanel, Color32, ComboBox, TextEdit, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TopBottomPanel, Vec2};
+use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
 use osm::OsmClient;
 use osmchange::OsmChange;
-use providers::Provider;
-use std::collections::HashMap;
-use std::num::NonZeroU32;
 #[cfg(feature = "debug")]
 use std::time::Instant;
 use visual::load_icon;
-use walkers::{Map, MapMemory, Position, Tiles};
+use walkers::{Map, Tiles};
 use windows::Windows;
-use worker::{Worker, WorkerHandle, AnyError, Response};
+use worker::{Response, Worker, WorkerHandle};
 
 #[cfg(feature = "debug")]
 type DebugTimes = Vec<(&'static str, u32)>;
@@ -44,30 +41,9 @@ pub struct MyApp {
 	#[cfg(feature = "debug")]
 	debug_times: DebugTimes,
 
-	// editor
-	providers: HashMap<Provider, Box<dyn Tiles + Send>>,
-	selected_provider: Provider,
-	selected_visualizer: Visualization,
-	map_memory: MapMemory,
-	editor_osm: EditorOsmData,
-	editor_state: EditorPluginState,
-	hidden_windows: u8,
-	scale_factor: f32,
-	zoom_with_ctrl: bool,
-	prev_size: Vec2,
-	prev_zoom: f64,
-	prev_pos: Position,
-	regenerate_points: bool,
-	map_download_pending: bool,
-
-	// uploader
-	osmchange: OsmChange,
-	osmchange_text: String,
-	changeset_creation: Option<Result<NonZeroU32, AnyError>>,
-
-	// authenticator
-	token_text: String,
-	auth_request_pending: bool,
+	editor: EditorState,
+	uploader: UploaderState,
+	authenticator: AuthenticatorState,
 }
 
 impl MyApp {
@@ -91,30 +67,14 @@ impl MyApp {
 
 		Self {
 			worker_handle,
-			providers: providers::providers(egui_ctx),
-			selected_provider: Provider::EsriWorldImagery,
-			scale_factor: 1.0,
+			editor: EditorState::default(egui_ctx),
+			uploader: UploaderState::default(),
+			authenticator: AuthenticatorState::default(),
 
 			view: Default::default(),
 			target_server_ui: Default::default(),
 			#[cfg(feature = "debug")]
 			debug_times: Default::default(),
-			selected_visualizer: Default::default(),
-			map_memory: Default::default(),
-			editor_osm: Default::default(),
-			editor_state: Default::default(),
-			hidden_windows: Default::default(),
-			zoom_with_ctrl: Default::default(),
-			prev_size: Default::default(),
-			prev_zoom: Default::default(),
-			prev_pos: Default::default(),
-			regenerate_points: Default::default(),
-			map_download_pending: Default::default(),
-			osmchange: Default::default(),
-			osmchange_text: Default::default(),
-			changeset_creation: Default::default(),
-			token_text: Default::default(),
-			auth_request_pending: Default::default(),
 		}
 	}
 }
@@ -126,21 +86,21 @@ impl eframe::App for MyApp {
 				Response::Map(result) => {
 					match result {
 						Ok(downloaded_data) => {
-							osm::append_new_nodes_ways(&mut self.editor_osm.data, *downloaded_data);
-							self.regenerate_points = true;
+							osm::append_new_nodes_ways(&mut self.editor.editor_osm.data, *downloaded_data);
+							self.editor.regenerate_points = true;
 						}
-						Err(err) => println!("{err}"), // todo: error handling
+						Err(err) => panic!("{err}"), // todo: error handling
 					}
-					self.map_download_pending = false;
+					self.editor.map_download_pending = false;
 				},
 				// todo: error handling using Result<String>
 				Response::Token(_) => {
-					self.auth_request_pending = false;
+					self.authenticator.request_pending = false;
 				}
 				Response::CreatedChangeset(result) => {
-					self.changeset_creation = Some(result);
+					self.uploader.changeset_creation = Some(result);
 				}
-				Response::ClosedChangeset(result) => {
+				Response::ClosedChangeset(_) => {
 					todo!();
 				}
 			}
@@ -164,10 +124,10 @@ impl eframe::App for MyApp {
 							if ui.add_enabled(self.view != View::Upload, btn).clicked() {
 								self.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
-								self.osmchange = OsmChange::from(&self.editor_osm.changes);
-								self.osmchange.prepare_upload(0); // temporary
+								self.uploader.osmchange = OsmChange::from(&self.editor.editor_osm.changes);
+								self.uploader.osmchange.prepare_upload(0); // temporary
 								// todo: handle Err case
-								self.osmchange_text = self.osmchange.to_string_pretty().unwrap();
+								self.uploader.osmchange_text = self.uploader.osmchange.to_string_pretty().unwrap();
 							}
 
 							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg")));
@@ -180,12 +140,12 @@ impl eframe::App for MyApp {
 								for window in Windows::ITER {
 									let name = window.to_string();
 									let bit = window as u8;
-									let state = (self.hidden_windows & bit) == 0;
+									let state = (self.editor.hidden_windows & bit) == 0;
 									let mut change = state;
 
 									ui.toggle_value(&mut change, name);
 									if state != change {
-										self.hidden_windows ^= bit;
+										self.editor.hidden_windows ^= bit;
 									}
 								}
 							});
@@ -199,33 +159,33 @@ impl eframe::App for MyApp {
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
 					#[cfg(feature = "debug")]
 					let time_total = Instant::now();
-					let tiles = self
-						.providers
-						.get_mut(&self.selected_provider)
-						.unwrap()
-						.as_mut();
 
-					self.prev_zoom = self.map_memory.zoom();
-					self.prev_pos = self.map_memory.detached().unwrap_or_else(places::school);
+					self.editor.prev_zoom = self.editor.map_memory.zoom();
+					self.editor.prev_pos = self.editor.map_memory.detached().unwrap_or_else(places::school);
 
-					// todo: option to disable displaying tiles
-					let map = Map::new(Some(tiles), &mut self.map_memory, places::school())
-						.zoom_with_ctrl(self.zoom_with_ctrl)
-						.with_plugin(editor::EditorPlugin {
-							state: &mut self.editor_state,
-							osm: &mut self.editor_osm,
-							scale_factor: self.scale_factor,
-							visualization: self.selected_visualizer,
-							regenerate_points: self.regenerate_points,
-							#[cfg(feature = "debug")]
-							debug_times: &mut self.debug_times,
-						});
+					let editor_plugin = editor::EditorPlugin {
+						state: &mut self.editor.editor_state,
+						osm: &mut self.editor.editor_osm,
+						scale_factor: self.editor.scale_factor,
+						visualization: self.editor.selected_visualizer,
+						regenerate_points: self.editor.regenerate_points,
+						#[cfg(feature = "debug")]
+						debug_times: &mut self.debug_times,
+					};
 
-					ui.add(map);
+					if let Some(selected_provider) = &self.editor.selected_provider {
+						let tiles = self.editor.providers.get_mut(selected_provider).unwrap().as_mut();
+						map(ui, Some(tiles), &mut self.editor.map_memory, self.editor.zoom_with_ctrl, editor_plugin);
+						windows::acknowledge(ui, tiles.attribution());
+					} else {
+						map(ui, None, &mut self.editor.map_memory, self.editor.zoom_with_ctrl, editor_plugin);
+					};
 
 					// determine whether regenerating the points cache is necessary
 					// todo(optimization): store and use a simple pan offset to avoid recalculating points on move
-					self.regenerate_points = self.prev_zoom != self.map_memory.zoom() || self.prev_pos != self.map_memory.detached().unwrap_or_else(places::school) || self.prev_size != ctx.screen_rect().size();
+					self.editor.regenerate_points = self.editor.prev_zoom != self.editor.map_memory.zoom()
+						|| self.editor.prev_pos != self.editor.map_memory.detached().unwrap_or_else(places::school)
+						|| self.editor.prev_size != ctx.screen_rect().size();
 
 					#[cfg(feature = "debug")]
 					let time_windows = {
@@ -233,34 +193,35 @@ impl eframe::App for MyApp {
 						Instant::now()
 					};
 
-					windows::acknowledge(ui, tiles.attribution());
-
-					if (self.hidden_windows & (Windows::Tags as u8)) == 0 {
-						if let Some(id) = self.editor_state.selected.or(self.editor_state.hovered) {
-							windows::tags(ui, &self.editor_osm.data.ways.get(&id).unwrap().tags);
+					if (self.editor.hidden_windows & (Windows::Tags as u8)) == 0 {
+						if let Some(id) = self.editor.editor_state.selected.or(self.editor.editor_state.hovered) {
+							windows::tags(ui, &self.editor.editor_osm.data.ways.get(&id).unwrap().tags);
 						}
 					}
-					if (self.hidden_windows & (Windows::History as u8)) == 0 {
-						windows::history(ui, &self.editor_osm.changes);
+					if (self.editor.hidden_windows & (Windows::History as u8)) == 0 {
+						windows::history(ui, &self.editor.editor_osm.changes);
 					}
-					if (self.hidden_windows & (Windows::Controls as u8)) == 0 {
-						windows::controls(ui, &mut self.selected_provider, &mut self.providers.keys(), &mut self.selected_visualizer, &mut self.scale_factor, &mut self.zoom_with_ctrl);
+					if (self.editor.hidden_windows & (Windows::Controls as u8)) == 0 {
+						windows::controls(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
 					}
-					if (self.hidden_windows & (Windows::Download as u8)) == 0 {
-						if let Some(request) = windows::download(ui, &self.editor_state.map_bbox, self.map_download_pending) {
+					if (self.editor.hidden_windows & (Windows::Download as u8)) == 0 {
+						if let Some(request) = windows::download(ui, &self.editor.editor_state.map_bbox, self.editor.map_download_pending) {
 							self.worker_handle.sender.send(request).unwrap();
-							self.map_download_pending = true;
+							self.editor.map_download_pending = true;
 						}
 					}
 					#[cfg(feature = "debug")] {
 						self.debug_times.push(("windows", time_windows.elapsed().as_micros() as u32));
 						self.debug_times.push(("App::update", time_total.elapsed().as_micros() as u32));
-						if (self.hidden_windows & (Windows::Debug as u8)) == 0 {
-							windows::debug(ui, &self.debug_times);
+						if (self.editor.hidden_windows & (Windows::Debug as u8)) == 0 {
+							let tiles = self.editor.selected_provider.as_ref()
+								.map(|a| self.editor.providers.get(a).unwrap());
+
+							windows::debug(ui, &self.debug_times, self.editor.selected_provider.as_ref(), tiles);
 						}
 					}
 
-					self.prev_size = ctx.screen_rect().size();
+					self.editor.prev_size = ctx.screen_rect().size();
 				});
 			}
 			View::Upload => {
@@ -268,7 +229,7 @@ impl eframe::App for MyApp {
 					ui.heading("Upload to OpenStreetMap");
 					ui.collapsing("View osmChange", |ui| {
 						ScrollArea::vertical().show(ui, |ui| {
-							egui_extras::syntax_highlighting::code_view_ui(ui, &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()), &self.osmchange_text, "xml");
+							egui_extras::syntax_highlighting::code_view_ui(ui, &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()), &self.uploader.osmchange_text, "xml");
 						});
 					});
 
@@ -277,7 +238,7 @@ impl eframe::App for MyApp {
 						self.worker_handle.sender.send(worker::Request::CreateChangeset).unwrap();
 					}
 
-					if let Some(result) = &self.changeset_creation {
+					if let Some(result) = &self.uploader.changeset_creation {
 						match result {
 							Ok(id) => {
 								ui.horizontal(|ui| {
@@ -310,10 +271,10 @@ impl eframe::App for MyApp {
 
 					ui.add_space(10.0);
 					ui.label("2. Paste the resulting code into the field below:");
-					let widget = TextEdit::singleline(&mut self.token_text);
-					if ui.add_enabled(!self.auth_request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-						self.worker_handle.sender.send(worker::Request::RequestToken(self.token_text.clone())).unwrap();
-						self.auth_request_pending = true;
+					let widget = TextEdit::singleline(&mut self.authenticator.token_text);
+					if ui.add_enabled(!self.authenticator.request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+						self.worker_handle.sender.send(worker::Request::RequestToken(self.authenticator.token_text.clone())).unwrap();
+						self.authenticator.request_pending = true;
 					}
 				});
 			}
@@ -324,12 +285,25 @@ impl eframe::App for MyApp {
 	}
 }
 
+fn map(
+	ui: &mut Ui,
+	tiles: Option<&mut dyn Tiles>,
+	map_memory: &mut walkers::MapMemory,
+	zoom_with_ctrl: bool,
+	editor_plugin: editor::EditorPlugin,
+) -> egui::Response {
+	ui.add(Map::new(tiles, map_memory, places::school())
+		.zoom_with_ctrl(zoom_with_ctrl)
+		.with_plugin(editor_plugin)
+	)
+}
+
 fn title_bar_button<'a>(text: &str, img: Image<'a>) -> Button<'a> {
 	Button::image_and_text(img, RichText::new(format!("{text} ")).strong().size(TOP_BAR_FONT_SIZE))
 		.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
 }
 
-fn server_selector(ui: &mut egui::Ui, value: &mut TargetServer) {
+fn server_selector(ui: &mut Ui, value: &mut TargetServer) {
 	ui.horizontal(|ui| {
 		ui.label("Server");
 		ComboBox::from_id_salt(ui.id())
