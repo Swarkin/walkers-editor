@@ -72,7 +72,7 @@ impl OsmClient {
 	// todo: error type and unwraps
 	// todo: move to xml api calls at some point to get rid of json crates
 	pub fn get_map(&self, bbox: &Bbox) -> OsmData {
-		let url = format!("https://{}/api/0.6/map.json?bbox={},{},{},{}", self.target_server.base_url(), bbox.left, bbox.bottom, bbox.right, bbox.top);
+		let url = format!("https://{}/api/0.6/map.json?bbox={},{},{},{}", /*self.target_server.base_url()*/ TargetServer::OpenStreetMap.base_url(), bbox.left, bbox.bottom, bbox.right, bbox.top);
 		let resp = self.get(url).call().unwrap();
 		let raw = resp.into_body().read_json::<raw::RawOsmData>().unwrap();
 		raw.try_into().unwrap()
