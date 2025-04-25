@@ -1,11 +1,13 @@
 use super::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
+use crate::app::config::TargetServer;
+use crate::app::osm::OsmToken;
+use crate::app::osmchange::OsmChange;
 use crate::app::providers::{providers, Provider, TilesKind};
+use crate::app::worker::AnyError;
 use eframe::egui::{Context, Vec2};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
 use walkers::{MapMemory, Position};
-use crate::app::osmchange::OsmChange;
-use crate::app::worker::AnyError;
 
 pub struct EditorState {
 	pub providers: HashMap<Provider, TilesKind>,
@@ -54,6 +56,8 @@ pub struct UploaderState {
 
 #[derive(Default)]
 pub struct AuthenticatorState {
-	pub token_text: String,
+	// todo: currently no way to check which server this belongs to
+	pub token: HashMap<TargetServer, Result<OsmToken, AnyError>>,
+	pub authorization_code: String,
 	pub request_pending: bool,
 }

@@ -134,13 +134,7 @@ impl OsmChange {
 			//delete: if delete.is_empty() { None } else { Some(delete) },
 		}
 	}
-
-	pub fn clear_contents(&mut self) {
-		//self.create = None;
-		self.modify = None;
-		//self.delete = None;
-	}
-
+	
 	pub fn to_string_pretty(&self) -> Result<String, SeError> {
 		let mut buffer = String::new();
 		let mut ser = Serializer::with_root(&mut buffer, Some("osmChange"))?;

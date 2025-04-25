@@ -1,5 +1,7 @@
 use super::config::TargetServer;
 use super::osm;
+use crate::app::osm::OsmToken;
+use crate::app::osmchange::Tag;
 use crossbeam_channel::{Receiver, Sender};
 use osm_parser::OsmData;
 use std::num::NonZeroU32;
@@ -20,17 +22,17 @@ pub struct WorkerHandle {
 }
 
 pub enum Request {
-	GetMap(osm::Bbox),
+	GetMap(Box<osm::Bbox>), // box is used to keep enum size small
 	SetTargetServer(TargetServer),
-	RequestToken(String),
-	CreateChangeset,
+	FetchToken(String),
+	CreateChangeset(Vec<Tag>),
 	CloseChangeset(NonZeroU32),
 }
 
 #[derive(Debug)]
 pub enum Response {
 	Map(Result<Box<OsmData>, AnyError>),
-	Token(String),
+	Token(Result<OsmToken, AnyError>, TargetServer),
 	CreatedChangeset(Result<NonZeroU32, AnyError>),
 	ClosedChangeset(Result<NonZeroU32, AnyError>),
 }
@@ -46,14 +48,17 @@ impl Worker {
 				Request::SetTargetServer(target) => {
 					self.osm_client.target_server = target;
 				},
-				Request::RequestToken(auth_code) => {
+				Request::FetchToken(auth_code) => {
 					let target_server = self.osm_client.target_server;
 					let token = self.osm_client.fetch_token(auth_code);
-					self.sender.send(Response::Token(token.access_token.clone())).unwrap();
-					self.osm_client.auth_token.insert(target_server, token);
+					if let Ok(token) = token.as_ref() {
+						self.osm_client.auth_token.insert(target_server, token.to_owned());
+					}
+
+					self.sender.send(Response::Token(token, target_server)).unwrap();
 				},
-				Request::CreateChangeset => {
-					let result = self.osm_client.create_changeset(vec![super::osmchange::Tag { k: "uwu".into(), v: "owo".into() }]);
+				Request::CreateChangeset(tags) => {
+					let result = self.osm_client.create_changeset(tags);
 					self.sender.send(Response::CreatedChangeset(result)).unwrap()
 				}
 				Request::CloseChangeset(id) => {
