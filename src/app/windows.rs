@@ -142,7 +142,7 @@ pub fn download(ui: &Ui, bbox: &Bbox, busy: bool) -> Option<super::worker::Reque
 					let diff_x = (bbox.left - bbox.right) / 2.0;
 					let diff_y = (bbox.bottom - bbox.top) / 2.0;
 					// todo: error handling
-					Some(super::worker::Request::GetMap(Bbox{ left: bbox.left + diff_x, bottom: bbox.bottom - diff_y, right: bbox.right + diff_x, top: bbox.top - diff_y }))
+					Some(super::worker::Request::GetMap(Box::new(Bbox{ left: bbox.left + diff_x, bottom: bbox.bottom - diff_y, right: bbox.right + diff_x, top: bbox.top - diff_y })))
 				} else { None }
 			}).inner
 		})?.inner?

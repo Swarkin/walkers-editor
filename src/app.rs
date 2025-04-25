@@ -8,6 +8,7 @@ mod config;
 mod worker;
 mod visual;
 
+use crate::app::osmchange::Tag;
 use config::TargetServer;
 use editor::{consts::*, states::*};
 use eframe::egui;
@@ -94,13 +95,14 @@ impl eframe::App for MyApp {
 					self.editor.map_download_pending = false;
 				},
 				// todo: error handling using Result<String>
-				Response::Token(_) => {
+				Response::Token(token, target_server) => {
+					self.authenticator.token.insert(target_server, token);
 					self.authenticator.request_pending = false;
 				}
 				Response::CreatedChangeset(result) => {
 					self.uploader.changeset_creation = Some(result);
 				}
-				Response::ClosedChangeset(_) => {
+				Response::ClosedChangeset(_result) => {
 					todo!();
 				}
 			}
@@ -233,24 +235,30 @@ impl eframe::App for MyApp {
 						});
 					});
 
-					ui.add_space(10.0);
-					if ui.button("Create Changeset").clicked() {
-						self.worker_handle.sender.send(worker::Request::CreateChangeset).unwrap();
-					}
-
-					if let Some(result) = &self.uploader.changeset_creation {
-						match result {
-							Ok(id) => {
-								ui.horizontal(|ui| {
-									ui.label("Changeset ID: ");
-									ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.target_server_ui.base_url(), id));
-								});
-							}
-							Err(err) => {
-								ui.label(RichText::new(format!("Failed to create changeset:\n{err}")).color(ui.visuals().error_fg_color));
-							}
+					// todo: simple function to check whether authentication exists
+					if !self.authenticator.token.get(&self.target_server_ui).is_some_and(|x| x.is_ok()) {
+						ui.strong("Please authenticate to OSM using the Auth tab.");
+					} else {
+						ui.add_space(10.0);
+						if ui.button("Create Changeset").clicked() {
+							// todo: figure out why tags do not show up on OSM
+							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }]; // todo
+							self.worker_handle.sender.send(worker::Request::CreateChangeset(tags)).unwrap();
 						}
 
+						if let Some(result) = &self.uploader.changeset_creation {
+							match result {
+								Ok(id) => {
+									ui.horizontal(|ui| {
+										ui.label("Changeset ID: ");
+										ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.target_server_ui.base_url(), id));
+									});
+								}
+								Err(err) => {
+									ui.label(RichText::new(format!("Failed to create changeset:\n{err}")).color(ui.visuals().error_fg_color));
+								}
+							}
+						}
 					}
 				});
 			}
@@ -266,15 +274,23 @@ impl eframe::App for MyApp {
 					}
 
 					ui.add_space(10.0);
-					ui.label("1. Open this URL and follow the authorization process:");
-					ui.hyperlink(format!("https://{}", osm::auth_url(self.target_server_ui)));
 
-					ui.add_space(10.0);
-					ui.label("2. Paste the resulting code into the field below:");
-					let widget = TextEdit::singleline(&mut self.authenticator.token_text);
-					if ui.add_enabled(!self.authenticator.request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-						self.worker_handle.sender.send(worker::Request::RequestToken(self.authenticator.token_text.clone())).unwrap();
-						self.authenticator.request_pending = true;
+					if self.target_server_ui == TargetServer::OpenStreetMap {
+						ui.strong("The main OpenStreetMap instance is not available for editing in walkers as of now.");
+					} else {
+						ui.label("1. Open this URL and follow the authorization process:");
+						ui.hyperlink(osm::client_auth_url(self.target_server_ui));
+
+						ui.add_space(10.0);
+						ui.label("2. Paste the resulting code into the field below:");
+						let widget = TextEdit::singleline(&mut self.authenticator.authorization_code);
+						if ui.add_enabled(!self.authenticator.request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+							self.worker_handle.sender.send(worker::Request::FetchToken(self.authenticator.authorization_code.clone())).unwrap();
+							self.authenticator.request_pending = true;
+						}
+
+						// todo: ui should change based on the result of the authentication
+						// todo: logout button
 					}
 				});
 			}
