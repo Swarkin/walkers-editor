@@ -24,7 +24,7 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 pub fn width_default(w: &Way) -> f32 {
 	if let Some(building) = w.tags.get("building") {
 		return match building.as_str() {
-			"no" => DEFAULT_WIDTH,
+			"no" => DEFAULT_WAY_WIDTH,
 			_ => BUILDING_WIDTH,
 		}
 	} else if let Some(highway) = w.tags.get("highway") {
@@ -34,9 +34,9 @@ pub fn width_default(w: &Way) -> f32 {
 			"residential" => MINOR_ROAD_WIDTH,
 			"tertiary" | "secondary" | "primary" | "trunk" | "motorway" |
 			"tertiary_link" | "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => MAJOR_ROAD_WIDTH,
-			_ => DEFAULT_WIDTH,
+			_ => DEFAULT_WAY_WIDTH,
 		}
-	} else { DEFAULT_WIDTH }
+	} else { DEFAULT_WAY_WIDTH }
 }
 
 pub fn width_sidewalk(w: &Way) -> f32 {

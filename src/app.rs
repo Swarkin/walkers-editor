@@ -171,6 +171,7 @@ impl eframe::App for MyApp {
 						osm: &mut self.editor.editor_osm,
 						scale_factor: self.editor.scale_factor,
 						visualization: self.editor.selected_visualizer,
+						selection_mode: self.editor.selection_mode,
 						regenerate_points: self.editor.regenerate_points,
 						#[cfg(feature = "debug")]
 						debug_times: &mut self.debug_times,
@@ -198,7 +199,8 @@ impl eframe::App for MyApp {
 
 					if (self.editor.hidden_windows & (Windows::Tags as u8)) == 0 {
 						if let Some(id) = self.editor.editor_state.selected.or(self.editor.editor_state.hovered) {
-							windows::tags(ui, &self.editor.editor_osm.data.ways.get(&id).unwrap().tags);
+							let element = self.editor.editor_osm.get_by_id(&id).expect("id not found");
+							windows::tags(ui, element.tags());
 						}
 					}
 
@@ -207,7 +209,7 @@ impl eframe::App for MyApp {
 					}
 
 					if (self.editor.hidden_windows & (Windows::Controls as u8)) == 0 {
-						windows::controls(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
+						windows::controls(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
 					}
 
 					if (self.editor.hidden_windows & (Windows::Download as u8)) == 0 {

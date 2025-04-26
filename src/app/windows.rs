@@ -3,7 +3,7 @@ use super::osm::Bbox;
 use super::providers::Provider;
 #[cfg(feature = "debug")]
 use super::providers::TilesKind;
-use crate::app::editor::states::MapDownloadState;
+use crate::app::editor::states::{MapDownloadState, SelectionMode};
 use eframe::egui;
 use egui::{Align2, Grid, Ui, Window};
 use std::fmt::{Display, Formatter};
@@ -41,7 +41,7 @@ impl Windows {
 // todo: make const
 fn transparent_frame(style: &egui::Style) -> egui::Frame {
 	let mut frame = egui::Frame::window(style);
-	frame.fill = frame.fill.gamma_multiply(0.85);
+	frame.fill = frame.fill.gamma_multiply(0.9);
 	frame.shadow = egui::Shadow::NONE;
 	frame
 }
@@ -68,6 +68,7 @@ pub fn controls<'a>(
 	selected_provider: &mut Option<Provider>,
 	possible_providers: &mut impl Iterator<Item = &'a Provider>,
 	selected_visualization: &mut Visualization,
+	selection_mode: &mut SelectionMode,
 	scale_factor: &mut f32,
 	zoom_with_ctrl: &mut bool,
 ) {
@@ -95,12 +96,21 @@ pub fn controls<'a>(
 						}
 					});
 
-				egui::ComboBox::from_label("Visualization")
-					.selected_text(format!("{selected_visualization:?}"))
+				egui::ComboBox::from_label("Selection Mode")
+					.selected_text(format!("{selection_mode:?}"))
 					.show_ui(ui, |ui| {
-						ui.selectable_value(selected_visualization, Visualization::Default, "Default");
-						ui.selectable_value(selected_visualization, Visualization::Sidewalks, "Sidewalks");
+						ui.selectable_value(selection_mode, SelectionMode::Nodes, "Nodes");
+						ui.selectable_value(selection_mode, SelectionMode::Ways, "Ways");
 					});
+
+				ui.add_enabled_ui(*selection_mode == SelectionMode::Ways, |ui| {
+					egui::ComboBox::from_label("Visualization")
+						.selected_text(format!("{selected_visualization:?}"))
+						.show_ui(ui, |ui| {
+							ui.selectable_value(selected_visualization, Visualization::Default, "Default");
+							ui.selectable_value(selected_visualization, Visualization::Sidewalks, "Sidewalks");
+						});
+				});
 
 				ui.add(egui::Slider::new(scale_factor, 0.1..=2.0).text("Scale factor"));
 				ui.checkbox(zoom_with_ctrl, "Zoom with Ctrl");
