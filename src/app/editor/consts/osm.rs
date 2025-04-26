@@ -2,7 +2,8 @@
 
 use eframe::egui::Color32;
 
-pub const DEFAULT_WIDTH: f32 = 1.0;
+pub const DEFAULT_WAY_WIDTH: f32 = 1.0;
+pub const DEFAULT_NODE_SIZE: f32 = 3.0;
 pub const PATH_WIDTH: f32 = 2.5;
 pub const SERVICE_ROAD_WIDTH: f32 = 4.0;
 pub const MINOR_ROAD_WIDTH: f32 = 5.0;
