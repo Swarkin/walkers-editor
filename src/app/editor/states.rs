@@ -13,6 +13,7 @@ pub struct EditorState {
 	pub providers: HashMap<Provider, TilesKind>,
 	pub selected_provider: Option<Provider>,
 	pub selected_visualizer: Visualization,
+	pub selection_mode: SelectionMode,
 	pub map_memory: MapMemory,
 	pub editor_osm: EditorOsmData,
 	pub editor_state: EditorPluginState,
@@ -24,6 +25,14 @@ pub struct EditorState {
 	pub prev_pos: Position,
 	pub regenerate_points: bool,
 	pub map_download: MapDownloadState,
+}
+
+#[derive(Copy, Clone, Debug, Default, PartialEq)]
+pub enum SelectionMode {
+	Nodes,
+	#[default]
+	Ways,
+	//Relations,
 }
 
 pub enum MapDownloadState {
@@ -46,6 +55,7 @@ impl EditorState {
 			providers: providers(egui_ctx),
 			selected_provider: Some(Provider::default()),
 			selected_visualizer: Visualization::Default,
+			selection_mode: SelectionMode::default(),
 			map_memory: MapMemory::default(),
 			editor_osm: EditorOsmData::default(),
 			editor_state: EditorPluginState::default(),
