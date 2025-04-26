@@ -85,16 +85,17 @@ impl eframe::App for MyApp {
 		self.worker_handle.receiver.try_iter().for_each(|req| {
 			match req {
 				Response::Map(result) => {
-					match result {
-						Ok(downloaded_data) => {
-							osm::append_new_nodes_ways(&mut self.editor.editor_osm.data, *downloaded_data);
+					let r = match result {
+						Ok(data) => {
+							osm::append_new_nodes_ways(&mut self.editor.editor_osm.data, data);
 							self.editor.regenerate_points = true;
+							Ok(())
 						}
-						Err(err) => panic!("{err}"), // todo: error handling
-					}
-					self.editor.map_download_pending = false;
+						Err(e) => Err(e),
+					};
+
+					self.editor.map_download = MapDownloadState::Idle(Some(r));
 				},
-				// todo: error handling using Result<String>
 				Response::Token(token, target_server) => {
 					self.authenticator.token.insert(target_server, token);
 					self.authenticator.request_pending = false;
@@ -200,18 +201,22 @@ impl eframe::App for MyApp {
 							windows::tags(ui, &self.editor.editor_osm.data.ways.get(&id).unwrap().tags);
 						}
 					}
+
 					if (self.editor.hidden_windows & (Windows::History as u8)) == 0 {
 						windows::history(ui, &self.editor.editor_osm.changes);
 					}
+
 					if (self.editor.hidden_windows & (Windows::Controls as u8)) == 0 {
 						windows::controls(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
 					}
+
 					if (self.editor.hidden_windows & (Windows::Download as u8)) == 0 {
-						if let Some(request) = windows::download(ui, &self.editor.editor_state.map_bbox, self.editor.map_download_pending) {
+						if let Some(request) = windows::download(ui, &self.editor.editor_state.map_bbox, &self.editor.map_download) {
 							self.worker_handle.sender.send(request).unwrap();
-							self.editor.map_download_pending = true;
+							self.editor.map_download = MapDownloadState::Downloading;
 						}
 					}
+
 					#[cfg(feature = "debug")] {
 						self.debug_times.push(("windows", time_windows.elapsed().as_micros() as u32));
 						self.debug_times.push(("App::update", time_total.elapsed().as_micros() as u32));

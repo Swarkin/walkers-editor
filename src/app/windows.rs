@@ -3,6 +3,7 @@ use super::osm::Bbox;
 use super::providers::Provider;
 #[cfg(feature = "debug")]
 use super::providers::TilesKind;
+use crate::app::editor::states::MapDownloadState;
 use eframe::egui;
 use egui::{Align2, Grid, Ui, Window};
 use std::fmt::{Display, Formatter};
@@ -124,7 +125,7 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 		});
 }
 
-pub fn download(ui: &Ui, bbox: &Bbox, busy: bool) -> Option<super::worker::Request> {
+pub fn download(ui: &Ui, bbox: &Bbox, download_state: &MapDownloadState) -> Option<super::worker::Request> {
 	Window::new("Download")
 		.collapsible(true)
 		.resizable(false)
@@ -133,17 +134,27 @@ pub fn download(ui: &Ui, bbox: &Bbox, busy: bool) -> Option<super::worker::Reque
 		.frame(transparent_frame(ui.style()))
 		.show(ui.ctx(), |ui| {
 			ui.horizontal(|ui| {
-				if busy {
-					ui.spinner();
-				}
-
-				// todo: icon
-				if ui.add_enabled(!busy, egui::Button::new("Download Area")).clicked() {
+				let req = if ui.add_enabled(!download_state.is_busy(), egui::Button::new("Download Area")).clicked() {
 					let diff_x = (bbox.left - bbox.right) / 2.0;
 					let diff_y = (bbox.bottom - bbox.top) / 2.0;
-					// todo: error handling
 					Some(super::worker::Request::GetMap(Box::new(Bbox{ left: bbox.left + diff_x, bottom: bbox.bottom - diff_y, right: bbox.right + diff_x, top: bbox.top - diff_y })))
-				} else { None }
+				} else { None };
+
+				match &download_state {
+					MapDownloadState::Idle(prev) => {
+						if let Some(prev) = prev {
+							match prev {
+								Ok(_) => ui.strong("✔"),
+								Err(_) => ui.strong("✘"), // todo: global error modal / toast
+							};
+						}
+					}
+					MapDownloadState::Downloading => {
+						ui.spinner();
+					}
+				}
+
+				req
 			}).inner
 		})?.inner?
 }

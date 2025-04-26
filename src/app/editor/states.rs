@@ -1,9 +1,9 @@
 use super::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
 use crate::app::config::TargetServer;
 use crate::app::osm::OsmToken;
+use crate::app::osm::Result;
 use crate::app::osmchange::OsmChange;
 use crate::app::providers::{providers, Provider, TilesKind};
-use crate::app::worker::AnyError;
 use eframe::egui::{Context, Vec2};
 use std::collections::HashMap;
 use std::num::NonZeroU32;
@@ -23,7 +23,21 @@ pub struct EditorState {
 	pub prev_zoom: f64,
 	pub prev_pos: Position,
 	pub regenerate_points: bool,
-	pub map_download_pending: bool,
+	pub map_download: MapDownloadState,
+}
+
+pub enum MapDownloadState {
+	Idle(Option<Result<()>>),
+	Downloading,
+}
+
+impl MapDownloadState {
+	pub fn is_busy(&self) -> bool {
+		match self {
+			MapDownloadState::Idle(_) => false,
+			MapDownloadState::Downloading => true,
+		}
+	}
 }
 
 impl EditorState {
@@ -42,7 +56,7 @@ impl EditorState {
 			prev_zoom: 0.0,
 			prev_pos: Position::default(),
 			regenerate_points: false,
-			map_download_pending: false,
+			map_download: MapDownloadState::Idle(None),
 		}
 	}
 }
@@ -51,13 +65,13 @@ impl EditorState {
 pub struct UploaderState {
 	pub osmchange: OsmChange,
 	pub osmchange_text: String,
-	pub changeset_creation: Option<Result<NonZeroU32, AnyError>>,
+	pub changeset_creation: Option<Result<NonZeroU32>>,
 }
 
 #[derive(Default)]
 pub struct AuthenticatorState {
 	// todo: currently no way to check which server this belongs to
-	pub token: HashMap<TargetServer, Result<OsmToken, AnyError>>,
+	pub token: HashMap<TargetServer, Result<OsmToken>>,
 	pub authorization_code: String,
 	pub request_pending: bool,
 }

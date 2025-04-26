@@ -1,13 +1,11 @@
 use super::config::TargetServer;
 use super::osm;
-use crate::app::osm::OsmToken;
+use crate::app::osm::{OsmToken, Result};
 use crate::app::osmchange::Tag;
 use crossbeam_channel::{Receiver, Sender};
 use osm_parser::OsmData;
 use std::num::NonZeroU32;
 use std::thread::JoinHandle;
-
-pub type AnyError = Box<dyn std::error::Error + Sync + Send>;
 
 pub struct Worker {
 	pub osm_client: osm::OsmClient,
@@ -31,10 +29,10 @@ pub enum Request {
 
 #[derive(Debug)]
 pub enum Response {
-	Map(Result<Box<OsmData>, AnyError>),
-	Token(Result<OsmToken, AnyError>, TargetServer),
-	CreatedChangeset(Result<NonZeroU32, AnyError>),
-	ClosedChangeset(Result<NonZeroU32, AnyError>),
+	Map(Result<Box<OsmData>>),
+	Token(Result<OsmToken>, TargetServer),
+	CreatedChangeset(Result<NonZeroU32>),
+	ClosedChangeset(Result<NonZeroU32>),
 }
 
 impl Worker {
@@ -43,7 +41,7 @@ impl Worker {
 			match request {
 				Request::GetMap(bbox) => {
 					let data = self.osm_client.get_map(&bbox);
-					self.sender.send(Response::Map(Ok(Box::from(data)))).unwrap();
+					self.sender.send(Response::Map(data)).unwrap();
 				},
 				Request::SetTargetServer(target) => {
 					self.osm_client.target_server = target;

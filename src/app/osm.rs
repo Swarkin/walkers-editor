@@ -1,12 +1,14 @@
 use super::config::TargetServer;
 use super::osmchange::Tag;
-use crate::app::worker::AnyError;
 use osm_parser::types::*;
 use std::num::NonZeroU32;
 use std::{collections::HashMap, ops::Deref, time::Duration};
 
 const REDIRECT_URI: &str = "urn:ietf:wg:oauth:2.0:oob";
 const SCOPES: &str = "write_api";
+
+type AnyError = Box<dyn std::error::Error + Sync + Send>;
+pub type Result<T> = core::result::Result<T, AnyError>;
 
 #[derive(Debug, Default)]
 pub struct Bbox {
@@ -79,18 +81,19 @@ impl OsmClient {
 		format!("{}://{}/api/0.6{}", Self::PROTOCOL, server.base_url(), path.as_ref())
 	}
 
-	// todo: error type and unwraps
+	// todo: error type
 	// todo: move to xml api calls at some point to get rid of json crates
-	pub fn get_map(&self, bbox: &Bbox) -> OsmData {
+	pub fn get_map(&self, bbox: &Bbox) -> Result<Box<OsmData>> {
 		// always use the main osm instance to fetch map data
 		let url = Self::api_url_override(format!("/map.json?bbox={},{},{},{}", bbox.left, bbox.bottom, bbox.right, bbox.top), TargetServer::OpenStreetMap);
-		let resp = self.get(url).call().unwrap();
-		let raw = resp.into_body().read_json::<raw::RawOsmData>().unwrap();
-		raw.try_into().unwrap()
+		let resp = self.get(url).call()?;
+		let raw = resp.into_body().read_json::<raw::RawOsmData>()?;
+		let a: OsmData = raw.try_into()?;
+		Ok(Box::new(a))
 	}
 
 	// todo: error type
-	pub fn create_changeset(&self, tags: Vec<Tag>) -> Result<NonZeroU32, AnyError> {
+	pub fn create_changeset(&self, tags: Vec<Tag>) -> Result<NonZeroU32> {
 		let url = self.api_url("/changeset/create");
 		let auth = self.auth_token.get(&self.target_server).ok_or("missing auth token")?;
 		let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
@@ -104,17 +107,18 @@ impl OsmClient {
 	}
 
 	// todo: error type
-	pub fn close_changeset(&self, id: NonZeroU32) -> Result<(), ureq::Error> {
+	pub fn close_changeset(&self, id: NonZeroU32) -> Result<()> {
 		let url = self.api_url(format!("/changeset/{id}/close"));
-		let auth = self.auth_token.get(&self.target_server).unwrap();
+		let auth = self.auth_token.get(&self.target_server).ok_or("missing auth token")?;
 		self.put(url)
 			.header("authorization", format!("{} {}", auth.token_type, auth.access_token))
 			.send_empty()
 			.map(|_| ())
+			.map_err(Box::from)
 	}
 
 	// todo: error type
-	pub fn fetch_token(&self, auth_code: String) -> Result<OsmToken, AnyError> {
+	pub fn fetch_token(&self, auth_code: String) -> Result<OsmToken> {
 		let url = format!("{}://{}", Self::PROTOCOL, self.target_server.base_token_url());
 		let body = format!("grant_type=authorization_code&code={auth_code}&redirect_uri={REDIRECT_URI}&client_id={}", self.target_server.client_id());
 		let resp = self.post(url).header("content-type", "application/x-www-form-urlencoded").send(body)?;
@@ -128,7 +132,7 @@ pub fn client_auth_url(server: TargetServer) -> String {
 	format!("{}://{}?response_type=code&client_id={}&redirect_uri={REDIRECT_URI}&scope={SCOPES}", OsmClient::PROTOCOL, server.base_auth_url(), server.client_id())
 }
 
-pub fn append_new_nodes_ways(to: &mut OsmData, from: OsmData) {
+pub fn append_new_nodes_ways(to: &mut OsmData, from: Box<OsmData>) {
 	for (id, way) in from.ways.into_iter() {
 		// skip existing keys
 		if to.ways.contains_key(&id) {
