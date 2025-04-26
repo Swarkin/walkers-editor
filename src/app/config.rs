@@ -1,11 +1,5 @@
 //todo: clean up the MyApp struct and move editor config related things into this file
 
-#[derive(Default)]
-pub struct UploaderConfig {
-	target_server: TargetServer,
-	//uploader_state: UploaderState,
-}
-
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TargetServer {
 	OpenStreetMap,
