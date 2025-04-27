@@ -61,7 +61,7 @@ impl Worker {
 				}
 				Request::CloseChangeset(id) => {
 					let result = self.osm_client.close_changeset(id)
-						.map(|_| id).map_err(|e| e.into());
+						.map(|_| id);
 					self.sender.send(Response::ClosedChangeset(result)).unwrap()
 				}
 			}

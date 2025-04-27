@@ -82,56 +82,65 @@ impl Plugin for EditorPlugin<'_> {
 		};
 
 		/* draw osm data and determine hovered element */ {
-			match self.selection_mode {
-				SelectionMode::Nodes => {
-					let mut shapes = vec![];
-					for node in self.osm.data.nodes.values() {
-						let pos = *self.state.node_cache.get(&node.id).expect("id not found in cache");
+			for way in self.osm.data.ways.values() {
+				let points = self.get_nodes_in_way_cloned(way.id);
+				let width = self.way_width(way);
+				let color = self.way_color(way);
 
-						// determine hover
-						if self.state.hovered.is_none() {
-							if let Some(mouse) = resp.hover_pos() {
-								if pos.distance_sq(mouse) < 25.0 {
-									self.state.hovered = Some(node.id);
-								}
-							}
+				// todo: selection_mode should be a bitflag
+
+				// hover logic
+				if let Some(mouse) = resp.hover_pos() {
+					if self.selection_mode == SelectionMode::Ways && self.state.hovered.is_none() {
+						// determine hovered way
+						if is_way_hovered(&points, &mouse, width) {
+							self.state.hovered = Some(way.id);
 						}
 
-						// draw
-						shapes.push(Shape::Circle(CircleShape {
-							center: pos,
+					} else if self.selection_mode == SelectionMode::Nodes && self.state.hovered.is_none() {
+						// determine hovered node
+						for (pos, id) in points.iter().zip(&way.nodes) {
+							if is_node_hovered(pos, mouse, 20.0) {
+								self.state.hovered = Some(*id);
+							}
+						}
+					}
+				}
+
+				// draw logic
+				let shapes = if is_way_area(way) {
+					// draw area
+					vec![Shape::Path(PathShape {
+						points: points.iter().skip(1).copied().collect(),
+						closed: true,
+						fill: if color == DEFAULT_COLOR { Color32::TRANSPARENT } else { color.gamma_multiply(0.8) },
+						stroke:  PathStroke::new(width, color),
+					})]
+				} else {
+					let mut shapes = Vec::with_capacity(way.nodes.len() + 1); // node count + at least 1
+
+					// draw way
+					shapes.extend(match self.visualization {
+						Visualization::Default => visual::default(points, color, width),
+						Visualization::Sidewalks => visual::sidewalks(way, points, color, width),
+					});
+
+					// draw nodes
+					// todo: draw nodes that are not part of any ways
+					//   - todo: create 2 node id caches: nodes_in_ways and orphan_nodes
+					shapes.extend(way.nodes.iter().map(|node_id| {
+						Shape::Circle(CircleShape {
+							center: *self.state.node_cache.get(node_id).expect("id not found in cache"),
 							radius: DEFAULT_NODE_SIZE * self.scale_factor,
 							fill: Color32::WHITE,
-							stroke: Stroke::new(1.0, Color32::BLACK)
-						}));
-					}
+							stroke: Stroke::new(1.0, Color32::GRAY)
+						})
+					}));
 
-					ui.painter().extend(shapes);
-				}
-				SelectionMode::Ways => {
-					for way in self.osm.data.ways.values() {
-						let points = self.get_nodes_in_way_cloned(way.id);
-						let width = self.way_width(way);
-						let color = self.way_color(way);
+					shapes
+				};
 
-						// determine hover
-						if self.state.hovered.is_none() {
-							if let Some(mouse) = resp.hover_pos() {
-								if points.windows(2).any(|p| distance_to_segment(mouse, &[p[0], p[1]]) < width) {
-									self.state.hovered = Some(way.id);
-								}
-							}
-						}
-
-						// draw using selected visualization
-						let shapes = match self.visualization {
-							Visualization::Default => visual::default(points.clone(), color, width),
-							Visualization::Sidewalks => visual::sidewalks(way, points, color, width),
-						};
-
-						ui.painter().extend(shapes);
-					}
-				}
+				ui.painter().extend(shapes);
 			}
 		}
 
@@ -191,7 +200,7 @@ impl Plugin for EditorPlugin<'_> {
 
 				match element {
 					Element::Node(node) => {
-						let point = self.state.node_cache.get(&node.id).expect("id not found");
+						let point = self.state.node_cache.get(&node.id).expect("id not found in cache");
 
 						shapes_top.push(
 							Shape::Circle(CircleShape::stroke(
@@ -230,7 +239,7 @@ impl Plugin for EditorPlugin<'_> {
 impl EditorPlugin<'_> {
 	fn get_nodes_in_way_cloned(&self, way: Id) -> Vec<Pos2> {
 		self.osm.data.ways.get(&way).expect("way id must be valid").nodes.iter().map(|node_id| {
-			self.state.node_cache.get(node_id).expect("node id must be valid and cached").to_owned()
+			self.state.node_cache.get(node_id).expect("id not found in cache").to_owned()
 		}).collect()
 	}
 
@@ -247,6 +256,7 @@ impl EditorPlugin<'_> {
 			Visualization::Sidewalks => visual::color_sidewalk(way),
 		}
 	}
+
 
 	fn generate_points_cache(&mut self, projector: &Projector) {
 		debug_assert!(self.state.node_cache.is_empty());
@@ -275,7 +285,7 @@ pub fn coordinate_to_pos(c: &Coordinate) -> Position {
 	Position::new(c.lon, c.lat)
 }
 
-fn distance_to_segment(p: Pos2, points: &[Pos2; 2]) -> f32 {
+fn distance_to_segment(p: &Pos2, points: &[Pos2; 2]) -> f32 {
 	let x = points[0];
 	let y = points[1];
 
@@ -310,4 +320,32 @@ fn distance_to_segment(p: Pos2, points: &[Pos2; 2]) -> f32 {
 	let dx = p.x - xx;
 	let dy = p.y - yy;
 	(dx * dx + dy * dy).sqrt()
+}
+
+fn is_node_hovered(point: &Pos2, mouse: Pos2, distance_squared: f32) -> bool {
+	point.distance_sq(mouse) < distance_squared
+}
+
+fn is_way_hovered(points: &[Pos2], mouse: &Pos2, width: f32) -> bool {
+	points.windows(2).any(|p| distance_to_segment(mouse, &[p[0], p[1]]) < width)
+}
+
+fn is_way_closed(way: &Way) -> bool {
+	way.nodes.first() == way.nodes.last()
+}
+
+fn is_way_area(way: &Way) -> bool {
+	if !is_way_closed(way) { return false; }
+
+	if !way.tags.is_empty() {
+		for key in ["building", "landuse", "natural", "leisure", "amenity"] {
+			if way.tags.contains_key(key) { return true; }
+		}
+
+		if way.tags.get("area") == Some(&"yes".into()) {
+			return true;
+		}
+
+		false
+	} else { false }
 }

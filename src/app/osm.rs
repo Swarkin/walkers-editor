@@ -52,7 +52,7 @@ impl Deref for OsmClient {
 	}
 }
 
-// todo(26.04.2025): auto-add authorizazion token if available
+// todo: auto-add authorizazion token if available
 impl OsmClient {
 	/// Always use `https`.
 	const PROTOCOL: &'static str = "https";

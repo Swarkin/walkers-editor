@@ -32,7 +32,7 @@ pub enum SelectionMode {
 	Nodes,
 	#[default]
 	Ways,
-	//Relations,
+	//Areas, // todo
 }
 
 pub enum MapDownloadState {
