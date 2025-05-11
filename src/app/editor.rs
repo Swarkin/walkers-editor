@@ -71,11 +71,13 @@ impl Plugin for EditorPlugin<'_> {
 
 		/* (re)generate caches */ {
 			if self.regenerate_points {
+				#[cfg(feature = "debug")]
 				dbg!("points");
 				self.osm.reproject_nodes(projector);
 			}
 
 			if self.regenerate_orphan {
+				#[cfg(feature = "debug")]
 				dbg!("orphan");
 				self.osm.detect_orphan_nodes();
 			}
