@@ -9,6 +9,15 @@ use egui::{Align2, Grid, Ui};
 use std::fmt::{Display, Formatter};
 use walkers::sources::Attribution;
 
+const TRANSPARENT_FRAME: Frame = Frame {
+	inner_margin: Margin::same(6),
+	fill: Color32::from_gray(27),
+	stroke: Stroke { width: 1.0, color: Color32::from_gray(60) },
+	corner_radius: CornerRadius::same(6),
+	outer_margin: Margin::ZERO,
+	shadow: Shadow::NONE,
+};
+
 pub type WindowBitflag = u8;
 
 pub enum Window {
@@ -40,12 +49,6 @@ impl Window {
 	pub const ITER: [Window; 5] = [Window::Tags, Window::Map, Window::History, Window::Download, Window::Debug];
 }
 
-// todo: make const
-fn transparent_frame(style: &egui::Style) -> egui::Frame {
-	let mut frame = egui::Frame::window(style);
-	frame.fill = frame.fill.gamma_multiply(0.9);
-	frame.shadow = egui::Shadow::NONE;
-	frame
 }
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution) {
@@ -54,7 +57,7 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution) {
 		.resizable(false)
 		.title_bar(false)
 		.anchor(Align2::LEFT_BOTTOM, [10., -10.])
-		.frame(transparent_frame(ui.style()))
+		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			ui.horizontal(|ui| {
 				if let Some(logo) = attribution.logo_light {
@@ -65,6 +68,7 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution) {
 		});
 }
 
+		.frame(TRANSPARENT_FRAME)
 pub fn map<'a>(
 	ui: &Ui,
 	selected_provider: &mut Option<Provider>,
@@ -80,7 +84,7 @@ pub fn map<'a>(
 		.title_bar(false)
 		.fixed_size([150., 150.])
 		.anchor(Align2::RIGHT_BOTTOM, [-10., -10.])
-		.frame(transparent_frame(ui.style()))
+		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			ui.collapsing("Map", |ui| {
 				let selected_text = if let Some(selected_provider) = selected_provider {
@@ -125,7 +129,7 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 		.collapsible(true)
 		.resizable(false)
 		.anchor(Align2::LEFT_TOP, [10., 42.])
-		.frame(transparent_frame(ui.style()))
+		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			Grid::new("tags").show(ui, |ui| {
 				for (k, v) in tags {
@@ -143,7 +147,7 @@ pub fn download(ui: &Ui, bbox: &Bbox, download_state: &MapDownloadState) -> Opti
 		.resizable(false)
 		.title_bar(false)
 		.anchor(Align2::CENTER_BOTTOM, [0., -10.])
-		.frame(transparent_frame(ui.style()))
+		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			ui.horizontal(|ui| {
 				let req = if ui.add_enabled(!download_state.is_busy(), egui::Button::new("Download Area")).clicked() {
@@ -175,7 +179,7 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 	egui::Window::new("History")
 		.max_height(256.0)
 		.anchor(Align2::RIGHT_TOP, [-10., 42.])
-		.frame(transparent_frame(ui.style()))
+		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			if history.is_empty() {
 				ui.weak("Empty");
