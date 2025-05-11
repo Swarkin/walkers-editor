@@ -5,37 +5,39 @@ use super::providers::Provider;
 use super::providers::TilesKind;
 use crate::app::editor::states::{MapDownloadState, SelectionMode};
 use eframe::egui;
-use egui::{Align2, Grid, Ui, Window};
+use egui::{Align2, Grid, Ui};
 use std::fmt::{Display, Formatter};
 use walkers::sources::Attribution;
 
-pub enum Windows {
+pub type WindowBitflag = u8;
+
+pub enum Window {
 	Tags = 1 << 0,
-	Controls = 1 << 1,
+	Map = 1 << 1,
 	History = 1 << 2,
 	Download = 1 << 3,
 	#[cfg(feature = "debug")]
-	Debug = 1 << 4,
+	Debug = 1 << 7,
 }
 
-impl Display for Windows {
+impl Display for Window {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", match self {
-			Windows::Tags => "Tags",
-			Windows::Controls => "Controls",
-			Windows::History => "History",
-			Windows::Download => "Download",
+			Window::Tags => "Tags",
+			Window::Map => "Controls",
+			Window::History => "History",
+			Window::Download => "Download",
 			#[cfg(feature = "debug")]
-			Windows::Debug => "Debug",
+			Window::Debug => "Debug",
 		})
 	}
 }
 
-impl Windows {
+impl Window {
 	#[cfg(not(feature = "debug"))]
-	pub const ITER: [Windows; 4] = [Windows::Tags, Windows::Controls, Windows::History, Windows::Download];
+	pub const ITER: [Window; 4] = [Window::Tags, Window::Map, Window::History, Window::Download];
 	#[cfg(feature = "debug")]
-	pub const ITER: [Windows; 5] = [Windows::Tags, Windows::Controls, Windows::History, Windows::Download, Windows::Debug];
+	pub const ITER: [Window; 5] = [Window::Tags, Window::Map, Window::History, Window::Download, Window::Debug];
 }
 
 // todo: make const
@@ -47,7 +49,7 @@ fn transparent_frame(style: &egui::Style) -> egui::Frame {
 }
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution) {
-	Window::new("Acknowledge")
+	egui::Window::new("Acknowledge")
 		.collapsible(false)
 		.resizable(false)
 		.title_bar(false)
@@ -63,7 +65,7 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution) {
 		});
 }
 
-pub fn controls<'a>(
+pub fn map<'a>(
 	ui: &Ui,
 	selected_provider: &mut Option<Provider>,
 	possible_providers: &mut impl Iterator<Item = &'a Provider>,
@@ -72,7 +74,7 @@ pub fn controls<'a>(
 	scale_factor: &mut f32,
 	zoom_with_ctrl: &mut bool,
 ) {
-	Window::new("Controls")
+	egui::Window::new("Map")
 		.collapsible(false)
 		.resizable(false)
 		.title_bar(false)
@@ -119,7 +121,7 @@ pub fn controls<'a>(
 }
 
 pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
-	Window::new("Tags")
+	egui::Window::new("Tags")
 		.collapsible(true)
 		.resizable(false)
 		.anchor(Align2::LEFT_TOP, [10., 42.])
@@ -136,7 +138,7 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 }
 
 pub fn download(ui: &Ui, bbox: &Bbox, download_state: &MapDownloadState) -> Option<super::worker::Request> {
-	Window::new("Download")
+	egui::Window::new("Download")
 		.collapsible(true)
 		.resizable(false)
 		.title_bar(false)
@@ -170,7 +172,7 @@ pub fn download(ui: &Ui, bbox: &Bbox, download_state: &MapDownloadState) -> Opti
 }
 
 pub fn history(ui: &Ui, history: &Vec<Change>) {
-	Window::new("History")
+	egui::Window::new("History")
 		.max_height(256.0)
 		.anchor(Align2::RIGHT_TOP, [-10., 42.])
 		.frame(transparent_frame(ui.style()))

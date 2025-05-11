@@ -17,7 +17,7 @@ pub struct EditorState {
 	pub map_memory: MapMemory,
 	pub editor_osm: EditorOsmData,
 	pub editor_state: EditorPluginState,
-	pub hidden_windows: u8,
+	pub hidden_windows: WindowBitflag,
 	pub scale_factor: f32,
 	pub zoom_with_ctrl: bool,
 	pub prev_size: Vec2,
