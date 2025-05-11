@@ -59,11 +59,10 @@ impl Plugin for EditorPlugin<'_> {
 		/* update state.map_bbox */ {
 			let tl = projector.unproject(resp.rect.min.to_vec2() + resp.rect.center().to_vec2());
 			let br = projector.unproject(resp.rect.max.to_vec2() + resp.rect.center().to_vec2());
-			let left = tl.x();
-			let bottom = br.y();
-			let right = br.x();
-			let top = tl.y();
-			self.state.map_bbox = Bbox { left, bottom, right, top };
+			self.state.map_bbox.left = tl.x();
+			self.state.map_bbox.bottom = br.y();
+			self.state.map_bbox.right = br.x();
+			self.state.map_bbox.top = tl.y();
 		}
 
 		#[cfg(feature = "debug")]
