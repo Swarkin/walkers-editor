@@ -24,6 +24,7 @@ pub struct EditorState {
 	pub prev_zoom: f64,
 	pub prev_pos: Position,
 	pub regenerate_points: bool,
+	pub regenerate_orphan: bool,
 	pub map_download: MapDownloadState,
 }
 
@@ -66,6 +67,7 @@ impl EditorState {
 			prev_zoom: 0.0,
 			prev_pos: Position::default(),
 			regenerate_points: false,
+			regenerate_orphan: false,
 			map_download: MapDownloadState::Idle(None),
 		}
 	}
