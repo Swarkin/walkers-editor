@@ -48,8 +48,8 @@ pub struct MyApp {
 }
 
 impl MyApp {
-	pub fn new(egui_ctx: Context) -> Self {
-		egui_extras::install_image_loaders(&egui_ctx);
+	pub fn new(egui_ctx: &Context) -> Self {
+		egui_extras::install_image_loaders(egui_ctx);
 
 		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<worker::Request>();
 		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<Response>();
@@ -68,7 +68,7 @@ impl MyApp {
 
 		Self {
 			worker_handle,
-			editor: EditorState::default(egui_ctx),
+			editor: EditorState::new(egui_ctx),
 			uploader: UploaderState::default(),
 			authenticator: AuthenticatorState::default(),
 

@@ -51,7 +51,7 @@ impl MapDownloadState {
 }
 
 impl EditorState {
-	pub fn default(egui_ctx: Context) -> Self {
+	pub fn new(egui_ctx: &Context) -> Self {
 		Self {
 			providers: providers(egui_ctx),
 			selected_provider: Some(Provider::default()),

@@ -20,6 +20,6 @@ fn main() -> Result<(), eframe::Error> {
 	eframe::run_native(
 		"walkers-editor",
 		options,
-		Box::new(|cc| Ok(Box::new(MyApp::new(cc.egui_ctx.clone())))),
+		Box::new(|cc| Ok(Box::new(MyApp::new(&cc.egui_ctx)))),
 	)
 }
