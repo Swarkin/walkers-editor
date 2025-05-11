@@ -89,6 +89,7 @@ impl eframe::App for MyApp {
 						Ok(data) => {
 							osm::append_new_nodes_ways(&mut self.editor.editor_osm.data, data);
 							self.editor.regenerate_points = true;
+							self.editor.regenerate_orphan = true;
 							Ok(())
 						}
 						Err(e) => Err(e),
@@ -173,6 +174,7 @@ impl eframe::App for MyApp {
 						visualization: self.editor.selected_visualizer,
 						selection_mode: self.editor.selection_mode,
 						regenerate_points: self.editor.regenerate_points,
+						regenerate_orphan: self.editor.regenerate_orphan,
 						#[cfg(feature = "debug")]
 						debug_times: &mut self.debug_times,
 					};
@@ -190,6 +192,10 @@ impl eframe::App for MyApp {
 					self.editor.regenerate_points = self.editor.prev_zoom != self.editor.map_memory.zoom()
 						|| self.editor.prev_pos != self.editor.map_memory.detached().unwrap_or_else(places::school)
 						|| self.editor.prev_size != ctx.screen_rect().size();
+					
+					if self.editor.regenerate_orphan {
+						self.editor.regenerate_orphan = false;
+					}
 
 					#[cfg(feature = "debug")]
 					let time_windows = {
