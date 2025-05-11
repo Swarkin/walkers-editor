@@ -19,7 +19,7 @@ use osmchange::OsmChange;
 use std::time::Instant;
 use visual::load_icon;
 use walkers::{Map, Tiles};
-use windows::Windows;
+use windows::Window;
 use worker::{Response, Worker, WorkerHandle};
 
 #[cfg(feature = "debug")]
@@ -141,7 +141,7 @@ impl eframe::App for MyApp {
 						},
 						|ui| {
 							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg")), |ui| {
-								for window in Windows::ITER {
+								for window in Window::ITER {
 									let name = window.to_string();
 									let bit = window as u8;
 									let state = (self.editor.hidden_windows & bit) == 0;
@@ -192,7 +192,7 @@ impl eframe::App for MyApp {
 					self.editor.regenerate_points = self.editor.prev_zoom != self.editor.map_memory.zoom()
 						|| self.editor.prev_pos != self.editor.map_memory.detached().unwrap_or_else(places::school)
 						|| self.editor.prev_size != ctx.screen_rect().size();
-					
+
 					if self.editor.regenerate_orphan {
 						self.editor.regenerate_orphan = false;
 					}
@@ -203,22 +203,22 @@ impl eframe::App for MyApp {
 						Instant::now()
 					};
 
-					if (self.editor.hidden_windows & (Windows::Tags as u8)) == 0 {
+					if (self.editor.hidden_windows & (Window::Tags as u8)) == 0 {
 						if let Some(id) = self.editor.editor_state.selected.or(self.editor.editor_state.hovered) {
 							let element = self.editor.editor_osm.get_by_id(&id).expect("id not found");
 							windows::tags(ui, element.tags());
 						}
 					}
 
-					if (self.editor.hidden_windows & (Windows::History as u8)) == 0 {
+					if (self.editor.hidden_windows & (Window::History as u8)) == 0 {
 						windows::history(ui, &self.editor.editor_osm.changes);
 					}
 
-					if (self.editor.hidden_windows & (Windows::Controls as u8)) == 0 {
-						windows::controls(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
+					if (self.editor.hidden_windows & (Window::Map as u8)) == 0 {
+						windows::map(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
 					}
 
-					if (self.editor.hidden_windows & (Windows::Download as u8)) == 0 {
+					if (self.editor.hidden_windows & (Window::Download as u8)) == 0 {
 						if let Some(request) = windows::download(ui, &self.editor.editor_state.map_bbox, &self.editor.map_download) {
 							self.worker_handle.sender.send(request).unwrap();
 							self.editor.map_download = MapDownloadState::Downloading;
@@ -228,7 +228,7 @@ impl eframe::App for MyApp {
 					#[cfg(feature = "debug")] {
 						self.debug_times.push(("windows", time_windows.elapsed().as_micros() as u32));
 						self.debug_times.push(("App::update", time_total.elapsed().as_micros() as u32));
-						if (self.editor.hidden_windows & (Windows::Debug as u8)) == 0 {
+						if (self.editor.hidden_windows & (Window::Debug as u8)) == 0 {
 							let tiles = self.editor.selected_provider.as_ref()
 								.map(|a| self.editor.providers.get(a).unwrap());
 
