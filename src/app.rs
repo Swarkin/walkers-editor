@@ -9,6 +9,7 @@ mod worker;
 mod visual;
 
 use crate::app::osmchange::Tag;
+use crate::app::visual::TOP_BAR_ICON_SIZE;
 use config::TargetServer;
 use editor::{consts::*, states::*};
 use eframe::egui;
@@ -119,12 +120,12 @@ impl eframe::App for MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
-							let btn = title_bar_button("Editor", load_icon(ctx, egui::include_image!("../assets/ui/line.svg")));
+							let btn = title_bar_button("Editor", load_icon(ctx, egui::include_image!("../assets/ui/line.svg"), TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.view != View::Edit, btn).clicked() {
 								self.view = View::Edit;
 							}
 
-							let btn = title_bar_button("Upload", load_icon(ctx, egui::include_image!("../assets/ui/upload.svg")));
+							let btn = title_bar_button("Upload", load_icon(ctx, egui::include_image!("../assets/ui/upload.svg"), TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.view != View::Upload, btn).clicked() {
 								self.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
@@ -134,22 +135,17 @@ impl eframe::App for MyApp {
 								self.uploader.osmchange_text = self.uploader.osmchange.to_string_pretty().unwrap();
 							}
 
-							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg")));
+							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg"), TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.view != View::Auth, btn).clicked() {
 								self.view = View::Auth;
 							}
 						},
 						|ui| {
-							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg")), |ui| {
+							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg"), TOP_BAR_ICON_SIZE), |ui| {
 								for window in Window::ITER {
-									let name = window.to_string();
-									let bit = window as u8;
-									let state = (self.editor.hidden_windows & bit) == 0;
-									let mut change = state;
-
-									ui.toggle_value(&mut change, name);
-									if state != change {
-										self.editor.hidden_windows ^= bit;
+									let mut state = self.editor.hidden_windows & window as u8 == 0;
+									if ui.toggle_value(&mut state, window.to_string()).changed() {
+										self.editor.hidden_windows ^= window as u8;
 									}
 								}
 							});
@@ -223,6 +219,10 @@ impl eframe::App for MyApp {
 							self.worker_handle.sender.send(request).unwrap();
 							self.editor.map_download = MapDownloadState::Downloading;
 						}
+					}
+
+					if (self.editor.hidden_windows & (Window::Toolbar as u8)) == 0 {
+						windows::toolbar(ui, &mut self.editor.selection_mode);
 					}
 
 					#[cfg(feature = "debug")] {

@@ -11,13 +11,12 @@ use eframe::egui::{Color32, Mesh, Pos2, Response, Shape, Stroke, TextureId, Ui};
 use eframe::epaint::{CircleShape, PathShape, PathStroke, Vertex, WHITE_UV};
 use lyon_tessellation::geom::Point;
 use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
+use osm::DEFAULT_NODE_SIZE;
 use osm_parser::*;
-use states::SelectionMode;
+use states::{SelectionBitflag, SelectionFlag};
 use std::sync::Arc;
 use visual::Visualization;
 use walkers::{Plugin, Position, Projector};
-
-use crate::app::editor::consts::osm::DEFAULT_NODE_SIZE;
 #[cfg(feature = "debug")]
 use {super::DebugTimes, std::time::Instant};
 
@@ -26,7 +25,7 @@ pub struct EditorPlugin<'a> {
 	pub state: &'a mut EditorPluginState,
 	pub osm: &'a mut EditorOsmData,
 	pub visualization: Visualization,
-	pub selection_mode: SelectionMode,
+	pub selection_mode: SelectionBitflag,
 	pub scale_factor: f32,
 	pub regenerate_points: bool,
 	pub regenerate_orphan: bool,
@@ -99,20 +98,16 @@ impl Plugin for EditorPlugin<'_> {
 				// hover logic
 				if let Some(mouse) = hover {
 					if self.state.hovered.is_none() {
-						match self.selection_mode {
-							SelectionMode::Nodes => {
-								for (pos, id) in points.iter().zip(&way.nodes) {
-									if is_node_hovered(pos, mouse, width.powi(2)) {
-										self.state.hovered = Some(*id);
-									}
-								}
-							}
-							SelectionMode::Ways => {
-								if is_way_hovered(&points, &mouse, width) {
-									self.state.hovered = Some(way.id);
+						if (self.selection_mode & SelectionFlag::Nodes as u8) != 0 {
+							for (pos, id) in points.iter().zip(&way.nodes) {
+								if is_node_hovered(pos, mouse, width.powi(2)) {
+									self.state.hovered = Some(*id);
 								}
 							}
 						}
+						if (self.selection_mode & SelectionFlag::Ways as u8) != 0 && is_way_hovered(&points, &mouse, width) {
+                            self.state.hovered = Some(way.id);
+                        }
 					}
 				}
 
@@ -177,7 +172,7 @@ impl Plugin for EditorPlugin<'_> {
 					shapes.extend(way.nodes.iter().map(|node_id| {
 						Shape::Circle(CircleShape {
 							center: *self.osm.projected_nodes.get(node_id).expect("id not found in cache"),
-							radius: width * self.scale_factor,
+							radius: DEFAULT_NODE_SIZE * self.scale_factor,
 							fill: Color32::LIGHT_GRAY,
 							stroke: Stroke::new(1.0, Color32::GRAY)
 						})
@@ -194,7 +189,7 @@ impl Plugin for EditorPlugin<'_> {
 				let pos = *self.osm.projected_nodes.get(id).expect("id not found in cache");
 
 				if let Some(mouse) = hover {
-					if self.state.hovered.is_none() && self.selection_mode == SelectionMode::Nodes && is_node_hovered(&pos, mouse, (DEFAULT_NODE_SIZE * self.scale_factor).powi(2)) {
+					if self.state.hovered.is_none() && (self.selection_mode & (SelectionFlag::Nodes as u8)) != 0 && is_node_hovered(&pos, mouse, (DEFAULT_NODE_SIZE * self.scale_factor).powi(2)) {
 						self.state.hovered = Some(*id);
 					}
 				}
