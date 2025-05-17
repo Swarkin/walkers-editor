@@ -9,6 +9,7 @@ mod worker;
 mod visual;
 
 use crate::app::osmchange::Tag;
+use crate::app::visual::TOP_BAR_ICON_SIZE;
 use config::TargetServer;
 use editor::{consts::*, states::*};
 use eframe::egui;
@@ -19,7 +20,7 @@ use osmchange::OsmChange;
 use std::time::Instant;
 use visual::load_icon;
 use walkers::{Map, Tiles};
-use windows::Windows;
+use windows::Window;
 use worker::{Response, Worker, WorkerHandle};
 
 #[cfg(feature = "debug")]
@@ -48,8 +49,8 @@ pub struct MyApp {
 }
 
 impl MyApp {
-	pub fn new(egui_ctx: Context) -> Self {
-		egui_extras::install_image_loaders(&egui_ctx);
+	pub fn new(egui_ctx: &Context) -> Self {
+		egui_extras::install_image_loaders(egui_ctx);
 
 		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<worker::Request>();
 		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<Response>();
@@ -68,7 +69,7 @@ impl MyApp {
 
 		Self {
 			worker_handle,
-			editor: EditorState::default(egui_ctx),
+			editor: EditorState::new(egui_ctx),
 			uploader: UploaderState::default(),
 			authenticator: AuthenticatorState::default(),
 
@@ -89,6 +90,7 @@ impl eframe::App for MyApp {
 						Ok(data) => {
 							osm::append_new_nodes_ways(&mut self.editor.editor_osm.data, data);
 							self.editor.regenerate_points = true;
+							self.editor.regenerate_orphan = true;
 							Ok(())
 						}
 						Err(e) => Err(e),
@@ -118,12 +120,12 @@ impl eframe::App for MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
-							let btn = title_bar_button("Editor", load_icon(ctx, egui::include_image!("../assets/ui/line.svg")));
+							let btn = title_bar_button("Editor", load_icon(ctx, egui::include_image!("../assets/ui/line.svg"), TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.view != View::Edit, btn).clicked() {
 								self.view = View::Edit;
 							}
 
-							let btn = title_bar_button("Upload", load_icon(ctx, egui::include_image!("../assets/ui/upload.svg")));
+							let btn = title_bar_button("Upload", load_icon(ctx, egui::include_image!("../assets/ui/upload.svg"), TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.view != View::Upload, btn).clicked() {
 								self.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
@@ -133,22 +135,17 @@ impl eframe::App for MyApp {
 								self.uploader.osmchange_text = self.uploader.osmchange.to_string_pretty().unwrap();
 							}
 
-							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg")));
+							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg"), TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.view != View::Auth, btn).clicked() {
 								self.view = View::Auth;
 							}
 						},
 						|ui| {
-							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg")), |ui| {
-								for window in Windows::ITER {
-									let name = window.to_string();
-									let bit = window as u8;
-									let state = (self.editor.hidden_windows & bit) == 0;
-									let mut change = state;
-
-									ui.toggle_value(&mut change, name);
-									if state != change {
-										self.editor.hidden_windows ^= bit;
+							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg"), TOP_BAR_ICON_SIZE), |ui| {
+								for window in Window::ITER {
+									let mut state = self.editor.hidden_windows & window as u8 == 0;
+									if ui.toggle_value(&mut state, window.to_string()).changed() {
+										self.editor.hidden_windows ^= window as u8;
 									}
 								}
 							});
@@ -173,6 +170,7 @@ impl eframe::App for MyApp {
 						visualization: self.editor.selected_visualizer,
 						selection_mode: self.editor.selection_mode,
 						regenerate_points: self.editor.regenerate_points,
+						regenerate_orphan: self.editor.regenerate_orphan,
 						#[cfg(feature = "debug")]
 						debug_times: &mut self.debug_times,
 					};
@@ -191,38 +189,46 @@ impl eframe::App for MyApp {
 						|| self.editor.prev_pos != self.editor.map_memory.detached().unwrap_or_else(places::school)
 						|| self.editor.prev_size != ctx.screen_rect().size();
 
+					if self.editor.regenerate_orphan {
+						self.editor.regenerate_orphan = false;
+					}
+
 					#[cfg(feature = "debug")]
 					let time_windows = {
 						self.debug_times.push(("ui.add Map", time_total.elapsed().as_micros() as u32));
 						Instant::now()
 					};
 
-					if (self.editor.hidden_windows & (Windows::Tags as u8)) == 0 {
+					if (self.editor.hidden_windows & (Window::Tags as u8)) == 0 {
 						if let Some(id) = self.editor.editor_state.selected.or(self.editor.editor_state.hovered) {
 							let element = self.editor.editor_osm.get_by_id(&id).expect("id not found");
 							windows::tags(ui, element.tags());
 						}
 					}
 
-					if (self.editor.hidden_windows & (Windows::History as u8)) == 0 {
+					if (self.editor.hidden_windows & (Window::History as u8)) == 0 {
 						windows::history(ui, &self.editor.editor_osm.changes);
 					}
 
-					if (self.editor.hidden_windows & (Windows::Controls as u8)) == 0 {
-						windows::controls(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
+					if (self.editor.hidden_windows & (Window::Map as u8)) == 0 {
+						windows::map(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
 					}
 
-					if (self.editor.hidden_windows & (Windows::Download as u8)) == 0 {
+					if (self.editor.hidden_windows & (Window::Download as u8)) == 0 {
 						if let Some(request) = windows::download(ui, &self.editor.editor_state.map_bbox, &self.editor.map_download) {
 							self.worker_handle.sender.send(request).unwrap();
 							self.editor.map_download = MapDownloadState::Downloading;
 						}
 					}
 
+					if (self.editor.hidden_windows & (Window::Toolbar as u8)) == 0 {
+						windows::toolbar(ui, &mut self.editor.selection_mode);
+					}
+
 					#[cfg(feature = "debug")] {
 						self.debug_times.push(("windows", time_windows.elapsed().as_micros() as u32));
 						self.debug_times.push(("App::update", time_total.elapsed().as_micros() as u32));
-						if (self.editor.hidden_windows & (Windows::Debug as u8)) == 0 {
+						if (self.editor.hidden_windows & (Window::Debug as u8)) == 0 {
 							let tiles = self.editor.selected_provider.as_ref()
 								.map(|a| self.editor.providers.get(a).unwrap());
 
