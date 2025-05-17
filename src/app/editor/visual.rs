@@ -8,8 +8,7 @@ use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
 use osm_parser::Way;
 
-#[derive(Debug, Default, Clone, Copy)]
-#[derive(PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum Visualization {
 	#[default] Default,
 	Sidewalks,
@@ -23,12 +22,12 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 
 pub fn width_default(w: &Way) -> f32 {
 	if let Some(building) = w.tags.get("building") {
-		return match building.as_str() {
+		match building.as_str() {
 			"no" => DEFAULT_WAY_WIDTH,
 			_ => BUILDING_WIDTH,
 		}
 	} else if let Some(highway) = w.tags.get("highway") {
-		return match highway.as_str() {
+		match highway.as_str() {
 			"path" | "footway" | "steps" => PATH_WIDTH,
 			"service" | "track" => SERVICE_ROAD_WIDTH,
 			"residential" => MINOR_ROAD_WIDTH,
@@ -45,12 +44,12 @@ pub fn width_sidewalk(w: &Way) -> f32 {
 
 pub fn color_default(w: &Way) -> Color32 {
 	if let Some(building) = w.tags.get("building") {
-		return match building.as_str() {
+		match building.as_str() {
 			"no" => DEFAULT_COLOR,
 			_ => BUILDING_COLOR,
 		}
 	} else if let Some(highway) = w.tags.get("highway") {
-		return match highway.as_str() {
+		match highway.as_str() {
 			"path" => PATH_COLOR,
 			"footway" => FOOTWAY_COLOR,
 			"steps" => STEPS_COLOR,
