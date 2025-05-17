@@ -3,7 +3,7 @@ use osm_parser::convert::{Convert, Projection};
 use osm_parser::Coordinate;
 use std::collections::HashMap;
 use walkers::sources::{Attribution, TileSource};
-use walkers::{HttpOptions, HttpTiles, TileId, Tiles};
+use walkers::{HttpOptions, HttpTiles, MaxParallelDownloads, TileId, Tiles};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Provider {
@@ -92,6 +92,7 @@ pub fn http_options() -> HttpOptions {
 	HttpOptions {
 		cache: Some(".cache".into()),
 		user_agent: Some(walkers::HeaderValue::from_static(crate::USER_AGENT)),
+		max_parallel_downloads: MaxParallelDownloads(6),
 	}
 }
 
