@@ -2,7 +2,6 @@ use eframe::egui;
 use egui::{Color32, Context, Image, ImageSource, Vec2};
 
 pub const TOP_BAR_ICON_SIZE: f32 = 24.0;
-pub const TOOLBAR_ICON_SIZE: f32 = 32.0;
 const TINT_DARK: u8 = 222;
 const TINT_LIGHT: u8 = 22;
 
