@@ -1,11 +1,12 @@
 use super::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
 use crate::app::config::TargetServer;
-use crate::app::osm::OsmToken;
-use crate::app::osm::Result;
+use crate::app::osm::{OsmToken, Result};
 use crate::app::osmchange::OsmChange;
 use crate::app::providers::{providers, Provider, TilesKind};
+use crate::app::windows::WindowBitflag;
 use eframe::egui::{Context, Vec2};
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 use std::num::NonZeroU32;
 use walkers::{MapMemory, Position};
 
@@ -13,26 +14,43 @@ pub struct EditorState {
 	pub providers: HashMap<Provider, TilesKind>,
 	pub selected_provider: Option<Provider>,
 	pub selected_visualizer: Visualization,
-	pub selection_mode: SelectionMode,
+	pub selection_mode: SelectionBitflag,
 	pub map_memory: MapMemory,
 	pub editor_osm: EditorOsmData,
 	pub editor_state: EditorPluginState,
-	pub hidden_windows: u8,
+	pub hidden_windows: WindowBitflag,
 	pub scale_factor: f32,
 	pub zoom_with_ctrl: bool,
 	pub prev_size: Vec2,
 	pub prev_zoom: f64,
 	pub prev_pos: Position,
 	pub regenerate_points: bool,
+	pub regenerate_orphan: bool,
 	pub map_download: MapDownloadState,
 }
 
-#[derive(Copy, Clone, Debug, Default, PartialEq)]
-pub enum SelectionMode {
-	Nodes,
-	#[default]
-	Ways,
-	//Areas, // todo
+pub type SelectionBitflag = u8;
+
+#[derive(Copy, Clone, PartialEq)]
+#[repr(u8)]
+pub enum SelectionFlag {
+	Nodes = 1 << 0,
+	Ways = 1 << 1,
+	Areas = 1 << 2, // todo: implement
+}
+
+impl Display for SelectionFlag {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", match self {
+			SelectionFlag::Nodes => "Nodes",
+			SelectionFlag::Ways => "Ways",
+			SelectionFlag::Areas => "Areas",
+		})
+	}
+}
+
+impl SelectionFlag {
+	pub const ITER: [SelectionFlag; 3] = [SelectionFlag::Nodes, SelectionFlag::Ways, SelectionFlag::Areas];
 }
 
 pub enum MapDownloadState {
@@ -50,12 +68,12 @@ impl MapDownloadState {
 }
 
 impl EditorState {
-	pub fn default(egui_ctx: Context) -> Self {
+	pub fn new(egui_ctx: &Context) -> Self {
 		Self {
 			providers: providers(egui_ctx),
 			selected_provider: Some(Provider::default()),
 			selected_visualizer: Visualization::Default,
-			selection_mode: SelectionMode::default(),
+			selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
 			map_memory: MapMemory::default(),
 			editor_osm: EditorOsmData::default(),
 			editor_state: EditorPluginState::default(),
@@ -66,6 +84,7 @@ impl EditorState {
 			prev_zoom: 0.0,
 			prev_pos: Position::default(),
 			regenerate_points: false,
+			regenerate_orphan: false,
 			map_download: MapDownloadState::Idle(None),
 		}
 	}

@@ -96,7 +96,7 @@ pub fn http_options() -> HttpOptions {
 	}
 }
 
-pub fn providers(egui_ctx: Context) -> HashMap<Provider, TilesKind> {
+pub fn providers(egui_ctx: &Context) -> HashMap<Provider, TilesKind> {
 	let mut providers: HashMap<Provider, TilesKind> = HashMap::default();
 
 	providers.insert(
