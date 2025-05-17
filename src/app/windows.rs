@@ -11,7 +11,7 @@ use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, Im
 use std::fmt::{Display, Formatter};
 use walkers::sources::Attribution;
 
-const TOOLBAR_IMAGES: [ImageSource; 3] = [include_image!("../../assets/ui/primitives/node.svg"), include_image!("../../assets/ui/primitives/way.svg"), include_image!("../../assets/ui/primitives/area.svg")];
+const TOOLBAR_IMAGES: [ImageSource; 3] = [include_image!("../../assets/ui/primitives/node24.svg"), include_image!("../../assets/ui/primitives/way24.svg"), include_image!("../../assets/ui/primitives/area24.svg")];
 const TOOLBAR_SHORTCUTS: [KeyboardShortcut; 3] = [
 	KeyboardShortcut { modifiers: Modifiers::NONE, logical_key: Key::Num1 },
 	KeyboardShortcut { modifiers: Modifiers::NONE, logical_key: Key::Num2 },
@@ -203,11 +203,11 @@ pub fn toolbar(ui: &Ui, selection_flags: &mut SelectionBitflag) {
 		.anchor(Align2::LEFT_TOP, [WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN])
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
-			ui.spacing_mut().button_padding = Vec2::ZERO;
+			ui.spacing_mut().button_padding = Vec2::splat(2.0);
 			ui.horizontal(|ui| {
 				for ((flag, image), shortcut) in SelectionFlag::ITER.into_iter().zip(TOOLBAR_IMAGES).zip(&TOOLBAR_SHORTCUTS) {
 					let state = *selection_flags & flag as u8 != 0;
-					let image = Image::new(image).fit_to_exact_size(Vec2::splat(32.0)); // todo: see how it looks with 24x images
+					let image = Image::new(image).fit_to_exact_size(Vec2::splat(24.0)); // todo: see how it looks with 24x images
 
 					if ui.add(Button::image(image).selected(state).corner_radius(CornerRadius::same(4))).clicked() || ui.input_mut(|i| i.consume_shortcut(shortcut)) {
 						*selection_flags ^= flag as u8;
