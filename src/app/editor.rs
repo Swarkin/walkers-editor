@@ -33,7 +33,7 @@ pub struct EditorPlugin<'a> {
 	pub debug_times: &'a mut DebugTimes,
 }
 
-/// Data that persists between frames
+/// Data that persists or is produced between frames
 #[derive(Default)]
 pub struct EditorPluginState {
 	pub hovered: Option<Id>,

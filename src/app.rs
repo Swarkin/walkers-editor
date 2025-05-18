@@ -38,7 +38,7 @@ enum View {
 pub struct MyApp {
 	worker_handle: WorkerHandle,
 	view: View,
-	target_server_ui: TargetServer, // todo: use Arc<Mutex<T>> for data shared with worker
+	target_server_ui: TargetServer, // todo: use Arc<RwLock<T>> for data shared with worker
 
 	#[cfg(feature = "debug")]
 	debug_times: DebugTimes,
