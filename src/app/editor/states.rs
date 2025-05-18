@@ -1,5 +1,6 @@
 use super::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
 use crate::app::config::TargetServer;
+use crate::app::editor::visual::FillMode;
 use crate::app::osm::{OsmToken, Result};
 use crate::app::osmchange::OsmChange;
 use crate::app::providers::{providers, Provider, TilesKind};
@@ -14,6 +15,7 @@ pub struct EditorState {
 	pub providers: HashMap<Provider, TilesKind>,
 	pub selected_provider: Option<Provider>,
 	pub selected_visualizer: Visualization,
+	pub selected_fill_mode: FillMode,
 	pub selection_mode: SelectionBitflag,
 	pub map_memory: MapMemory,
 	pub editor_osm: EditorOsmData,
@@ -72,7 +74,8 @@ impl EditorState {
 		Self {
 			providers: providers(egui_ctx),
 			selected_provider: Some(Provider::default()),
-			selected_visualizer: Visualization::Default,
+			selected_visualizer: Visualization::default(),
+			selected_fill_mode: FillMode::default(),
 			selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
 			map_memory: MapMemory::default(),
 			editor_osm: EditorOsmData::default(),

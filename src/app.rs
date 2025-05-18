@@ -169,6 +169,7 @@ impl eframe::App for MyApp {
 						scale_factor: self.editor.scale_factor,
 						visualization: self.editor.selected_visualizer,
 						selection_mode: self.editor.selection_mode,
+						fill_mode: self.editor.selected_fill_mode,
 						regenerate_points: self.editor.regenerate_points,
 						regenerate_orphan: self.editor.regenerate_orphan,
 						#[cfg(feature = "debug")]
@@ -211,7 +212,7 @@ impl eframe::App for MyApp {
 					}
 
 					if (self.editor.hidden_windows & (Window::Map as u8)) == 0 {
-						windows::map(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
+						windows::map(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_fill_mode, &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
 					}
 
 					if (self.editor.hidden_windows & (Window::Download as u8)) == 0 {
