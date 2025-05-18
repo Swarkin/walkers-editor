@@ -207,27 +207,12 @@ pub fn toolbar(ui: &Ui, selection_flags: &mut SelectionBitflag) {
 			ui.horizontal(|ui| {
 				for ((flag, image), shortcut) in SelectionFlag::ITER.into_iter().zip(TOOLBAR_IMAGES).zip(&TOOLBAR_SHORTCUTS) {
 					let state = *selection_flags & flag as u8 != 0;
-					let image = Image::new(image).fit_to_exact_size(Vec2::splat(24.0)); // todo: see how it looks with 24x images
+					let image = Image::new(image).fit_to_exact_size(Vec2::splat(24.0));
 
 					if ui.add(Button::image(image).selected(state).corner_radius(CornerRadius::same(4))).clicked() || ui.input_mut(|i| i.consume_shortcut(shortcut)) {
 						*selection_flags ^= flag as u8;
 					}
 				}
-
-				//let btn = Button::image(load_icon(ui.ctx(), include_image!("../../assets/ui/primitives/node.svg"), TOOLBAR_ICON_SIZE));
-				//if ui.add(btn).clicked() {
-				//	*selection_mode ^= SelectionMode::Nodes as u8;
-				//}
-
-				//let btn = Button::image(load_icon(ui.ctx(), include_image!("../../assets/ui/primitives/way.svg"), TOOLBAR_ICON_SIZE));
-				//if ui.add(btn).clicked() {
-				//	*selection_mode ^= SelectionMode::Ways as u8;
-				//}
-
-				//let btn = Button::image(load_icon(ui.ctx(), include_image!("../../assets/ui/primitives/area.svg"), TOOLBAR_ICON_SIZE));
-				//if ui.add(btn).clicked() {
-				//	*selection_mode ^= SelectionMode::Areas as u8;
-				//}
 			});
 		});
 }
