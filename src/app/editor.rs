@@ -93,8 +93,6 @@ impl Plugin for EditorPlugin<'_> {
 				let width = self.way_width(way);
 				let color = self.way_color(way);
 
-				// todo: selection_mode should be a bitflag
-
 				// hover logic
 				if let Some(mouse) = hover {
 					if self.state.hovered.is_none() {
