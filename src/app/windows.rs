@@ -1,13 +1,13 @@
+use super::editor::consts::{TOP_BAR_HEIGHT, WINDOW_MARGIN};
+use super::editor::states::{MapDownloadState, SelectionBitflag, SelectionFlag};
+use super::editor::visual::FillMode;
 use super::editor::{changes::Change, visual::Visualization};
 use super::osm::Bbox;
 use super::providers::Provider;
 #[cfg(feature = "debug")]
 use super::providers::TilesKind;
-use crate::app::editor::consts::{TOP_BAR_HEIGHT, WINDOW_MARGIN};
-use crate::app::editor::states::{MapDownloadState, SelectionBitflag, SelectionFlag};
 use eframe::egui;
-use eframe::egui::{Image, Key, KeyboardShortcut, Modifiers};
-use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, ImageSource, Margin, Shadow, Stroke, Ui, Vec2};
+use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Shadow, Stroke, Ui, Vec2};
 use std::fmt::{Display, Formatter};
 use walkers::sources::Attribution;
 
@@ -100,6 +100,7 @@ pub fn map<'a>(
 	ui: &Ui,
 	selected_provider: &mut Option<Provider>,
 	possible_providers: &mut impl Iterator<Item = &'a Provider>,
+	selected_fill_mode: &mut FillMode,
 	selected_visualization: &mut Visualization,
 	selection_mode: &mut SelectionBitflag,
 	scale_factor: &mut f32,
@@ -126,6 +127,14 @@ pub fn map<'a>(
 							if ui.toggle_value(&mut selected, format!("{p:?}")).changed() {
 								*selected_provider = if selected { Some(*p) } else { None }
 							}
+						}
+					});
+
+				egui::ComboBox::from_label("Fill Mode")
+					.selected_text(format!("{selected_fill_mode:?}"))
+					.show_ui(ui, |ui| {
+						for fill_mode in FillMode::ITER {
+							ui.selectable_value(selected_fill_mode, fill_mode, format!("{fill_mode:?}"));
 						}
 					});
 

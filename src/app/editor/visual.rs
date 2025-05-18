@@ -14,6 +14,17 @@ pub enum Visualization {
 	Sidewalks,
 }
 
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub enum FillMode {
+	Wireframe,
+	#[default] Partial,
+	Full,
+}
+
+impl FillMode {
+	pub const ITER: [FillMode; 3] = [FillMode::Full, FillMode::Partial, FillMode::Wireframe];
+}
+
 pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 	UNCLASSIFIED, RESIDENTIAL, LIVING_STREET, PEDESTRIAN, SERVICE,
 	MOTORWAY, TRUNK, PRIMARY, SECONDARY, TERTIARY,

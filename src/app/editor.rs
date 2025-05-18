@@ -8,14 +8,14 @@ use super::osm::Bbox;
 use changes::*;
 use consts::*;
 use eframe::egui::{Color32, Mesh, Pos2, Response, Shape, Stroke, TextureId, Ui};
-use eframe::epaint::{CircleShape, PathShape, PathStroke, Vertex, WHITE_UV};
+use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, StrokeKind, Vertex, WHITE_UV};
 use lyon_tessellation::geom::Point;
 use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
 use osm::DEFAULT_NODE_SIZE;
 use osm_parser::*;
 use states::{SelectionBitflag, SelectionFlag};
 use std::sync::Arc;
-use visual::Visualization;
+use visual::{FillMode, Visualization};
 use walkers::{Plugin, Position, Projector};
 #[cfg(feature = "debug")]
 use {super::DebugTimes, std::time::Instant};
@@ -26,6 +26,7 @@ pub struct EditorPlugin<'a> {
 	pub osm: &'a mut EditorOsmData,
 	pub visualization: Visualization,
 	pub selection_mode: SelectionBitflag,
+	pub fill_mode: FillMode,
 	pub scale_factor: f32,
 	pub regenerate_points: bool,
 	pub regenerate_orphan: bool,
@@ -88,6 +89,9 @@ impl Plugin for EditorPlugin<'_> {
 		};
 
 		/* draw osm data and determine hovered element */ {
+			let len = self.osm.data.ways.len();
+			let mut shapes = Vec::<Shape>::with_capacity(len);
+
 			for way in self.osm.data.ways.values() {
 				let points = self.get_nodes_in_way_cloned(way.id);
 				let width = self.way_width(way);
@@ -110,56 +114,82 @@ impl Plugin for EditorPlugin<'_> {
 				}
 
 				// draw logic
-				let shapes = if is_way_area(way) {
-					debug_assert!(!points.is_empty());
-					let mut shapes = Vec::with_capacity(2);
+				if is_way_area(way) {
+					match self.fill_mode {
+						FillMode::Wireframe => {
+							shapes.push(PathShape::closed_line(
+								points.into_iter().skip(1).collect(),
+								PathStroke::new(width, color)
+							).into());
+						}
+						FillMode::Partial => {
+							shapes.push(PathShape::closed_line(
+								points.clone().into_iter().skip(1).collect(),
+								PathStroke::new(width, color)
+							).into());
 
-					// draw area
-					let mut builder = lyon_tessellation::path::Path::builder();
-					builder.begin(Point::new(points[0].x, points[0].y));
+							// todo: fix issue with polygons overlapping at low zoom levels and causing uneven visuals
+							shapes.push(PathShape::closed_line(
+								if let Some(order) = winding_order(&points) {
+									if order { points.into_iter().skip(1).collect() }
+									else { points.into_iter().rev().skip(1).collect() }
+								} else {
+									#[cfg(feature = "debug")]
+									panic!("failed to calculate winding order from {points}");
+									points.into_iter().skip(1).collect()
+								},
+								PathStroke {
+									width: 12.0,
+									color: ColorMode::Solid(color.gamma_multiply(0.5)),
+									kind: StrokeKind::Inside,
+								}
+							).into());
+						}
+						FillMode::Full => {
+							// draw area
+							let mut builder = lyon_tessellation::path::Path::builder();
+							builder.begin(Point::new(points[0].x, points[0].y));
 
-					for p in points.iter().skip(1) {
-						builder.line_to(Point::new(p.x, p.y));
-					}
-
-					builder.close();
-
-					// todo(performance): implement a cache that only reprojects elements on zoom
-					// this is very important to avoid expensive triangulation on every frame
-					let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
-					let mut tessellator = FillTessellator::new();
-
-					// todo: re-enable intersection handling
-					tessellator.tessellate_path(
-						&builder.build(),
-						&FillOptions::default().with_intersections(false),
-						&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
-							Vertex {
-								pos: Pos2::from(vertex.position().to_array()),
-								uv: WHITE_UV,
-								color: color.gamma_multiply(0.7),
+							for p in points.iter().skip(1) {
+								builder.line_to(Point::new(p.x, p.y));
 							}
-						}),
-					).expect("path tesselation failed");
 
-					shapes.push(Shape::Mesh(Arc::new(Mesh {
-						indices: geometry.indices,
-						vertices: geometry.vertices,
-						texture_id: TextureId::Managed(0),
-					})));
+							builder.close();
 
-					// draw stroke
-					shapes.push(Shape::Path(PathShape {
-						points: points.into_iter().skip(1).collect(),
-						closed: true,
-						fill: Color32::TRANSPARENT,
-						stroke:  PathStroke::new(width, color),
-					}));
+							// todo(performance): implement a cache that only reprojects elements on zoom
+							// this is very important to avoid expensive triangulation on every frame
+							let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
+							let mut tessellator = FillTessellator::new();
 
-					shapes
+							// todo: re-enable intersection handling
+							tessellator.tessellate_path(
+								&builder.build(),
+								&FillOptions::default().with_intersections(false),
+								&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
+									Vertex {
+										pos: Pos2::from(vertex.position().to_array()),
+										uv: WHITE_UV,
+										color: color.gamma_multiply(0.7),
+									}
+								}),
+							).expect("path tesselation failed");
+
+							shapes.push(Shape::Mesh(Arc::new(Mesh {
+								indices: geometry.indices,
+								vertices: geometry.vertices,
+								texture_id: TextureId::Managed(0),
+							})));
+
+							// draw stroke
+							shapes.push(PathShape {
+								points: points.into_iter().skip(1).collect(),
+								closed: true,
+								fill: Color32::TRANSPARENT,
+								stroke:  PathStroke::new(width, color),
+							}.into());
+						}
+					}
 				} else {
-					let mut shapes = Vec::with_capacity(way.nodes.len() + 1); // node count + at least 1
-
 					// draw way
 					shapes.extend(match self.visualization {
 						Visualization::Default => visual::default(points, color, width),
@@ -175,12 +205,11 @@ impl Plugin for EditorPlugin<'_> {
 							stroke: Stroke::new(1.0, Color32::GRAY)
 						})
 					}));
-
-					shapes
 				};
-
-				ui.painter().extend(shapes);
 			}
+
+			debug_assert!(shapes.len() >= len, "overallocated shape buffer: {} - {len}", shapes.len());
+			ui.painter().extend(shapes);
 
 			// draw orphan nodes and determine hovered
 			ui.painter().extend(self.osm.orphan_nodes.iter().map(|id| {
@@ -192,13 +221,14 @@ impl Plugin for EditorPlugin<'_> {
 					}
 				}
 
-				Shape::Circle(CircleShape {
+				CircleShape {
 					center: pos,
 					radius: DEFAULT_NODE_SIZE * self.scale_factor,
 					fill: Color32::WHITE,
 					stroke: Stroke::new(1.0, Color32::GRAY)
-				})
+				}.into()
 			}));
+
 		}
 
 		#[cfg(feature = "debug")]
@@ -218,7 +248,7 @@ impl Plugin for EditorPlugin<'_> {
 						let pos = *self.osm.projected_nodes.get(&node.id).expect("id not found in cache");
 
 						shapes_top.push(
-							Shape::Circle(CircleShape::stroke(pos, DEFAULT_NODE_SIZE * self.scale_factor, Stroke::new(DEFAULT_NODE_SIZE, HOVER_COLOR)))
+							CircleShape::stroke(pos, DEFAULT_NODE_SIZE * self.scale_factor, Stroke::new(DEFAULT_NODE_SIZE, HOVER_COLOR)).into()
 						);
 
 						if resp.clicked() {
@@ -229,9 +259,9 @@ impl Plugin for EditorPlugin<'_> {
 						let points = self.get_nodes_in_way_cloned(way.id);
 
 						shapes_top.push(
-							Shape::Path(PathShape::line(
+							PathShape::line(
 								points, PathStroke::new(self.way_width(way) + HOVER_SIZE_INCREASE, HOVER_COLOR)
-							))
+							).into()
 						);
 
 						if resp.clicked() { // selected
@@ -394,17 +424,35 @@ fn is_way_closed(way: &Way) -> bool {
 }
 
 fn is_way_area(way: &Way) -> bool {
-	if !is_way_closed(way) { return false; }
+	if !is_way_closed(way) || way.nodes.len() < 3 || way.tags.is_empty() { return false; }
 
-	if !way.tags.is_empty() {
-		for key in ["building", "landuse", "natural", "leisure", "amenity"] {
-			if way.tags.contains_key(key) { return true; }
-		}
+	for key in ["building", "landuse", "natural", "leisure", "amenity"] {
+		if way.tags.contains_key(key) { return true; }
+	}
 
-		if way.tags.get("area") == Some(&"yes".into()) {
-			return true;
-		}
+	if way.tags.get("area") == Some(&"yes".into()) { return true; }
 
-		false
-	} else { false }
+	false
+}
+
+fn winding_order(points: &[Pos2]) -> Option<bool> {
+	let n = points.len();
+	if n < 3 {
+		return None;
+	}
+
+	let mut area = 0.0;
+	for i in 0..n {
+		let p1 = points[i];
+		let p2 = points[(i + 1) % n];
+		area += (p1.x * p2.y) - (p2.x * p1.y);
+	}
+
+	if area > 0.0 {
+		Some(true)
+	} else if area < 0.0 {
+		Some(false)
+	} else {
+		None
+	}
 }
