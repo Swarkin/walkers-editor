@@ -28,6 +28,7 @@ pub struct EditorPlugin<'a> {
 	pub selection_mode: SelectionBitflag,
 	pub fill_mode: FillMode,
 	pub scale_factor: f32,
+	pub current_zoom: f64,
 	pub regenerate_points: bool,
 	pub regenerate_orphan: bool,
 	#[cfg(feature = "debug")]
@@ -113,9 +114,16 @@ impl Plugin for EditorPlugin<'_> {
 					}
 				}
 
+				// override fill mode
+				let mut target_fill_mode = self.fill_mode;
+
+				if target_fill_mode == FillMode::Partial && self.current_zoom < FILL_MODE_THRESHOLD {
+					target_fill_mode = FillMode::Full
+				};
+
 				// draw logic
 				if is_way_area(way) {
-					match self.fill_mode {
+					match target_fill_mode {
 						FillMode::Wireframe => {
 							shapes.push(PathShape::closed_line(
 								points.into_iter().skip(1).collect(),
@@ -128,7 +136,7 @@ impl Plugin for EditorPlugin<'_> {
 								PathStroke::new(width, color)
 							).into());
 
-							// todo: fix issue with polygons overlapping at low zoom levels and causing uneven visuals
+							// todo: https://github.com/Swarkin/walkers-editor/issues/9
 							shapes.push(PathShape::closed_line(
 								if let Some(order) = winding_order(&points) {
 									if order { points.into_iter().skip(1).collect() }

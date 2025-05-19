@@ -8,6 +8,8 @@ pub const TOP_BAR_BUTTON_SIZE: f32 = 28.0;
 
 pub const WINDOW_MARGIN: f32 = 8.0;
 
+pub const FILL_MODE_THRESHOLD: f64 = 18.0;
+
 pub const HOVER_COLOR: Color32 = Color32::from_rgb(100, 200, 255);
 pub const HOVER_SIZE_INCREASE: f32 = 1.0;
 pub const SELECTION_COLOR: Color32 = Color32::from_rgb(40, 180, 255);

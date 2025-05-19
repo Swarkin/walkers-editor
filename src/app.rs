@@ -167,6 +167,7 @@ impl eframe::App for MyApp {
 						state: &mut self.editor.editor_state,
 						osm: &mut self.editor.editor_osm,
 						scale_factor: self.editor.scale_factor,
+						current_zoom: self.editor.map_memory.zoom(),
 						visualization: self.editor.selected_visualizer,
 						selection_mode: self.editor.selection_mode,
 						fill_mode: self.editor.selected_fill_mode,
