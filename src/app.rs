@@ -9,6 +9,7 @@ mod worker;
 mod visual;
 
 use crate::app::osmchange::Tag;
+use crate::app::providers::providers;
 use crate::app::visual::TOP_BAR_ICON_SIZE;
 use config::TargetServer;
 use editor::{consts::*, states::*};
@@ -16,15 +17,10 @@ use eframe::egui;
 use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
 use osm::OsmClient;
 use osmchange::OsmChange;
-#[cfg(feature = "debug")]
-use std::time::Instant;
 use visual::load_icon;
 use walkers::{Map, Tiles};
 use windows::Window;
 use worker::{Response, Worker, WorkerHandle};
-
-#[cfg(feature = "debug")]
-type DebugTimes = Vec<(&'static str, u32)>;
 
 #[derive(Default, PartialEq)]
 enum View {
@@ -39,10 +35,6 @@ pub struct MyApp {
 	worker_handle: WorkerHandle,
 	view: View,
 	target_server_ui: TargetServer, // todo: use Arc<RwLock<T>> for data shared with worker
-
-	#[cfg(feature = "debug")]
-	debug_times: DebugTimes,
-
 	editor: EditorState,
 	uploader: UploaderState,
 	authenticator: AuthenticatorState,
@@ -69,14 +61,12 @@ impl MyApp {
 
 		Self {
 			worker_handle,
-			editor: EditorState::new(egui_ctx),
+			editor: EditorState::new(providers(egui_ctx)),
 			uploader: UploaderState::default(),
 			authenticator: AuthenticatorState::default(),
 
 			view: Default::default(),
 			target_server_ui: Default::default(),
-			#[cfg(feature = "debug")]
-			debug_times: Default::default(),
 		}
 	}
 }
@@ -88,9 +78,7 @@ impl eframe::App for MyApp {
 				Response::Map(result) => {
 					let r = match result {
 						Ok(data) => {
-							osm::append_new_nodes_ways(&mut self.editor.editor_osm.data, data);
-							self.editor.regenerate_points = true;
-							self.editor.regenerate_orphan = true;
+							self.editor.osm_data.append_new_nodes_ways(data);
 							Ok(())
 						}
 						Err(e) => Err(e),
@@ -112,7 +100,11 @@ impl eframe::App for MyApp {
 		});
 
 		TopBottomPanel::top("bar")
-			.frame(Frame { fill: if ctx.style().visuals.dark_mode { Color32::from_gray(32) } else { Color32::from_gray(243) }, inner_margin: Margin::same(4), ..Default::default() })
+			.frame(Frame {
+				fill: Color32::from_gray(if ctx.style().visuals.dark_mode { 32 } else { 243 }),
+				inner_margin: Margin::same(4),
+				..Default::default()
+			})
 			.exact_height(TOP_BAR_HEIGHT)
 			.show(ctx, |ui| {
 				ui.spacing_mut().button_padding = Vec2::splat(2.0);
@@ -129,7 +121,7 @@ impl eframe::App for MyApp {
 							if ui.add_enabled(self.view != View::Upload, btn).clicked() {
 								self.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
-								self.uploader.osmchange = OsmChange::from(&self.editor.editor_osm.changes);
+								self.uploader.osmchange = OsmChange::from(&self.editor.osm_data.changes);
 								self.uploader.osmchange.prepare_upload(0); // temporary
 								// todo: handle Err case
 								self.uploader.osmchange_text = self.uploader.osmchange.to_string_pretty().unwrap();
@@ -143,9 +135,9 @@ impl eframe::App for MyApp {
 						|ui| {
 							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg"), TOP_BAR_ICON_SIZE), |ui| {
 								for window in Window::ITER {
-									let mut state = self.editor.hidden_windows & window as u8 == 0;
+									let mut state = self.editor.window_flags & window as u8 == 0;
 									if ui.toggle_value(&mut state, window.to_string()).changed() {
-										self.editor.hidden_windows ^= window as u8;
+										self.editor.window_flags ^= window as u8;
 									}
 								}
 							});
@@ -157,24 +149,23 @@ impl eframe::App for MyApp {
 		match self.view {
 			View::Edit => {
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
-					#[cfg(feature = "debug")]
-					let time_total = Instant::now();
-
-					self.editor.prev_zoom = self.editor.map_memory.zoom();
-					self.editor.prev_pos = self.editor.map_memory.detached().unwrap_or_else(places::school);
+					// determine whether regenerating a cache is necessary
+					// todo: avoid reprojection on window resize
+					let curr_zoom = self.editor.map_memory.zoom();
+					if self.editor.prev_zoom != curr_zoom || self.editor.prev_size != ctx.screen_rect().size() {
+						self.editor.osm_data.cache_flags ^= CacheFlag::Projection as u8;
+						self.editor.prev_zoom = curr_zoom;
+					}
 
 					let editor_plugin = editor::EditorPlugin {
-						state: &mut self.editor.editor_state,
-						osm: &mut self.editor.editor_osm,
+						state: &mut self.editor.plugin_state,
+						osm: &mut self.editor.osm_data,
 						scale_factor: self.editor.scale_factor,
 						current_zoom: self.editor.map_memory.zoom(),
+						current_pos: self.editor.map_memory.detached().unwrap_or_else(places::school),
 						visualization: self.editor.selected_visualizer,
 						selection_mode: self.editor.selection_mode,
 						fill_mode: self.editor.selected_fill_mode,
-						regenerate_points: self.editor.regenerate_points,
-						regenerate_orphan: self.editor.regenerate_orphan,
-						#[cfg(feature = "debug")]
-						debug_times: &mut self.debug_times,
 					};
 
 					if let Some(selected_provider) = &self.editor.selected_provider {
@@ -185,56 +176,46 @@ impl eframe::App for MyApp {
 						map(ui, None, &mut self.editor.map_memory, self.editor.zoom_with_ctrl, editor_plugin);
 					};
 
-					// determine whether regenerating the points cache is necessary
-					// todo(optimization): store and use a simple pan offset to avoid recalculating points on move
-					self.editor.regenerate_points = self.editor.prev_zoom != self.editor.map_memory.zoom()
-						|| self.editor.prev_pos != self.editor.map_memory.detached().unwrap_or_else(places::school)
-						|| self.editor.prev_size != ctx.screen_rect().size();
-
-					if self.editor.regenerate_orphan {
-						self.editor.regenerate_orphan = false;
-					}
-
-					#[cfg(feature = "debug")]
-					let time_windows = {
-						self.debug_times.push(("ui.add Map", time_total.elapsed().as_micros() as u32));
-						Instant::now()
-					};
-
-					if (self.editor.hidden_windows & (Window::Tags as u8)) == 0 {
-						if let Some(id) = self.editor.editor_state.selected.or(self.editor.editor_state.hovered) {
-							let element = self.editor.editor_osm.get_by_id(&id).expect("id not found");
+					if (self.editor.window_flags & (Window::Tags as u8)) == 0 {
+						if let Some(id) = self.editor.plugin_state.selected.or(self.editor.plugin_state.hovered) {
+							let element = self.editor.osm_data.get(&id).expect("id not found");
 							windows::tags(ui, element.tags());
 						}
 					}
 
-					if (self.editor.hidden_windows & (Window::History as u8)) == 0 {
-						windows::history(ui, &self.editor.editor_osm.changes);
+					if (self.editor.window_flags & (Window::History as u8)) == 0 {
+						windows::history(ui, &self.editor.osm_data.changes);
 					}
 
-					if (self.editor.hidden_windows & (Window::Map as u8)) == 0 {
-						windows::map(ui, &mut self.editor.selected_provider, &mut self.editor.providers.keys(), &mut self.editor.selected_fill_mode, &mut self.editor.selected_visualizer, &mut self.editor.selection_mode, &mut self.editor.scale_factor, &mut self.editor.zoom_with_ctrl);
+					if (self.editor.window_flags & (Window::Map as u8)) == 0 {
+						windows::map(ui,
+							&mut self.editor.selected_provider,
+							&mut self.editor.providers.keys(),
+							&mut self.editor.selected_fill_mode,
+							&mut self.editor.selected_visualizer,
+							&mut self.editor.selection_mode,
+							&mut self.editor.scale_factor,
+							&mut self.editor.zoom_with_ctrl,
+						);
 					}
 
-					if (self.editor.hidden_windows & (Window::Download as u8)) == 0 {
-						if let Some(request) = windows::download(ui, &self.editor.editor_state.map_bbox, &self.editor.map_download) {
+					if (self.editor.window_flags & (Window::Download as u8)) == 0 {
+						if let Some(request) = windows::download(ui, &self.editor.plugin_state.map_bbox, &self.editor.map_download) {
 							self.worker_handle.sender.send(request).unwrap();
 							self.editor.map_download = MapDownloadState::Downloading;
 						}
 					}
 
-					if (self.editor.hidden_windows & (Window::Toolbar as u8)) == 0 {
+					if (self.editor.window_flags & (Window::Toolbar as u8)) == 0 {
 						windows::toolbar(ui, &mut self.editor.selection_mode);
 					}
 
 					#[cfg(feature = "debug")] {
-						self.debug_times.push(("windows", time_windows.elapsed().as_micros() as u32));
-						self.debug_times.push(("App::update", time_total.elapsed().as_micros() as u32));
-						if (self.editor.hidden_windows & (Window::Debug as u8)) == 0 {
+						if (self.editor.window_flags & (Window::Debug as u8)) == 0 {
 							let tiles = self.editor.selected_provider.as_ref()
 								.map(|a| self.editor.providers.get(a).unwrap());
 
-							windows::debug(ui, &self.debug_times, self.editor.selected_provider.as_ref(), tiles);
+							windows::debug(ui, self.editor.selected_provider.as_ref(), tiles);
 						}
 					}
 
@@ -310,9 +291,6 @@ impl eframe::App for MyApp {
 				});
 			}
 		}
-
-		#[cfg(feature = "debug")]
-		self.debug_times.clear();
 	}
 }
 

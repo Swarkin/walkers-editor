@@ -1,7 +1,7 @@
 use super::editor::consts::{TOP_BAR_HEIGHT, WINDOW_MARGIN};
 use super::editor::states::{MapDownloadState, SelectionBitflag, SelectionFlag};
 use super::editor::visual::FillMode;
-use super::editor::{changes::Change, visual::Visualization};
+use super::editor::{cache::Change, visual::Visualization};
 use super::osm::Bbox;
 use super::providers::Provider;
 #[cfg(feature = "debug")]
@@ -227,24 +227,14 @@ pub fn toolbar(ui: &Ui, selection_flags: &mut SelectionBitflag) {
 }
 
 #[cfg(feature = "debug")]
-pub fn debug(ui: &Ui, debug_times: &super::DebugTimes, selected_provider: Option<&Provider>, provider: Option<&TilesKind>) {
-	Window::new("Debug")
+pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&TilesKind>) {
+	egui::Window::new("Debug")
 		.collapsible(true)
 		.resizable(false)
 		.anchor(Align2::CENTER_TOP, [0., 42.])
-		.frame(transparent_frame(ui.style()))
+		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
-			let biggest = debug_times.iter().map(|(_, time)| time).max().unwrap();
-
-			for (text, duration) in debug_times {
-				let text = egui::WidgetText::from(format!("{: >6.2} ms: {text}", *duration as f32 / 1000.)).monospace();
-				if duration == biggest {
-					ui.label(text.strong());
-				} else {
-					ui.label(text);
-				}
-			}
-
+			ui.heading(format!("Δt: {} ms", ui.input(|i| i.unstable_dt) * 1000.0));
 			if let Some(p) = provider {
 				let TilesKind::Http(http_tiles) = p;
 				let stats = http_tiles.stats();

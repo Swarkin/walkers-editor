@@ -5,6 +5,8 @@ use std::collections::HashMap;
 use walkers::sources::{Attribution, TileSource};
 use walkers::{HttpOptions, HttpTiles, MaxParallelDownloads, TileId, Tiles};
 
+pub type ProviderMap = HashMap<Provider, TilesKind>;
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Provider {
 	#[default]
@@ -96,8 +98,8 @@ pub fn http_options() -> HttpOptions {
 	}
 }
 
-pub fn providers(egui_ctx: &Context) -> HashMap<Provider, TilesKind> {
-	let mut providers: HashMap<Provider, TilesKind> = HashMap::default();
+pub fn providers(egui_ctx: &Context) -> ProviderMap {
+	let mut providers = ProviderMap::default();
 
 	providers.insert(
 		Provider::OpenStreetMap,
