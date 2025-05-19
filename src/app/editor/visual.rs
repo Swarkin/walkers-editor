@@ -1,5 +1,5 @@
 use super::attribute2d::{Attribute2D, TagValue};
-use super::changes::Change;
+use super::cache::Change;
 use super::consts::osm::*;
 use super::consts::*;
 use eframe::egui;

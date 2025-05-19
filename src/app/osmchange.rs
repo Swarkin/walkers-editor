@@ -1,7 +1,7 @@
 // osmchange data structures
 // todo: find a way to reduce number of structs and conversions
 
-use super::editor::changes::Change;
+use super::editor::cache::Change;
 use quick_xml::{se::Serializer, SeError};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

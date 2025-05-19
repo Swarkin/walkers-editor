@@ -1,15 +1,15 @@
-use super::{changes::EditorOsmData, visual::Visualization, EditorPluginState};
+use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState};
 use crate::app::config::TargetServer;
 use crate::app::editor::visual::FillMode;
 use crate::app::osm::{OsmToken, Result};
 use crate::app::osmchange::OsmChange;
-use crate::app::providers::{providers, Provider, TilesKind};
+use crate::app::providers::{Provider, ProviderMap, TilesKind};
 use crate::app::windows::WindowBitflag;
-use eframe::egui::{Context, Vec2};
+use eframe::egui::Vec2;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 use std::num::NonZeroU32;
-use walkers::{MapMemory, Position};
+use walkers::MapMemory;
 
 pub struct EditorState {
 	pub providers: HashMap<Provider, TilesKind>,
@@ -18,16 +18,13 @@ pub struct EditorState {
 	pub selected_fill_mode: FillMode,
 	pub selection_mode: SelectionBitflag,
 	pub map_memory: MapMemory,
-	pub editor_osm: EditorOsmData,
-	pub editor_state: EditorPluginState,
-	pub hidden_windows: WindowBitflag,
+	pub osm_data: EditorOsmData,
+	pub plugin_state: EditorPluginState,
+	pub window_flags: WindowBitflag,
 	pub scale_factor: f32,
 	pub zoom_with_ctrl: bool,
 	pub prev_size: Vec2,
 	pub prev_zoom: f64,
-	pub prev_pos: Position,
-	pub regenerate_points: bool,
-	pub regenerate_orphan: bool,
 	pub map_download: MapDownloadState,
 }
 
@@ -55,6 +52,15 @@ impl SelectionFlag {
 	pub const ITER: [SelectionFlag; 3] = [SelectionFlag::Nodes, SelectionFlag::Ways, SelectionFlag::Areas];
 }
 
+pub type CacheBitflag = u8;
+
+#[derive(Copy, Clone, PartialEq)]
+#[repr(u8)]
+pub enum CacheFlag {
+	Projection = 1 << 0,
+	Orphan = 1 << 1,
+}
+
 pub enum MapDownloadState {
 	Idle(Option<Result<()>>),
 	Downloading,
@@ -70,24 +76,21 @@ impl MapDownloadState {
 }
 
 impl EditorState {
-	pub fn new(egui_ctx: &Context) -> Self {
+	pub fn new(providers: ProviderMap) -> Self {
 		Self {
-			providers: providers(egui_ctx),
+			providers,
 			selected_provider: Some(Provider::default()),
 			selected_visualizer: Visualization::default(),
 			selected_fill_mode: FillMode::default(),
 			selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
 			map_memory: MapMemory::default(),
-			editor_osm: EditorOsmData::default(),
-			editor_state: EditorPluginState::default(),
-			hidden_windows: 0,
+			osm_data: EditorOsmData::default(),
+			plugin_state: EditorPluginState::default(),
+			window_flags: 0,
 			scale_factor: 1.0,
 			zoom_with_ctrl: true,
 			prev_size: Vec2::ZERO,
 			prev_zoom: 0.0,
-			prev_pos: Position::default(),
-			regenerate_points: false,
-			regenerate_orphan: false,
 			map_download: MapDownloadState::Idle(None),
 		}
 	}
