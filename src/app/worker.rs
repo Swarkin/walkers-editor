@@ -29,7 +29,7 @@ pub enum Request {
 
 #[derive(Debug)]
 pub enum Response {
-	Map(Result<Box<OsmData>>),
+	Map(Result<OsmData>),
 	Token(Result<OsmToken>, TargetServer),
 	CreatedChangeset(Result<NonZeroU32>),
 	ClosedChangeset(Result<NonZeroU32>),

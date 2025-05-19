@@ -83,13 +83,12 @@ impl OsmClient {
 
 	// todo: error type
 	// todo: move to xml api calls at some point to get rid of json crates
-	pub fn get_map(&self, bbox: &Bbox) -> Result<Box<OsmData>> {
+	pub fn get_map(&self, bbox: &Bbox) -> Result<OsmData> {
 		// always use the main osm instance to fetch map data
 		let url = Self::api_url_override(format!("/map.json?bbox={},{},{},{}", bbox.left, bbox.bottom, bbox.right, bbox.top), TargetServer::OpenStreetMap);
 		let resp = self.get(url).call()?;
 		let raw = resp.into_body().read_json::<raw::RawOsmData>()?;
-		let a: OsmData = raw.try_into()?;
-		Ok(Box::new(a))
+		raw.try_into()
 	}
 
 	// todo: error type
@@ -130,24 +129,4 @@ impl OsmClient {
 // this isnt inside the OsmClient impl for now, since the ui code has no access to it yet
 pub fn client_auth_url(server: TargetServer) -> String {
 	format!("{}://{}?response_type=code&client_id={}&redirect_uri={REDIRECT_URI}&scope={SCOPES}", OsmClient::PROTOCOL, server.base_auth_url(), server.client_id())
-}
-
-pub fn append_new_nodes_ways(to: &mut OsmData, from: Box<OsmData>) {
-	for (id, way) in from.ways.into_iter() {
-		// skip existing keys
-		if to.ways.contains_key(&id) {
-			continue;
-		}
-
-		to.ways.insert(id, way);
-	}
-
-	for (id, node) in from.nodes.into_iter() {
-		// skip existing keys
-		if to.nodes.contains_key(&id) {
-			continue;
-		}
-
-		to.nodes.insert(id, node);
-	}
 }
