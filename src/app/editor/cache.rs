@@ -5,6 +5,8 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use walkers::{Position, Projector};
 
+pub const MAX_OFFSET: f32 = 4000.0; // arbitrary threshold, may not be required?
+
 pub type ProjectedNodeCache = HashMap<Id, Pos2>;
 pub type OrphanNodeCache = HashSet<Id>;
 
