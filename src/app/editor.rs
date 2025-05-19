@@ -43,6 +43,7 @@ impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
 	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
 		/* cache invalidation */ {
+			// todo: fix 1 frame delay
 			if self.osm.cache_flags & CacheFlag::Projection as u8 != 0 {
 				self.osm.reproject_nodes(projector, self.current_pos);
 			} else {
