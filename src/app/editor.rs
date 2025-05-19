@@ -50,7 +50,13 @@ impl Plugin for EditorPlugin<'_> {
 				let p_start = projector.project(self.osm.start_pos);
 				let p_current = projector.project(self.current_pos);
 				let diff = p_start - p_current;
-				self.osm.offset = diff;
+
+				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
+					// reproject occasionally to minify possible precision errors?
+					self.osm.reproject_nodes(projector, self.current_pos);
+				} else {
+					self.osm.offset = diff;
+				}
 			}
 
 			if self.osm.cache_flags & CacheFlag::Orphan as u8 != 0 {
