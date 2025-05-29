@@ -8,6 +8,7 @@ mod config;
 mod worker;
 mod visual;
 
+use crate::app::editor::visual::FillMode;
 use crate::app::osmchange::Tag;
 use crate::app::providers::providers;
 use crate::app::visual::TOP_BAR_ICON_SIZE;
@@ -153,15 +154,17 @@ impl eframe::App for MyApp {
 					// todo: avoid reprojection on window resize
 					let curr_zoom = self.editor.map_memory.zoom();
 					if self.editor.prev_zoom != curr_zoom || self.editor.prev_size != ctx.screen_rect().size() {
-						self.editor.osm_data.cache_flags ^= CacheFlag::Projection as u8;
-						self.editor.prev_zoom = curr_zoom;
+						self.editor.osm_data.cache_flags |= CacheFlag::Projection as u8 | CacheFlag::Triangulation as u8;
 					}
 
+					self.editor.prev_zoom = curr_zoom;
+
+					// construct plugin
 					let editor_plugin = editor::EditorPlugin {
 						state: &mut self.editor.plugin_state,
 						osm: &mut self.editor.osm_data,
 						scale_factor: self.editor.scale_factor,
-						current_zoom: self.editor.map_memory.zoom(),
+						current_zoom: curr_zoom,
 						current_pos: self.editor.map_memory.detached().unwrap_or_else(places::school),
 						visualization: self.editor.selected_visualizer,
 						selection_mode: self.editor.selection_mode,
@@ -188,6 +191,8 @@ impl eframe::App for MyApp {
 					}
 
 					if (self.editor.window_flags & (Window::Map as u8)) == 0 {
+						let prev_fill_mode = self.editor.selected_fill_mode;
+
 						windows::map(ui,
 							&mut self.editor.selected_provider,
 							&mut self.editor.providers.keys(),
@@ -197,6 +202,10 @@ impl eframe::App for MyApp {
 							&mut self.editor.scale_factor,
 							&mut self.editor.zoom_with_ctrl,
 						);
+
+						if self.editor.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
+							self.editor.osm_data.cache_flags |= CacheFlag::Triangulation as u8;
+						}
 					}
 
 					if (self.editor.window_flags & (Window::Download as u8)) == 0 {

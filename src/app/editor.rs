@@ -5,15 +5,12 @@ pub mod attribute2d;
 pub mod states;
 
 use super::osm::Bbox;
-use crate::app::editor::states::CacheFlag;
 use cache::*;
 use consts::{osm::DEFAULT_NODE_SIZE, *};
-use eframe::egui::{Color32, Mesh, Pos2, Response, Shape, Stroke, TextureId, Ui};
-use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, StrokeKind, Vertex, WHITE_UV};
-use lyon_tessellation::geom::Point;
-use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
+use eframe::egui::{Color32, Pos2, Response, Shape, Stroke, Ui};
+use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, StrokeKind};
 use osm_parser::*;
-use states::{SelectionBitflag, SelectionFlag};
+use states::{CacheFlag, SelectionBitflag, SelectionFlag};
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
 use walkers::{Plugin, Position, Projector};
@@ -43,25 +40,41 @@ impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
 	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
 		/* cache invalidation */ {
+			let current_projected = projector.project(self.current_pos);
+
 			// todo: fix 1 frame delay
 			if self.osm.cache_flags & CacheFlag::Projection as u8 != 0 {
 				self.osm.reproject_nodes(projector, self.current_pos);
 			} else {
 				// update move offset
-				let p_start = projector.project(self.osm.start_pos);
-				let p_current = projector.project(self.current_pos);
-				let diff = p_start - p_current;
+				let p_start = projector.project(self.osm.node_start);
+				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
 					// reproject occasionally to minify possible precision errors?
 					self.osm.reproject_nodes(projector, self.current_pos);
 				} else {
-					self.osm.offset = diff;
+					self.osm.node_offset = diff;
 				}
 			}
 
 			if self.osm.cache_flags & CacheFlag::Orphan as u8 != 0 {
 				self.osm.redetect_orphan_nodes();
+			}
+
+			if self.osm.cache_flags & CacheFlag::Triangulation as u8 != 0 {
+				self.osm.retriangulate_way_meshes(self.current_pos);
+			} else {
+				// update move offset
+				let p_start = projector.project(self.osm.mesh_start);
+				let diff = p_start - current_projected;
+
+				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
+					// reproject occasionally to minify possible precision errors?
+					self.osm.retriangulate_way_meshes(self.current_pos);
+				} else {
+					self.osm.mesh_offset = diff;
+				}
 			}
 		}
 
@@ -90,7 +103,7 @@ impl Plugin for EditorPlugin<'_> {
 			let mut shapes = Vec::<Shape>::with_capacity(len);
 
 			for way in self.osm.data.ways.values() {
-				let points = self.osm.get_node_positions_in_way_owned(way.id);
+				let points = self.osm.get_projected_positions_in_way(way.id);
 				let width = self.way_width(way);
 				let color = self.way_color(way);
 
@@ -144,44 +157,15 @@ impl Plugin for EditorPlugin<'_> {
 								},
 								PathStroke {
 									width: 12.0,
-									color: ColorMode::Solid(color.gamma_multiply(0.5)),
+									color: ColorMode::Solid(color.gamma_multiply(FILL_MODE_GAMMA_MULTIPLY)),
 									kind: StrokeKind::Inside,
 								}
 							).into());
 						}
 						FillMode::Full => {
 							// draw area
-							let mut builder = lyon_tessellation::path::Path::builder();
-							builder.begin(Point::new(points[0].x, points[0].y));
-
-							for p in points.iter().skip(1) {
-								builder.line_to(Point::new(p.x, p.y));
-							}
-
-							builder.close();
-
-							// todo: avoid expensive triangulation every frame
-							let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
-							let mut tessellator = FillTessellator::new();
-
-							// todo: intersection handling
-							tessellator.tessellate_path(
-								&builder.build(),
-								&FillOptions::default().with_intersections(false),
-								&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
-									Vertex {
-										pos: Pos2::from(vertex.position().to_array()),
-										uv: WHITE_UV,
-										color: color.gamma_multiply(0.7),
-									}
-								}),
-							).expect("path tesselation failed");
-
-							shapes.push(Shape::Mesh(Arc::new(Mesh {
-								indices: geometry.indices,
-								vertices: geometry.vertices,
-								texture_id: TextureId::Managed(0),
-							})));
+							let mesh = self.osm.get_way_mesh(&way.id, color.gamma_multiply(FILL_MODE_GAMMA_MULTIPLY));
+							shapes.push(Shape::Mesh(Arc::new(mesh)));
 
 							// draw stroke
 							shapes.push(PathShape {
@@ -202,7 +186,7 @@ impl Plugin for EditorPlugin<'_> {
 					// draw nodes
 					shapes.extend(way.nodes.iter().map(|node_id| {
 						Shape::Circle(CircleShape {
-							center: self.osm.get_projected_pos_owned(node_id).expect("id not found in cache"),
+							center: self.osm.get_projected_pos(node_id).expect("id not found in cache"),
 							radius: DEFAULT_NODE_SIZE * self.scale_factor,
 							fill: Color32::LIGHT_GRAY,
 							stroke: Stroke::new(1.0, Color32::GRAY)
@@ -216,7 +200,7 @@ impl Plugin for EditorPlugin<'_> {
 
 			// draw orphan nodes and determine hovered
 			ui.painter().extend(self.osm.orphan_nodes.iter().map(|id| {
-				let pos = self.osm.get_projected_pos_owned(id).expect("id not found in cache");
+				let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
 
 				if let Some(mouse) = hover {
 					if self.state.hovered.is_none()
@@ -244,7 +228,7 @@ impl Plugin for EditorPlugin<'_> {
 
 				match element {
 					ElementRef::Node(node) => {
-						let pos = self.osm.get_projected_pos_owned(&node.id).expect("id not found in cache");
+						let pos = self.osm.get_projected_pos(&node.id).expect("id not found in cache");
 
 						shapes_top.push(
 							CircleShape::stroke(pos, DEFAULT_NODE_SIZE * self.scale_factor, Stroke::new(DEFAULT_NODE_SIZE, HOVER_COLOR)).into()
@@ -255,7 +239,7 @@ impl Plugin for EditorPlugin<'_> {
 						}
 					}
 					ElementRef::Way(way) => {
-						let points = self.osm.get_node_positions_in_way_owned(way.id);
+						let points = self.osm.get_projected_positions_in_way(way.id);
 
 						shapes_top.push(
 							PathShape::line(
@@ -283,7 +267,7 @@ impl Plugin for EditorPlugin<'_> {
 
 				match element {
 					ElementRef::Node(node) => {
-						let point = self.osm.get_projected_pos_owned(&node.id).expect("id not found in cache");
+						let point = self.osm.get_projected_pos(&node.id).expect("id not found in cache");
 
 						shapes_top.push(
 							Shape::Circle(CircleShape::stroke(
@@ -292,7 +276,7 @@ impl Plugin for EditorPlugin<'_> {
 						);
 					}
 					ElementRef::Way(way) => {
-						let points = self.osm.get_node_positions_in_way_owned(way.id);
+						let points = self.osm.get_projected_positions_in_way(way.id);
 
 						if is_way_closed(way) {
 							shapes_top.push(
