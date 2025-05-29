@@ -59,6 +59,7 @@ pub type CacheBitflag = u8;
 pub enum CacheFlag {
 	Projection = 1 << 0,
 	Orphan = 1 << 1,
+	Triangulation = 1 << 2,
 }
 
 pub enum MapDownloadState {
