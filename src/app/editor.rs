@@ -105,8 +105,8 @@ impl Plugin for EditorPlugin<'_> {
 							}
 						}
 						if (self.selection_mode & SelectionFlag::Ways as u8) != 0 && is_way_hovered(&points, &mouse, width) {
-                      self.state.hovered = Some(way.id);
-                  }
+							self.state.hovered = Some(way.id);
+						}
 					}
 				}
 
@@ -188,7 +188,7 @@ impl Plugin for EditorPlugin<'_> {
 								points: points.into_iter().skip(1).collect(),
 								closed: true,
 								fill: Color32::TRANSPARENT,
-								stroke:  PathStroke::new(width, color),
+								stroke: PathStroke::new(width, color),
 							}.into());
 						}
 					}
@@ -234,7 +234,6 @@ impl Plugin for EditorPlugin<'_> {
 					stroke: Stroke::new(1.0, Color32::GRAY)
 				}.into()
 			}));
-
 		}
 
 		/* draw hovered element and determine if it was selected */ {
@@ -317,7 +316,6 @@ impl Plugin for EditorPlugin<'_> {
 						}
 					}
 				}
-
 			}
 		}
 
@@ -377,12 +375,10 @@ fn distance_to_segment(p: &Pos2, points: &[Pos2; 2]) -> f32 {
 	if param < 0f32 {
 		xx = x.x;
 		yy = x.y;
-	}
-	else if param > 1f32 {
+	} else if param > 1f32 {
 		xx = y.x;
 		yy = y.y;
-	}
-	else {
+	} else {
 		xx = x.x + param * c;
 		yy = x.y + param * d;
 	}
