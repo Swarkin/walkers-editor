@@ -1,5 +1,10 @@
+use crate::app::editor::is_way_area;
 use crate::app::editor::states::{CacheBitflag, CacheFlag};
-use eframe::egui::{Pos2, Vec2};
+use eframe::egui::{Color32, Mesh, Pos2, TextureId, Vec2};
+use eframe::epaint::{Vertex, WHITE_UV};
+use lyon_tessellation::geom::Point;
+use lyon_tessellation::path::Path;
+use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
 use osm_parser::{Coordinate, Id, Node, OsmData, Tags, Way};
 use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
@@ -9,6 +14,12 @@ pub const MAX_OFFSET: f32 = 4000.0; // arbitrary threshold, may not be required?
 
 pub type ProjectedNodeCache = HashMap<Id, Pos2>;
 pub type OrphanNodeCache = HashSet<Id>;
+pub type WayMeshCache = HashMap<Id, MeshData>;
+
+pub struct MeshData {
+	pub indices: Vec<u32>,
+	pub vertices: Vec<Vertex>,
+}
 
 #[derive(Debug)]
 pub enum Change {
@@ -30,7 +41,7 @@ impl Display for Change {
 }
 
 // stores the soure data, changes, and handles caching.
-#[derive(Debug, Default)]
+#[derive(Default)]
 pub struct EditorOsmData {
 	pub data: OsmData, // latest state of the osm data
 	pub changes: Vec<Change>,
@@ -38,10 +49,13 @@ pub struct EditorOsmData {
 	// caches
 	projected_nodes: ProjectedNodeCache,
 	pub orphan_nodes: OrphanNodeCache,
+	way_meshes: WayMeshCache,
 
 	pub cache_flags: CacheBitflag,
-	pub start_pos: Position,
-	pub offset: Vec2,
+	pub node_start: Position,
+	pub mesh_start: Position,
+	pub node_offset: Vec2,
+	pub mesh_offset: Vec2,
 }
 
 #[derive(Debug)]
@@ -82,22 +96,35 @@ impl EditorOsmData {
 			.or_else(|| self.data.ways.get(id).map(ElementRef::Way))
 	}
 
-	pub fn get_node_positions_in_way_owned(&self, way: Id) -> Vec<Pos2> {
+	pub fn get_projected_positions_in_way(&self, way: Id) -> Vec<Pos2> {
 		self.data.ways.get(&way).expect("way id must be valid")
 			.nodes.iter()
-			.map(|node_id| self.get_projected_pos_owned(node_id).expect("id not found in cache"))
+			.map(|node_id| self.get_projected_pos(node_id).expect("id not found in cache"))
 			.collect()
 	}
 
-	pub fn get_projected_pos_owned(&self, node_id: &Id) -> Option<Pos2> {
-		self.projected_nodes.get(node_id).map(|pos| pos.to_owned() + self.offset)
+	pub fn get_projected_pos(&self, node_id: &Id) -> Option<Pos2> {
+		self.projected_nodes.get(node_id).map(|pos| pos.to_owned() + self.node_offset)
+	}
+
+	pub fn get_way_mesh(&self, way_id: &Id, color: Color32) -> Mesh {
+		let data = self.way_meshes.get(way_id).expect("id not found in cache");
+		Mesh {
+			indices: data.indices.clone(),
+			vertices: data.vertices.iter().cloned().map(|mut x| {
+				x.color = color;
+				x.pos += self.mesh_offset;
+				x
+			}).collect(),
+			texture_id: TextureId::Managed(0),
+		}
 	}
 
 	pub fn reproject_nodes(&mut self, projector: &Projector, start_pos: Position) {
 		self.projected_nodes.clear();
-		self.start_pos = start_pos;
-		self.offset = Vec2::ZERO;
 		self.cache_flags &= !(CacheFlag::Projection as u8);
+		self.node_start = start_pos;
+		self.node_offset = Vec2::ZERO;
 
 		for (id, node) in &self.data.nodes {
 			self.projected_nodes.insert(*id, projector.project(coordinate_to_pos(&node.pos)).to_pos2());
@@ -119,6 +146,49 @@ impl EditorOsmData {
 
 		orphans.retain(|x| !parented.contains(x));
 		self.orphan_nodes = orphans;
+	}
+
+	pub fn retriangulate_way_meshes(&mut self, start_pos: Position) {
+		dbg!("t");
+		self.way_meshes.clear();
+		self.cache_flags &= !(CacheFlag::Triangulation as u8);
+		self.mesh_start = start_pos;
+		self.mesh_offset = Vec2::ZERO;
+
+		for way in self.data.ways.values() {
+			if is_way_area(way) {
+				let points = self.get_projected_positions_in_way(way.id);
+				let mut builder = Path::builder();
+				builder.begin(Point::new(points[0].x, points[0].y));
+
+				for p in points.iter().skip(1) {
+					builder.line_to(Point::new(p.x, p.y));
+				}
+
+				builder.close();
+
+				let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
+				let mut tessellator = FillTessellator::new();
+
+				// todo: intersection handling
+				tessellator.tessellate_path(
+					&builder.build(),
+					&FillOptions::default().with_intersections(false),
+					&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
+						Vertex {
+							pos: Pos2::from(vertex.position().to_array()),
+							uv: WHITE_UV,
+							color: Color32::WHITE,
+						}
+					}),
+				).expect("path tesselation failed");
+
+				self.way_meshes.insert(way.id, MeshData {
+					indices: geometry.indices,
+					vertices: geometry.vertices,
+				});
+			}
+		}
 	}
 
 	pub fn append_new_nodes_ways(&mut self, from: OsmData) {
