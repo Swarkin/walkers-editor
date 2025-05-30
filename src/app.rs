@@ -146,13 +146,18 @@ impl eframe::App for MyApp {
 			View::Edit => {
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
 					// determine whether regenerating a cache is necessary
-					// todo: avoid reprojection on window resize
 					let curr_zoom = self.editor.map_memory.zoom();
-					if self.editor.prev_zoom != curr_zoom || self.editor.prev_size != ctx.screen_rect().size() {
+					let curr_size = ctx.screen_rect().size();
+
+					if self.editor.prev_zoom != curr_zoom {
 						self.editor.osm_data.cache_flags |= CacheFlag::Projection as u8 | CacheFlag::Triangulation as u8;
 					}
 
-					self.editor.prev_zoom = curr_zoom;
+					let size_diff = (curr_size - self.editor.prev_size) / 2.0;
+					if size_diff != Vec2::ZERO {
+						self.editor.osm_data.node_offset_resize += size_diff;
+						self.editor.osm_data.mesh_offset_resize += size_diff;
+					}
 
 					// construct plugin
 					let editor_plugin = editor::EditorPlugin {
@@ -223,6 +228,7 @@ impl eframe::App for MyApp {
 						}
 					}
 
+					self.editor.prev_zoom = curr_zoom;
 					self.editor.prev_size = ctx.screen_rect().size();
 				});
 			}
