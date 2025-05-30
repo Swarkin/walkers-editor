@@ -54,8 +54,10 @@ pub struct EditorOsmData {
 	pub cache_flags: CacheBitflag,
 	pub node_start: Position,
 	pub mesh_start: Position,
-	pub node_offset: Vec2,
-	pub mesh_offset: Vec2,
+	pub node_offset_move: Vec2,
+	pub mesh_offset_move: Vec2,
+	pub node_offset_resize: Vec2,
+	pub mesh_offset_resize: Vec2,
 }
 
 #[derive(Debug)]
@@ -104,7 +106,7 @@ impl EditorOsmData {
 	}
 
 	pub fn get_projected_pos(&self, node_id: &Id) -> Option<Pos2> {
-		self.projected_nodes.get(node_id).map(|pos| pos.to_owned() + self.node_offset)
+		self.projected_nodes.get(node_id).map(|pos| pos.to_owned() + self.node_offset_move + self.node_offset_resize)
 	}
 
 	pub fn get_way_mesh(&self, way_id: &Id, color: Color32) -> Mesh {
@@ -113,7 +115,7 @@ impl EditorOsmData {
 			indices: data.indices.clone(),
 			vertices: data.vertices.iter().cloned().map(|mut x| {
 				x.color = color;
-				x.pos += self.mesh_offset;
+				x.pos += self.mesh_offset_move + self.mesh_offset_resize;
 				x
 			}).collect(),
 			texture_id: TextureId::Managed(0),
@@ -121,10 +123,9 @@ impl EditorOsmData {
 	}
 
 	pub fn reproject_nodes(&mut self, projector: &Projector, start_pos: Position) {
+		self.reset_node_offsets(start_pos);
 		self.projected_nodes.clear();
 		self.cache_flags &= !(CacheFlag::Projection as u8);
-		self.node_start = start_pos;
-		self.node_offset = Vec2::ZERO;
 
 		for (id, node) in &self.data.nodes {
 			self.projected_nodes.insert(*id, projector.project(coordinate_to_pos(&node.pos)).to_pos2());
@@ -149,11 +150,9 @@ impl EditorOsmData {
 	}
 
 	pub fn retriangulate_way_meshes(&mut self, start_pos: Position) {
-		dbg!("t");
+		self.reset_mesh_offsets(start_pos);
 		self.way_meshes.clear();
 		self.cache_flags &= !(CacheFlag::Triangulation as u8);
-		self.mesh_start = start_pos;
-		self.mesh_offset = Vec2::ZERO;
 
 		for way in self.data.ways.values() {
 			if is_way_area(way) {
@@ -214,6 +213,18 @@ impl EditorOsmData {
 
 		self.cache_flags ^= CacheFlag::Projection as u8;
 		self.cache_flags ^= CacheFlag::Orphan as u8;
+	}
+
+	fn reset_node_offsets(&mut self, start: Position) {
+		self.node_offset_move = Vec2::ZERO;
+		self.node_offset_resize = Vec2::ZERO;
+		self.node_start = start;
+	}
+
+	fn reset_mesh_offsets(&mut self, start: Position) {
+		self.mesh_offset_move = Vec2::ZERO;
+		self.mesh_offset_resize = Vec2::ZERO;
+		self.mesh_start = start;
 	}
 }
 

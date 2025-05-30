@@ -54,7 +54,7 @@ impl Plugin for EditorPlugin<'_> {
 					// reproject occasionally to minify possible precision errors?
 					self.osm.reproject_nodes(projector, self.current_pos);
 				} else {
-					self.osm.node_offset = diff;
+					self.osm.node_offset_move = diff;
 				}
 			}
 
@@ -73,7 +73,7 @@ impl Plugin for EditorPlugin<'_> {
 					// reproject occasionally to minify possible precision errors?
 					self.osm.retriangulate_way_meshes(self.current_pos);
 				} else {
-					self.osm.mesh_offset = diff;
+					self.osm.mesh_offset_move = diff;
 				}
 			}
 		}
