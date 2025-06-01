@@ -12,20 +12,24 @@ use std::num::NonZeroU32;
 use walkers::MapMemory;
 
 pub struct EditorState {
-	pub providers: HashMap<Provider, TilesKind>,
-	pub selected_provider: Option<Provider>,
-	pub selected_visualizer: Visualization,
-	pub selected_fill_mode: FillMode,
-	pub selection_mode: SelectionBitflag,
+	pub tile_providers: HashMap<Provider, TilesKind>,
 	pub map_memory: MapMemory,
-	pub osm_data: EditorOsmData,
+	pub map_state: MapState,
 	pub plugin_state: EditorPluginState,
+	pub osm_data: EditorOsmData,
 	pub window_flags: WindowBitflag,
-	pub scale_factor: f32,
-	pub zoom_with_ctrl: bool,
 	pub prev_size: Vec2,
 	pub prev_zoom: f64,
-	pub map_download: MapDownloadState,
+}
+
+pub struct MapState {
+	pub selected_provider: Option<Provider>,
+	pub selected_visualization: Visualization,
+	pub selected_fill_mode: FillMode,
+	pub selection_mode: SelectionBitflag,
+	pub download: MapDownloadState,
+	pub scale_factor: f32,
+	pub zoom_with_ctrl: bool,
 }
 
 pub type SelectionBitflag = u8;
@@ -79,20 +83,22 @@ impl MapDownloadState {
 impl EditorState {
 	pub fn new(providers: ProviderMap) -> Self {
 		Self {
-			providers,
-			selected_provider: Some(Provider::default()),
-			selected_visualizer: Visualization::default(),
-			selected_fill_mode: FillMode::default(),
-			selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
+			tile_providers: providers,
 			map_memory: MapMemory::default(),
+			map_state: MapState {
+				selected_provider: Some(Provider::default()),
+				selected_visualization: Visualization::default(),
+				selected_fill_mode: FillMode::default(),
+				selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
+				download: MapDownloadState::Idle(None),
+				scale_factor: 1.0,
+				zoom_with_ctrl: false,
+			},
 			osm_data: EditorOsmData::default(),
 			plugin_state: EditorPluginState::default(),
-			window_flags: 0,
-			scale_factor: 1.0,
-			zoom_with_ctrl: true,
+			window_flags: WindowBitflag::default(),
 			prev_size: Vec2::ZERO,
 			prev_zoom: 0.0,
-			map_download: MapDownloadState::Idle(None),
 		}
 	}
 }

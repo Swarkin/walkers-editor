@@ -80,7 +80,7 @@ impl eframe::App for MyApp {
 						Err(e) => Err(e),
 					};
 
-					self.editor.map_download = MapDownloadState::Idle(Some(r));
+					self.editor.map_state.download = MapDownloadState::Idle(Some(r));
 				},
 				Response::Token(token, target_server) => {
 					self.authenticator.token.insert(target_server, token);
@@ -159,24 +159,24 @@ impl eframe::App for MyApp {
 						self.editor.osm_data.mesh_offset_resize += size_diff;
 					}
 
+					let tiles = self.editor.map_state.selected_provider.map(|x| {
+						self.editor.tile_providers.get_mut(&x).unwrap().as_mut()
+					});
+
 					// construct plugin
 					let editor_plugin = editor::EditorPlugin {
-						state: &mut self.editor.plugin_state,
+						editor_state: &mut self.editor.plugin_state,
+						map_state: &mut self.editor.map_state,
 						osm: &mut self.editor.osm_data,
-						scale_factor: self.editor.scale_factor,
 						current_zoom: curr_zoom,
 						current_pos: self.editor.map_memory.detached().unwrap_or_else(places::school),
-						visualization: self.editor.selected_visualizer,
-						selection_mode: self.editor.selection_mode,
-						fill_mode: self.editor.selected_fill_mode,
 					};
 
-					if let Some(selected_provider) = &self.editor.selected_provider {
-						let tiles = self.editor.providers.get_mut(selected_provider).unwrap().as_mut();
-						map(ui, Some(tiles), &mut self.editor.map_memory, self.editor.zoom_with_ctrl, editor_plugin);
+					if let Some(tiles) = tiles {
+						map(ui, Some(tiles), &mut self.editor.map_memory, editor_plugin);
 						windows::acknowledge(ui, tiles.attribution());
 					} else {
-						map(ui, None, &mut self.editor.map_memory, self.editor.zoom_with_ctrl, editor_plugin);
+						map(ui, None, &mut self.editor.map_memory, editor_plugin);
 					};
 
 					if (self.editor.window_flags & (Window::Tags as u8)) == 0 {
@@ -191,40 +191,32 @@ impl eframe::App for MyApp {
 					}
 
 					if (self.editor.window_flags & (Window::Map as u8)) == 0 {
-						let prev_fill_mode = self.editor.selected_fill_mode;
+						let prev_fill_mode = self.editor.map_state.selected_fill_mode;
 
-						windows::map(ui,
-							&mut self.editor.selected_provider,
-							&mut self.editor.providers.keys(),
-							&mut self.editor.selected_fill_mode,
-							&mut self.editor.selected_visualizer,
-							&mut self.editor.selection_mode,
-							&mut self.editor.scale_factor,
-							&mut self.editor.zoom_with_ctrl,
-						);
+						windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
 
-						if self.editor.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
+						if self.editor.map_state.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
 							self.editor.osm_data.cache_flags |= CacheFlag::Triangulation as u8;
 						}
 					}
 
 					if (self.editor.window_flags & (Window::Download as u8)) == 0 {
-						if let Some(request) = windows::download(ui, &self.editor.plugin_state.map_bbox, &self.editor.map_download) {
+						if let Some(request) = windows::download(ui, &self.editor.plugin_state.map_bbox, &self.editor.map_state.download) {
 							self.worker_handle.sender.send(request).unwrap();
-							self.editor.map_download = MapDownloadState::Downloading;
+							self.editor.map_state.download = MapDownloadState::Downloading;
 						}
 					}
 
 					if (self.editor.window_flags & (Window::Toolbar as u8)) == 0 {
-						windows::toolbar(ui, &mut self.editor.selection_mode);
+						windows::toolbar(ui, &mut self.editor.map_state.selection_mode);
 					}
 
 					#[cfg(feature = "debug")] {
 						if (self.editor.window_flags & (Window::Debug as u8)) == 0 {
-							let tiles = self.editor.selected_provider.as_ref()
-								.map(|a| self.editor.providers.get(a).unwrap());
+							let tiles = self.editor.map_state.selected_provider.as_ref()
+								.map(|a| self.editor.tile_providers.get(a).unwrap());
 
-							windows::debug(ui, self.editor.selected_provider.as_ref(), tiles);
+							windows::debug(ui, self.editor.map_state.selected_provider.as_ref(), tiles);
 						}
 					}
 
@@ -308,11 +300,10 @@ fn map(
 	ui: &mut Ui,
 	tiles: Option<&mut dyn Tiles>,
 	map_memory: &mut walkers::MapMemory,
-	zoom_with_ctrl: bool,
 	editor_plugin: editor::EditorPlugin,
 ) -> egui::Response {
 	ui.add(Map::new(tiles, map_memory, places::school())
-		.zoom_with_ctrl(zoom_with_ctrl)
+		.zoom_with_ctrl(editor_plugin.map_state.zoom_with_ctrl)
 		.with_plugin(editor_plugin)
 	)
 }

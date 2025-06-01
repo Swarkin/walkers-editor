@@ -14,6 +14,10 @@ pub enum Visualization {
 	Sidewalks,
 }
 
+impl Visualization {
+	pub const ITER: [Self; 2] = [Self::Default, Self::Sidewalks];
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum FillMode {
 	Wireframe,
@@ -22,7 +26,7 @@ pub enum FillMode {
 }
 
 impl FillMode {
-	pub const ITER: [FillMode; 3] = [FillMode::Full, FillMode::Partial, FillMode::Wireframe];
+	pub const ITER: [Self; 3] = [Self::Full, Self::Partial, Self::Wireframe];
 }
 
 pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[

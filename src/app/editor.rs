@@ -10,19 +10,16 @@ use consts::{osm::DEFAULT_NODE_SIZE, *};
 use eframe::egui::{Color32, Pos2, Response, Shape, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, StrokeKind};
 use osm_parser::*;
-use states::{CacheFlag, SelectionBitflag, SelectionFlag};
+use states::{CacheFlag, MapState, SelectionFlag};
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
 use walkers::{Plugin, Position, Projector};
 
 /// Data that is passed in every frame
 pub struct EditorPlugin<'a> {
-	pub state: &'a mut EditorPluginState,
+	pub editor_state: &'a mut EditorPluginState,
+	pub map_state: &'a mut MapState,
 	pub osm: &'a mut EditorOsmData,
-	pub visualization: Visualization,
-	pub selection_mode: SelectionBitflag,
-	pub fill_mode: FillMode,
-	pub scale_factor: f32,
 	pub current_zoom: f64,
 	pub current_pos: Position,
 }
@@ -81,21 +78,21 @@ impl Plugin for EditorPlugin<'_> {
 		// setup
 		let mut shapes_top = Vec::with_capacity(2);
 		let hover = resp.hover_pos();
-		self.state.hovered = None;
+		self.editor_state.hovered = None;
 
 		/* determine last clicked position */ {
 			if resp.clicked() {
-				self.state.last_click_coords = projector.unproject(resp.interact_pointer_pos().unwrap().to_vec2());
+				self.editor_state.last_click_coords = projector.unproject(resp.interact_pointer_pos().unwrap().to_vec2());
 			}
 		}
 
 		/* update state.map_bbox */ {
 			let tl = projector.unproject(resp.rect.min.to_vec2() + resp.rect.center().to_vec2());
 			let br = projector.unproject(resp.rect.max.to_vec2() + resp.rect.center().to_vec2());
-			self.state.map_bbox.left = tl.x();
-			self.state.map_bbox.bottom = br.y();
-			self.state.map_bbox.right = br.x();
-			self.state.map_bbox.top = tl.y();
+			self.editor_state.map_bbox.left = tl.x();
+			self.editor_state.map_bbox.bottom = br.y();
+			self.editor_state.map_bbox.right = br.x();
+			self.editor_state.map_bbox.top = tl.y();
 		}
 
 		/* draw osm data and determine hovered element */ {
@@ -109,22 +106,22 @@ impl Plugin for EditorPlugin<'_> {
 
 				// hover logic
 				if let Some(mouse) = hover {
-					if self.state.hovered.is_none() {
-						if (self.selection_mode & SelectionFlag::Nodes as u8) != 0 {
+					if self.editor_state.hovered.is_none() {
+						if (self.map_state.selection_mode & SelectionFlag::Nodes as u8) != 0 {
 							for (pos, id) in points.iter().zip(&way.nodes) {
 								if is_node_hovered(pos, mouse, width.powi(2)) {
-									self.state.hovered = Some(*id);
+									self.editor_state.hovered = Some(*id);
 								}
 							}
 						}
-						if (self.selection_mode & SelectionFlag::Ways as u8) != 0 && is_way_hovered(&points, &mouse, width) {
-							self.state.hovered = Some(way.id);
+						if (self.map_state.selection_mode & SelectionFlag::Ways as u8) != 0 && is_way_hovered(&points, &mouse, width) {
+							self.editor_state.hovered = Some(way.id);
 						}
 					}
 				}
 
 				// override fill mode
-				let mut target_fill = self.fill_mode;
+				let mut target_fill = self.map_state.selected_fill_mode;
 				if target_fill == FillMode::Partial && self.current_zoom < FILL_MODE_THRESHOLD {
 					target_fill = FillMode::Full
 				};
@@ -178,7 +175,7 @@ impl Plugin for EditorPlugin<'_> {
 					}
 				} else {
 					// draw way
-					shapes.extend(match self.visualization {
+					shapes.extend(match self.map_state.selected_visualization {
 						Visualization::Default => visual::default(points, color, width),
 						Visualization::Sidewalks => visual::sidewalks(way, points, color, width),
 					});
@@ -187,7 +184,7 @@ impl Plugin for EditorPlugin<'_> {
 					shapes.extend(way.nodes.iter().map(|node_id| {
 						Shape::Circle(CircleShape {
 							center: self.osm.get_projected_pos(node_id).expect("id not found in cache"),
-							radius: DEFAULT_NODE_SIZE * self.scale_factor,
+							radius: DEFAULT_NODE_SIZE * self.map_state.scale_factor,
 							fill: Color32::LIGHT_GRAY,
 							stroke: Stroke::new(1.0, Color32::GRAY)
 						})
@@ -203,17 +200,17 @@ impl Plugin for EditorPlugin<'_> {
 				let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
 
 				if let Some(mouse) = hover {
-					if self.state.hovered.is_none()
-						&& (self.selection_mode & (SelectionFlag::Nodes as u8)) != 0
-						&& is_node_hovered(&pos, mouse, (DEFAULT_NODE_SIZE * self.scale_factor).powi(2))
+					if self.editor_state.hovered.is_none()
+						&& (self.map_state.selection_mode & (SelectionFlag::Nodes as u8)) != 0
+						&& is_node_hovered(&pos, mouse, (DEFAULT_NODE_SIZE * self.map_state.scale_factor).powi(2))
 					{
-						self.state.hovered = Some(*id);
+						self.editor_state.hovered = Some(*id);
 					}
 				}
 
 				CircleShape {
 					center: pos,
-					radius: DEFAULT_NODE_SIZE * self.scale_factor,
+					radius: DEFAULT_NODE_SIZE * self.map_state.scale_factor,
 					fill: Color32::WHITE,
 					stroke: Stroke::new(1.0, Color32::GRAY)
 				}.into()
@@ -221,7 +218,7 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		/* draw hovered element and determine if it was selected */ {
-			if let Some(hover) = self.state.hovered {
+			if let Some(hover) = self.editor_state.hovered {
 				let element = self.osm.data.nodes.get(&hover).map(ElementRef::Node)
 					.or_else(|| self.osm.data.ways.get(&hover).map(ElementRef::Way))
 					.expect("id not found");
@@ -231,11 +228,11 @@ impl Plugin for EditorPlugin<'_> {
 						let pos = self.osm.get_projected_pos(&node.id).expect("id not found in cache");
 
 						shapes_top.push(
-							CircleShape::stroke(pos, DEFAULT_NODE_SIZE * self.scale_factor, Stroke::new(DEFAULT_NODE_SIZE, HOVER_COLOR)).into()
+							CircleShape::stroke(pos, DEFAULT_NODE_SIZE * self.map_state.scale_factor, Stroke::new(DEFAULT_NODE_SIZE, HOVER_COLOR)).into()
 						);
 
 						if resp.clicked() {
-							self.state.selected = Some(hover);
+							self.editor_state.selected = Some(hover);
 						}
 					}
 					ElementRef::Way(way) => {
@@ -249,20 +246,20 @@ impl Plugin for EditorPlugin<'_> {
 
 						if resp.clicked() { // selected
 							if self.is_way_relevant(&way.tags) {
-								self.state.selected = Some(hover);
+								self.editor_state.selected = Some(hover);
 							} else { // deselect when clicking irrelevant object
-								self.state.selected = None;
+								self.editor_state.selected = None;
 							}
 						}
 					}
 				}
 			} else if resp.clicked() { // discard hovered way
-				self.state.selected = None;
+				self.editor_state.selected = None;
 			}
 		}
 
 		/* draw selected element */ {
-			if let Some(selected) = self.state.selected {
+			if let Some(selected) = self.editor_state.selected {
 				let element = self.osm.get(&selected).expect("id not found");
 
 				match element {
@@ -294,7 +291,7 @@ impl Plugin for EditorPlugin<'_> {
 
 						// draw editing ui
 						if self.is_way_relevant(&way.tags) {
-							if let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.state.last_click_coords).to_pos2()) {
+							if let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.editor_state.last_click_coords).to_pos2()) {
 								self.osm.apply_change(change);
 							}
 						}
@@ -309,28 +306,28 @@ impl Plugin for EditorPlugin<'_> {
 
 impl EditorPlugin<'_> {
 	fn way_width(&self, way: &Way) -> f32 {
-		match self.visualization {
-			Visualization::Default => visual::width_default(way) * self.scale_factor,
-			Visualization::Sidewalks => visual::width_sidewalk(way) * self.scale_factor,
+		match self.map_state.selected_visualization {
+			Visualization::Default => visual::width_default(way) * self.map_state.scale_factor,
+			Visualization::Sidewalks => visual::width_sidewalk(way) * self.map_state.scale_factor,
 		}
 	}
 
 	fn way_color(&self, way: &Way) -> Color32 {
-		match self.visualization {
+		match self.map_state.selected_visualization {
 			Visualization::Default => visual::color_default(way),
 			Visualization::Sidewalks => visual::color_sidewalk(way),
 		}
 	}
 
 	fn is_way_relevant(&self, tags: &Tags) -> bool {
-		match self.visualization {
+		match self.map_state.selected_visualization {
 			Visualization::Default => true,
 			Visualization::Sidewalks => visual::sidewalks_relevant(tags),
 		}
 	}
 
 	fn way_editing_ui(&mut self, ui: &mut Ui, id: Id, pos: Pos2) -> Option<Change> {
-		match self.visualization {
+		match self.map_state.selected_visualization {
 			Visualization::Default => None,
 			Visualization::Sidewalks => visual::sidewalks_ui(ui, self.osm.data.ways.get(&id).unwrap(), pos),
 		}
