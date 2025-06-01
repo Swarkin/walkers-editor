@@ -1,5 +1,5 @@
 use super::editor::consts::{TOP_BAR_HEIGHT, WINDOW_MARGIN};
-use super::editor::states::{MapDownloadState, SelectionBitflag, SelectionFlag};
+use super::editor::states::{MapDownloadState, MapState, SelectionBitflag, SelectionFlag};
 use super::editor::visual::FillMode;
 use super::editor::{cache::Change, visual::Visualization};
 use super::osm::Bbox;
@@ -11,7 +11,12 @@ use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, Im
 use std::fmt::{Display, Formatter};
 use walkers::sources::Attribution;
 
-const TOOLBAR_IMAGES: [ImageSource; 3] = [include_image!("../../assets/ui/primitives/node24.svg"), include_image!("../../assets/ui/primitives/way24.svg"), include_image!("../../assets/ui/primitives/area24.svg")];
+const TOOLBAR_IMAGES: [ImageSource; 3] = [
+	include_image!("../../assets/ui/primitives/node24.svg"),
+	include_image!("../../assets/ui/primitives/way24.svg"),
+	include_image!("../../assets/ui/primitives/area24.svg")
+];
+
 const TOOLBAR_SHORTCUTS: [KeyboardShortcut; 3] = [
 	KeyboardShortcut { modifiers: Modifiers::NONE, logical_key: Key::Num1 },
 	KeyboardShortcut { modifiers: Modifiers::NONE, logical_key: Key::Num2 },
@@ -98,13 +103,8 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 
 pub fn map<'a>(
 	ui: &Ui,
-	selected_provider: &mut Option<Provider>,
-	possible_providers: &mut impl Iterator<Item = &'a Provider>,
-	selected_fill_mode: &mut FillMode,
-	selected_visualization: &mut Visualization,
-	selection_mode: &mut SelectionBitflag,
-	scale_factor: &mut f32,
-	zoom_with_ctrl: &mut bool,
+	map_state: &mut MapState,
+	providers: &mut impl Iterator<Item = &'a Provider>,
 ) {
 	egui::Window::new("Map")
 		.collapsible(false)
@@ -115,40 +115,43 @@ pub fn map<'a>(
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			ui.collapsing("Map", |ui| {
-				let selected_text = if let Some(selected_provider) = selected_provider {
+				let text = if let Some(selected_provider) = map_state.selected_provider {
 					format!("{selected_provider:?}")
-				} else { "None".into() };
+				} else {
+					"None".into()
+				};
 
 				egui::ComboBox::from_label("Tile Provider")
-					.selected_text(selected_text)
+					.selected_text(text)
 					.show_ui(ui, |ui| {
-						for p in possible_providers {
-							let mut selected = *selected_provider == Some(*p);
+						for p in providers {
+							let mut selected = map_state.selected_provider == Some(*p);
 							if ui.toggle_value(&mut selected, format!("{p:?}")).changed() {
-								*selected_provider = if selected { Some(*p) } else { None }
+								map_state.selected_provider = if selected { Some(*p) } else { None }
 							}
 						}
 					});
 
 				egui::ComboBox::from_label("Fill Mode")
-					.selected_text(format!("{selected_fill_mode:?}"))
+					.selected_text(format!("{:?}", map_state.selected_fill_mode))
 					.show_ui(ui, |ui| {
 						for fill_mode in FillMode::ITER {
-							ui.selectable_value(selected_fill_mode, fill_mode, format!("{fill_mode:?}"));
+							ui.selectable_value(&mut map_state.selected_fill_mode, fill_mode, format!("{fill_mode:?}"));
 						}
 					});
 
-				ui.add_enabled_ui((*selection_mode & SelectionFlag::Ways as u8) == 0, |ui| {
+				ui.add_enabled_ui((map_state.selection_mode & SelectionFlag::Ways as u8) == 0, |ui| {
 					egui::ComboBox::from_label("Visualization")
-						.selected_text(format!("{selected_visualization:?}"))
+						.selected_text(format!("{:?}", map_state.selected_fill_mode))
 						.show_ui(ui, |ui| {
-							ui.selectable_value(selected_visualization, Visualization::Default, "Default");
-							ui.selectable_value(selected_visualization, Visualization::Sidewalks, "Sidewalks");
+							for visualization in Visualization::ITER {
+								ui.selectable_value(&mut map_state.selected_visualization, visualization, format!("{visualization:?}"));
+							}
 						});
 				});
 
-				ui.add(egui::Slider::new(scale_factor, 0.1..=2.0).text("Scale factor"));
-				ui.checkbox(zoom_with_ctrl, "Zoom with Ctrl");
+				ui.add(egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text("Scale factor"));
+				ui.checkbox(&mut map_state.zoom_with_ctrl, "Zoom with Ctrl");
 			});
 		});
 }
