@@ -60,7 +60,7 @@ pub fn width_sidewalk(w: &Way) -> f32 {
 pub fn color_default(w: &Way) -> Color32 {
 	if let Some(building) = w.tags.get("building") {
 		match building.as_str() {
-			"no" => DEFAULT_COLOR,
+			"no" => DEFAULT_WAY_COLOR,
 			_ => BUILDING_COLOR,
 		}
 	} else if let Some(highway) = w.tags.get("highway") {
@@ -71,7 +71,7 @@ pub fn color_default(w: &Way) -> Color32 {
 			"track" => TRACK_COLOR,
 			_ => Color32::WHITE,
 		}
-	} else { DEFAULT_COLOR }
+	} else { DEFAULT_WAY_COLOR }
 }
 
 pub fn color_sidewalk(w: &Way) -> Color32 {
