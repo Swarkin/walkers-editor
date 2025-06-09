@@ -1,14 +1,15 @@
-use super::editor::consts::{TOP_BAR_HEIGHT, WINDOW_MARGIN};
-use super::editor::states::{MapDownloadState, MapState, SelectionBitflag, SelectionFlag};
-use super::editor::visual::FillMode;
-use super::editor::{cache::Change, visual::Visualization};
+use super::editor::{
+	cache::Change,
+	consts::{osm::ATTRIBUTION_URL, TOP_BAR_HEIGHT, WINDOW_MARGIN},
+	states::{MapDownloadState, MapState, SelectionBitflag, SelectionFlag},
+	visual::{FillMode, Visualization},
+};
 use super::osm::Bbox;
 use super::providers::Provider;
 #[cfg(feature = "debug")]
 use super::providers::TilesKind;
 use eframe::egui;
-use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Shadow, Stroke, Ui, Vec2};
-use std::fmt::{Display, Formatter};
+use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Order, Shadow, Stroke, Ui, Vec2};
 use walkers::sources::Attribution;
 
 const TOOLBAR_IMAGES: [ImageSource; 3] = [
@@ -25,7 +26,7 @@ const TOOLBAR_SHORTCUTS: [KeyboardShortcut; 3] = [
 
 const TRANSPARENT_FRAME: Frame = Frame {
 	inner_margin: Margin::same(6),
-	fill: Color32::from_gray(27),
+	fill: Color32::from_rgba_premultiplied(20, 20, 20, 240),
 	stroke: Stroke { width: 1.0, color: Color32::from_gray(60) },
 	corner_radius: CornerRadius::same(6),
 	outer_margin: Margin::ZERO,
@@ -46,8 +47,8 @@ pub enum Window {
 	Debug = 1 << 7,
 }
 
-impl Display for Window {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+impl std::fmt::Display for Window {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", match self {
 			Window::Tags => "Tags",
 			Window::Map => "Controls",
@@ -67,19 +68,35 @@ impl Window {
 	pub const ITER: [Window; 6] = [Window::Tags, Window::Map, Window::History, Window::Download, Window::Toolbar, Window::Debug];
 }
 
-pub fn acknowledge(ui: &Ui, attribution: Attribution) {
+pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
 	egui::Window::new("Acknowledge")
-		.collapsible(false)
-		.resizable(false)
 		.title_bar(false)
-		.anchor(Align2::LEFT_BOTTOM, [WINDOW_MARGIN, -WINDOW_MARGIN])
-		.frame(TRANSPARENT_FRAME)
+		.auto_sized()
+		.order(Order::Background)
+		.anchor(Align2::LEFT_BOTTOM, Vec2::ZERO)
+		.frame(TRANSPARENT_FRAME
+			.multiply_with_opacity(0.85)
+			.inner_margin(Margin { left: 0, right: 6, top: 2, bottom: 2 })
+			.corner_radius(CornerRadius { nw: 0, ne: 6, sw: 0, se: 0 })
+			.stroke(Stroke::NONE)
+		)
 		.show(ui.ctx(), |ui| {
-			ui.horizontal(|ui| {
-				if let Some(logo) = attribution.logo_light {
-					ui.add(Image::new(logo).max_height(30.0).max_width(80.0));
+			egui::CollapsingHeader::new("Attribution").default_open(true).show(ui, |ui| {
+				if simple {
+					ui.hyperlink_to("© OpenStreetMap", ATTRIBUTION_URL);
+				} else {
+					ui.horizontal(|ui| {
+						let resp = ui.label("Imagery:");
+						if let Some(logo) = attribution.logo_light {
+							ui.add(Image::new(logo).max_height(resp.rect.height()).max_width(80.0));
+						}
+						ui.hyperlink_to(attribution.text, attribution.url);
+					});
+					ui.horizontal(|ui| {
+						ui.label("Map data:");
+						ui.hyperlink_to("© OpenStreetMap", ATTRIBUTION_URL);
+					});
 				}
-				ui.hyperlink_to(attribution.text, attribution.url);
 			});
 		});
 }

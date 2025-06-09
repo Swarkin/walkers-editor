@@ -7,6 +7,7 @@ mod osmchange;
 mod config;
 mod worker;
 
+use crate::app::providers::Provider;
 use config::TargetServer;
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
@@ -174,7 +175,7 @@ impl eframe::App for MyApp {
 
 					if let Some(tiles) = tiles {
 						map(ui, Some(tiles), &mut self.editor.map_memory, editor_plugin);
-						windows::acknowledge(ui, tiles.attribution());
+						windows::acknowledge(ui, tiles.attribution(), self.editor.map_state.selected_provider == Some(Provider::OpenStreetMap));
 					} else {
 						map(ui, None, &mut self.editor.map_memory, editor_plugin);
 					};
