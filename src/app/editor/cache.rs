@@ -193,6 +193,15 @@ impl EditorOsmData {
 	pub fn append_new_nodes_ways(&mut self, from: OsmData) {
 		if from.is_empty() { return; }
 
+		if !from.ways.is_empty() {
+			self.cache_flags ^= CacheFlag::Triangulation as u8;
+		}
+
+		if !from.nodes.is_empty() {
+			self.cache_flags ^= CacheFlag::Projection as u8;
+			self.cache_flags ^= CacheFlag::Orphan as u8;
+		}
+
 		for (id, way) in from.ways {
 			// todo: handle new versions
 			if self.data.ways.contains_key(&id) {
@@ -210,9 +219,6 @@ impl EditorOsmData {
 
 			self.data.nodes.insert(id, node);
 		}
-
-		self.cache_flags ^= CacheFlag::Projection as u8;
-		self.cache_flags ^= CacheFlag::Orphan as u8;
 	}
 
 	fn reset_node_offsets(&mut self, start: Position) {
