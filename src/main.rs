@@ -14,8 +14,6 @@ fn main() -> Result<(), eframe::Error> {
 			.with_clamp_size_to_monitor_size(true)
 			.with_icon(from_png_bytes(include_bytes!("../assets/walkers64.png"))
 				.expect("failed to load icon")),
-		#[cfg(feature = "debug")]
-		vsync: false,
 		..Default::default()
 	};
 
