@@ -10,6 +10,8 @@ pub const MINOR_ROAD_WIDTH: f32 = 5.0;
 pub const MAJOR_ROAD_WIDTH: f32 = 6.0;
 pub const BUILDING_WIDTH: f32 = 2.0;
 
+pub const ATTRIBUTION_URL: &str = "https://www.openstreetmap.org/copyright";
+
 pub const BUILDING_COLOR: Color32 = Color32::from_rgb(224, 110, 95);
 pub const PATH_COLOR: Color32 = Color32::from_rgb(221, 204, 170);
 pub const FOOTWAY_COLOR: Color32 = Color32::WHITE;
