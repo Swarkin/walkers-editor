@@ -126,7 +126,7 @@ impl Plugin for EditorPlugin<'_> {
 					target_fill = FillMode::Full
 				};
 
-				// draw logic
+				// drawing logic
 				if is_way_area(way) {
 					match target_fill {
 						FillMode::Wireframe => {
@@ -180,15 +180,14 @@ impl Plugin for EditorPlugin<'_> {
 						Visualization::Sidewalks => visual::sidewalks(way, points, color, width),
 					});
 
-					// draw nodes
-					shapes.extend(way.nodes.iter().map(|node_id| {
-						Shape::Circle(CircleShape {
-							center: self.osm.get_projected_pos(node_id).expect("id not found in cache"),
-							radius: DEFAULT_NODE_SIZE * self.map_state.scale_factor,
-							fill: Color32::LIGHT_GRAY,
-							stroke: Stroke::new(1.0, Color32::GRAY)
-						})
-					}));
+					// draw first and last node
+					let first_id = way.nodes.first().unwrap();
+					let last_id = way.nodes.last().unwrap();
+
+					shapes.push(self.draw_node(first_id).into());
+					if first_id != last_id {
+						shapes.push(self.draw_node(last_id).into());
+					}
 				};
 			}
 
@@ -263,15 +262,7 @@ impl Plugin for EditorPlugin<'_> {
 				let element = self.osm.get(&selected).expect("id not found");
 
 				match element {
-					ElementRef::Node(node) => {
-						let point = self.osm.get_projected_pos(&node.id).expect("id not found in cache");
-
-						shapes_top.push(
-							Shape::Circle(CircleShape::stroke(
-								point, DEFAULT_NODE_SIZE, Stroke::new(DEFAULT_NODE_SIZE + SELECTION_SIZE_INCREASE, SELECTION_COLOR)),
-							)
-						);
-					}
+					ElementRef::Node(node) => shapes_top.push(self.draw_node_selected(&node.id).into()),
 					ElementRef::Way(way) => {
 						let points = self.osm.get_projected_positions_in_way(way.id);
 
@@ -289,6 +280,13 @@ impl Plugin for EditorPlugin<'_> {
 							);
 						}
 
+						// draw nodes on top
+						if way.nodes.first().unwrap() == way.nodes.last().unwrap() {
+							shapes_top.extend(way.nodes.iter().skip(1).map(|id| self.draw_node(id).into()));
+						} else {
+							shapes_top.extend(way.nodes.iter().map(|id| self.draw_node(id).into()));
+						}
+
 						// draw editing ui
 						if self.is_way_relevant(&way.tags) {
 							if let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.editor_state.last_click_coords).to_pos2()) {
@@ -304,6 +302,28 @@ impl Plugin for EditorPlugin<'_> {
 	}
 }
 
+// drawing
+impl EditorPlugin<'_> {
+	fn draw_node(&self, id: &Id) -> CircleShape {
+		CircleShape {
+			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
+			radius: DEFAULT_NODE_SIZE * self.map_state.scale_factor,
+			fill: DEFAULT_NODE_COLOR,
+			stroke: Stroke::new(1.0, DEFAULT_NODE_STROKE_COLOR),
+		}
+	}
+
+	fn draw_node_selected(&self, id: &Id) -> CircleShape {
+		CircleShape {
+			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
+			radius: DEFAULT_NODE_SIZE * self.map_state.scale_factor,
+			fill: DEFAULT_NODE_COLOR,
+			stroke: Stroke::new(1.0 + SELECTION_SIZE_INCREASE, SELECTION_COLOR),
+		}
+	}
+}
+
+// logic
 impl EditorPlugin<'_> {
 	fn way_width(&self, way: &Way) -> f32 {
 		match self.map_state.selected_visualization {
