@@ -5,8 +5,8 @@ pub mod attribute2d;
 pub mod states;
 
 use super::osm::Bbox;
-use cache::*;
-use consts::{osm::DEFAULT_NODE_SIZE, *};
+use cache::{Change, EditorOsmData, ElementRef, MAX_OFFSET};
+use consts::{osm::*, *};
 use eframe::egui::{Color32, Pos2, Response, Shape, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, StrokeKind};
 use osm_parser::*;
