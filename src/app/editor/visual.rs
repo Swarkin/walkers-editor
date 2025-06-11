@@ -1,12 +1,11 @@
 use super::attribute2d::{Attribute2D, TagValue};
 use super::cache::Change;
 use super::consts::osm::*;
-use super::consts::*;
 use eframe::egui;
-use eframe::epaint::{PathShape, PathStroke, Stroke};
+use eframe::epaint::{PathShape, Stroke};
 use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
-use osm_parser::Way;
+use osm_parser::{Tags, Way};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq)]
 pub enum Visualization {
@@ -38,7 +37,7 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 pub fn width_default(w: &Way) -> f32 {
 	if let Some(building) = w.tags.get("building") {
 		match building.as_str() {
-			"no" => DEFAULT_WAY_WIDTH,
+			"no" => WAY_WIDTH,
 			_ => BUILDING_WIDTH,
 		}
 	} else if let Some(highway) = w.tags.get("highway") {
@@ -46,11 +45,11 @@ pub fn width_default(w: &Way) -> f32 {
 			"path" | "footway" | "steps" => PATH_WIDTH,
 			"service" | "track" => SERVICE_ROAD_WIDTH,
 			"residential" => MINOR_ROAD_WIDTH,
-			"tertiary" | "secondary" | "primary" | "trunk" | "motorway" |
-			"tertiary_link" | "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => MAJOR_ROAD_WIDTH,
-			_ => DEFAULT_WAY_WIDTH,
+			"tertiary" | "secondary" | "primary" | "trunk" | "motorway" | "tertiary_link"
+			| "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => MAJOR_ROAD_WIDTH,
+			_ => WAY_WIDTH,
 		}
-	} else { DEFAULT_WAY_WIDTH }
+	} else { WAY_WIDTH }
 }
 
 pub fn width_sidewalk(w: &Way) -> f32 {
@@ -60,7 +59,7 @@ pub fn width_sidewalk(w: &Way) -> f32 {
 pub fn color_default(w: &Way) -> Color32 {
 	if let Some(building) = w.tags.get("building") {
 		match building.as_str() {
-			"no" => DEFAULT_WAY_COLOR,
+			"no" => WAY_COLOR,
 			_ => BUILDING_COLOR,
 		}
 	} else if let Some(highway) = w.tags.get("highway") {
@@ -71,26 +70,17 @@ pub fn color_default(w: &Way) -> Color32 {
 			"track" => TRACK_COLOR,
 			_ => Color32::WHITE,
 		}
-	} else { DEFAULT_WAY_COLOR }
+	} else { WAY_COLOR }
 }
 
 pub fn color_sidewalk(w: &Way) -> Color32 {
 	color_default(w)
 }
 
-pub fn default(points: Vec<Pos2>, color: Color32, width: f32) -> Vec<Shape> {
-	vec![Shape::Path(PathShape::line(
-		points,
-		PathStroke::new(width, color),
-	))]
-}
-
-pub fn sidewalks(way: &Way, points: Vec<Pos2>, color: Color32, width: f32) -> Vec<Shape> {
-	let mut shapes = vec![];
-
-	if way.tags.keys().any(|k| k.starts_with("sidewalk")) {
-		if !sidewalks_relevant(&way.tags) { return shapes; };
-		let attr = Attribute2D::new(&way.tags, "sidewalk");
+pub fn sidewalks(tags: &Tags, points: Vec<Pos2>, width: f32, color: Color32) -> Vec<Shape> {
+	if tags.keys().any(|k| k.starts_with("sidewalk")) && sidewalks_relevant(tags) {
+		let mut shapes = Vec::with_capacity((points.len() - 1) * 2 + 1);
+		let attr = Attribute2D::new(tags, "sidewalk");
 
 		for points in points.windows(2) {
 			let from = points[0];
@@ -108,17 +98,17 @@ pub fn sidewalks(way: &Way, points: Vec<Pos2>, color: Color32, width: f32) -> Ve
 				stroke: Stroke::new(width, attr.right),
 			});
 		}
-	}
 
-	shapes.push(Shape::Path(PathShape::line(
-		points,
-		Stroke::new(width, color),
-	)));
+		shapes.push(Shape::Path(PathShape::line(
+			points,
+			Stroke::new(width, color),
+		)));
 
-	shapes
+		shapes
+	} else { vec![] }
 }
 
-pub fn sidewalks_relevant(tags: &osm_parser::Tags) -> bool {
+pub fn sidewalks_relevant(tags: &Tags) -> bool {
 	if let Some(highway) = tags.get("highway") {
 		HIGHWAYS_WITH_SIDEWALK.contains(&highway.as_str())
 	} else { false }
