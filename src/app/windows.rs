@@ -159,7 +159,7 @@ pub fn map<'a>(
 
 				ui.add_enabled_ui((map_state.selection_mode & SelectionFlag::Ways as u8) == 0, |ui| {
 					egui::ComboBox::from_label("Visualization")
-						.selected_text(format!("{:?}", map_state.selected_fill_mode))
+						.selected_text(format!("{:?}", map_state.selected_visualization))
 						.show_ui(ui, |ui| {
 							for visualization in Visualization::ITER {
 								ui.selectable_value(&mut map_state.selected_visualization, visualization, format!("{visualization:?}"));
