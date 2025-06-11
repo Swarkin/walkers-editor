@@ -2,8 +2,20 @@
 
 use eframe::egui::Color32;
 
-pub const DEFAULT_WAY_WIDTH: f32 = 1.0;
-pub const DEFAULT_NODE_SIZE: f32 = 3.0;
+pub const NODE_SIZE: f32 = 3.0;
+pub const NODE_SIZE_ORPHAN: f32 = 4.0;
+pub const NODE_COLOR: Color32 = Color32::WHITE;
+pub const NODE_STROKE_COLOR: Color32 = Color32::GRAY;
+
+pub const WAY_WIDTH: f32 = 1.0;
+pub const WAY_COLOR: Color32 = Color32::GRAY;
+pub const NODE_STROKE_WIDTH: f32 = 1.0;
+
+pub const HOVER_COLOR: Color32 = Color32::from_rgb(100, 200, 255);
+pub const HOVER_SIZE_INCREASE: f32 = 2.0;
+pub const SELECTION_COLOR: Color32 = Color32::from_rgb(40, 180, 255);
+pub const SELECTION_SIZE_INCREASE: f32 = 2.5;
+
 pub const PATH_WIDTH: f32 = 2.5;
 pub const SERVICE_ROAD_WIDTH: f32 = 4.0;
 pub const MINOR_ROAD_WIDTH: f32 = 5.0;

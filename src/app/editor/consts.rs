@@ -12,16 +12,9 @@ const TINT_LIGHT: u8 = 22;
 
 pub const WINDOW_MARGIN: f32 = 8.0;
 
-pub const FILL_MODE_THRESHOLD: f64 = 18.0;
-pub const FILL_MODE_GAMMA_MULTIPLY: f32 = 0.5;
-
-pub const HOVER_COLOR: Color32 = Color32::from_rgb(100, 200, 255);
-pub const HOVER_SIZE_INCREASE: f32 = 1.0;
-pub const SELECTION_COLOR: Color32 = Color32::from_rgb(40, 180, 255);
-pub const SELECTION_SIZE_INCREASE: f32 = 2.0;
-pub const DEFAULT_WAY_COLOR: Color32 = Color32::GRAY;
-pub const DEFAULT_NODE_COLOR: Color32 = Color32::WHITE;
-pub const DEFAULT_NODE_STROKE_COLOR: Color32 = Color32::GRAY;
+pub const PARTIAL_FILL_WIDTH: f32 = 12.0;
+pub const PARTIAL_FILL_GAMMA_MULTIPLY: f32 = 0.5;
+pub const PARTIAL_FILL_THRESHOLD: f64 = 18.0;
 
 //region sidewalk overlay
 pub const SIDEWALK_YES_COLOR: Color32 = Color32::LIGHT_GREEN;
