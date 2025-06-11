@@ -20,7 +20,7 @@ pub const HOVER_SIZE_INCREASE: f32 = 1.0;
 pub const SELECTION_COLOR: Color32 = Color32::from_rgb(40, 180, 255);
 pub const SELECTION_SIZE_INCREASE: f32 = 2.0;
 pub const DEFAULT_WAY_COLOR: Color32 = Color32::GRAY;
-pub const DEFAULT_NODE_COLOR: Color32 = Color32::LIGHT_GRAY;
+pub const DEFAULT_NODE_COLOR: Color32 = Color32::WHITE;
 pub const DEFAULT_NODE_STROKE_COLOR: Color32 = Color32::GRAY;
 
 //region sidewalk overlay
