@@ -61,10 +61,11 @@ pub type CacheBitflag = u8;
 #[derive(Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum CacheFlag {
-	Projection = 1 << 0,
-	Orphan = 1 << 1,
-	WayNodesDedup = 1 << 2,
-	Triangulation = 1 << 3,
+	NodeProjection = 1 << 0,
+	NodeOrphan = 1 << 1,
+	NodeDedup = 1 << 2,
+	WayArea = 1 << 3,
+	WayMesh = 1 << 4,
 }
 
 pub enum MapDownloadState {

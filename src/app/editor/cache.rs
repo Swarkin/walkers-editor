@@ -1,5 +1,5 @@
-use crate::app::editor::is_way_area;
-use crate::app::editor::states::{CacheBitflag, CacheFlag};
+use super::states::{CacheBitflag, CacheFlag};
+use crate::app::editor::is_way_closed;
 use eframe::egui::{Color32, Mesh, Pos2, TextureId, Vec2};
 use eframe::epaint::{Vertex, WHITE_UV};
 use lyon_tessellation::geom::Point;
@@ -18,8 +18,26 @@ pub type ProjectedNodeCache = HashMap<Id, Pos2>;
 // Holds orphan (standalone) Node Ids.
 pub type OrphanNodeCache = HashSet<Id>;
 
+// Stores whether a way is detected to be an area.
+pub type WayAreaCache = HashMap<Id, bool>;
+
 // Used to avoid rendering Nodes twice when they occupy the same position.
-pub type WayNodePosDedupCache = HashSet<Id>;
+#[derive(Default)]
+pub struct NodeDedupCache {
+	pub way_nodes: HashSet<Id>,
+	pub orphan_nodes: HashSet<Id>,
+}
+
+impl NodeDedupCache {
+	pub fn clear(&mut self) {
+		self.way_nodes.clear();
+		self.orphan_nodes.clear();
+	}
+
+	pub fn len(&self) -> usize {
+		self.way_nodes.len() + self.orphan_nodes.len()
+	}
+}
 
 // Contains cached MeshData, used by FillMode::Full.
 pub type WayMeshCache = HashMap<Id, MeshData>;
@@ -53,14 +71,15 @@ impl Display for Change {
 pub struct EditorOsmData {
 	pub data: OsmData, // latest state of the osm data
 	pub changes: Vec<Change>,
+	pub cache_flags: CacheBitflag,
 
 	// caches
 	projected_nodes: ProjectedNodeCache,
 	pub orphan_nodes: OrphanNodeCache,
-	pub way_node_dedup: WayNodePosDedupCache,
-	way_meshes: WayMeshCache,
+	pub way_area: WayAreaCache,
+	pub node_dedup: NodeDedupCache,
+	way_mesh: WayMeshCache,
 
-	pub cache_flags: CacheBitflag,
 	pub node_start: Position,
 	pub mesh_start: Position,
 	pub node_offset_move: Vec2,
@@ -107,8 +126,8 @@ impl EditorOsmData {
 			.or_else(|| self.data.ways.get(id).map(ElementRef::Way))
 	}
 
-	pub fn get_projected_positions_in_way(&self, way: Id) -> Vec<Pos2> {
-		self.data.ways.get(&way).expect("way id must be valid")
+	pub fn get_projected_positions_in_way(&self, way_id: &Id) -> Vec<Pos2> {
+		self.data.ways.get(way_id).expect("way id must be valid")
 			.nodes.iter()
 			.map(|node_id| self.get_projected_pos(node_id).expect("id not found in cache"))
 			.collect()
@@ -119,7 +138,7 @@ impl EditorOsmData {
 	}
 
 	pub fn get_way_mesh(&self, way_id: &Id, color: Color32) -> Mesh {
-		let data = self.way_meshes.get(way_id).expect("id not found in cache");
+		let data = self.way_mesh.get(way_id).expect("id not found in cache");
 		Mesh {
 			indices: data.indices.clone(),
 			vertices: data.vertices.iter().cloned().map(|mut x| {
@@ -131,19 +150,21 @@ impl EditorOsmData {
 		}
 	}
 
-	pub fn reproject_nodes(&mut self, projector: &Projector, start_pos: Position) {
+	// No required caches
+	pub fn refresh_projected_nodes_cache(&mut self, projector: &Projector, start_pos: Position) {
 		self.reset_node_offsets(start_pos);
 		self.projected_nodes.clear();
-		self.cache_flags &= !(CacheFlag::Projection as u8);
+		self.cache_flags &= !(CacheFlag::NodeProjection as u8);
 
 		for (id, node) in &self.data.nodes {
 			self.projected_nodes.insert(*id, projector.project(coordinate_to_pos(&node.pos)).to_pos2());
 		}
 	}
 
-	pub fn redetect_orphan_nodes(&mut self) {
+	// No required caches
+	pub fn refresh_orphan_nodes_cache(&mut self) {
 		self.orphan_nodes.clear();
-		self.cache_flags &= !(CacheFlag::Orphan as u8);
+		self.cache_flags &= !(CacheFlag::NodeOrphan as u8);
 
 		let mut orphans = self.data.nodes.keys().copied().collect::<OrphanNodeCache>();
 		let mut parented = HashSet::new();
@@ -158,29 +179,67 @@ impl EditorOsmData {
 		self.orphan_nodes = orphans;
 	}
 
-	pub fn recompute_way_node_dedup(&mut self) {
-		self.way_node_dedup.clear();
-		self.cache_flags &= !(CacheFlag::WayNodesDedup as u8);
-
-		let mut positions = HashSet::new();
-		self.way_node_dedup = self.data.ways.values()
-			.flat_map(|way| &way.nodes)
-			.filter(|id| {
-				let pos_bits = coordinate_to_bits(&self.data.nodes.get(id).unwrap().pos);
-				positions.insert(pos_bits)
-			})
-			.copied()
-			.collect::<WayNodePosDedupCache>();
-	}
-
-	pub fn retriangulate_way_meshes(&mut self, start_pos: Position) {
-		self.reset_mesh_offsets(start_pos);
-		self.way_meshes.clear();
-		self.cache_flags &= !(CacheFlag::Triangulation as u8);
+	// No required caches
+	pub fn refresh_way_area_cache(&mut self) {
+		self.way_area.clear();
+		self.cache_flags &= !(CacheFlag::WayArea as u8);
 
 		for way in self.data.ways.values() {
-			if is_way_area(way) {
-				let points = self.get_projected_positions_in_way(way.id);
+			self.way_area.insert(way.id, is_way_area(way));
+		}
+	}
+
+	// Required caches:
+	// - NodeOrphan
+	// - WayArea
+	pub fn refresh_way_nodes_dedup_cache(&mut self) {
+		debug_assert!((self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8)) == 0);
+
+		self.node_dedup.clear();
+		self.cache_flags &= !(CacheFlag::NodeDedup as u8);
+
+		let mut positions = HashSet::new();
+		self.node_dedup.way_nodes = self.data.ways.values()
+			.filter(|way| !*self.way_area.get(&way.id).expect("way not found in cache"))
+			.flat_map(|way| {
+				match way.nodes.len() {
+					0 => vec![],
+					1 => vec![way.nodes[0]],
+					len => {
+						let first = way.nodes[0];
+						let last = way.nodes[len - 1];
+						vec![first, last]
+					}
+				}
+			})
+			.filter(|id| {
+				let pos_quantized = coordinate_quantized(&self.data.nodes.get(id).unwrap().pos, 10000000.0);
+				positions.insert(pos_quantized)
+			})
+			.collect();
+
+		positions.clear();
+		self.node_dedup.orphan_nodes = self.orphan_nodes.iter()
+			.filter(|id| {
+				let pos_quantized = coordinate_quantized(&self.data.nodes.get(id).unwrap().pos, 10000000.0);
+				positions.insert(pos_quantized)
+			})
+			.copied()
+			.collect();
+	}
+
+	// Required caches:
+	// - WayArea
+	pub fn refresh_way_mesh_cache(&mut self, start_pos: Position) {
+		debug_assert!((self.cache_flags & CacheFlag::WayArea as u8) == 0);
+
+		self.reset_mesh_offsets(start_pos);
+		self.way_mesh.clear();
+		self.cache_flags &= !(CacheFlag::WayMesh as u8);
+
+		for way in self.data.ways.values() {
+			if *self.way_area.get(&way.id).expect("way not found in cache") {
+				let points = self.get_projected_positions_in_way(&way.id);
 				let mut builder = Path::builder();
 				builder.begin(Point::new(points[0].x, points[0].y));
 
@@ -190,6 +249,7 @@ impl EditorOsmData {
 
 				builder.close();
 
+				// todo: re-use vertexbuffers allocation
 				let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
 				let mut tessellator = FillTessellator::new();
 
@@ -206,7 +266,7 @@ impl EditorOsmData {
 					}),
 				).expect("path tesselation failed");
 
-				self.way_meshes.insert(way.id, MeshData {
+				self.way_mesh.insert(way.id, MeshData {
 					indices: geometry.indices,
 					vertices: geometry.vertices,
 				});
@@ -218,13 +278,15 @@ impl EditorOsmData {
 		if from.is_empty() { return; }
 
 		if !from.ways.is_empty() {
-			self.cache_flags ^= CacheFlag::Triangulation as u8;
+			self.cache_flags ^= CacheFlag::WayMesh as u8;
 		}
 
 		if !from.nodes.is_empty() {
-			self.cache_flags ^= CacheFlag::Projection as u8;
-			self.cache_flags ^= CacheFlag::Orphan as u8;
-			self.cache_flags ^= CacheFlag::WayNodesDedup as u8;
+			self.cache_flags ^= CacheFlag::NodeProjection as u8;
+			self.cache_flags ^= CacheFlag::NodeOrphan as u8;
+			self.cache_flags ^= CacheFlag::WayArea as u8;
+			self.cache_flags ^= CacheFlag::NodeDedup as u8;
+			self.cache_flags ^= CacheFlag::WayMesh as u8;
 		}
 
 		for (id, way) in from.ways {
@@ -264,4 +326,17 @@ pub fn coordinate_to_pos(c: &Coordinate) -> Position {
 }
 
 // Workaround to use Eq and Hash for Coordinates
-pub fn coordinate_to_bits(c: &Coordinate) -> (u64, u64) { (c.lat.to_bits(), c.lon.to_bits()) }
+pub fn coordinate_quantized(c: &Coordinate, scale: f64) -> (u64, u64) { ((c.lat * scale) as u64, (c.lon * scale) as u64) }
+
+// Primitive area detection
+fn is_way_area(way: &Way) -> bool {
+	if !is_way_closed(way) || way.nodes.len() < 3 || way.tags.is_empty() { return false; }
+
+	for key in ["building", "landuse", "natural", "leisure", "amenity", "playground"] {
+		if way.tags.contains_key(key) { return true; }
+	}
+
+	if way.tags.get("area") == Some(&"yes".into()) { return true; }
+
+	false
+}

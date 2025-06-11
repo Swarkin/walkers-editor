@@ -37,38 +37,46 @@ impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
 	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
 		/* cache invalidation */ {
-			let current_projected = projector.project(self.current_pos);
-
 			// todo: fix 1 frame delay
-			if self.osm.cache_flags & CacheFlag::Projection as u8 != 0 {
-				self.osm.reproject_nodes(projector, self.current_pos);
+			if self.osm.cache_flags & CacheFlag::NodeProjection as u8 != 0 {
+				self.osm.refresh_projected_nodes_cache(projector, self.current_pos);
 			} else {
 				// update move offset
 				let p_start = projector.project(self.osm.node_start);
+				let current_projected = projector.project(self.current_pos);
 				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
 					// reproject occasionally to minify possible precision errors?
-					self.osm.reproject_nodes(projector, self.current_pos);
+					self.osm.refresh_projected_nodes_cache(projector, self.current_pos);
 				} else {
 					self.osm.node_offset_move = diff;
 				}
 			}
 
-			if self.osm.cache_flags & CacheFlag::Orphan as u8 != 0 {
-				self.osm.redetect_orphan_nodes();
+			if self.osm.cache_flags & CacheFlag::NodeOrphan as u8 != 0 {
+				self.osm.refresh_orphan_nodes_cache();
 			}
 
-			if self.osm.cache_flags & CacheFlag::Triangulation as u8 != 0 {
-				self.osm.retriangulate_way_meshes(self.current_pos);
+			if self.osm.cache_flags & CacheFlag::WayArea as u8 != 0 {
+				self.osm.refresh_way_area_cache();
+			}
+
+			if self.osm.cache_flags & CacheFlag::NodeDedup as u8 != 0 {
+				self.osm.refresh_way_nodes_dedup_cache();
+			}
+
+			if self.osm.cache_flags & CacheFlag::WayMesh as u8 != 0 {
+				self.osm.refresh_way_mesh_cache(self.current_pos);
 			} else {
 				// update move offset
 				let p_start = projector.project(self.osm.mesh_start);
+				let current_projected = projector.project(self.current_pos);
 				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
 					// reproject occasionally to minify possible precision errors?
-					self.osm.retriangulate_way_meshes(self.current_pos);
+					self.osm.refresh_way_mesh_cache(self.current_pos);
 				} else {
 					self.osm.mesh_offset_move = diff;
 				}

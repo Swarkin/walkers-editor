@@ -151,7 +151,7 @@ impl eframe::App for MyApp {
 					let curr_size = ctx.screen_rect().size();
 
 					if self.editor.prev_zoom != curr_zoom {
-						self.editor.osm_data.cache_flags |= CacheFlag::Projection as u8 | CacheFlag::Triangulation as u8;
+						self.editor.osm_data.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::WayMesh as u8;
 					}
 
 					let size_diff = (curr_size - self.editor.prev_size) / 2.0;
@@ -197,7 +197,7 @@ impl eframe::App for MyApp {
 						windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
 
 						if self.editor.map_state.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
-							self.editor.osm_data.cache_flags |= CacheFlag::Triangulation as u8;
+							self.editor.osm_data.cache_flags |= CacheFlag::WayMesh as u8;
 						}
 					}
 
