@@ -12,8 +12,16 @@ use walkers::{Position, Projector};
 
 pub const MAX_OFFSET: f32 = 4000.0; // arbitrary threshold, may not be required?
 
+// Stores projected Node positions by Id.
 pub type ProjectedNodeCache = HashMap<Id, Pos2>;
+
+// Holds orphan (standalone) Node Ids.
 pub type OrphanNodeCache = HashSet<Id>;
+
+// Used to avoid rendering Nodes twice when they occupy the same position.
+pub type WayNodePosDedupCache = HashSet<Id>;
+
+// Contains cached MeshData, used by FillMode::Full.
 pub type WayMeshCache = HashMap<Id, MeshData>;
 
 pub struct MeshData {
@@ -49,6 +57,7 @@ pub struct EditorOsmData {
 	// caches
 	projected_nodes: ProjectedNodeCache,
 	pub orphan_nodes: OrphanNodeCache,
+	pub way_node_dedup: WayNodePosDedupCache,
 	way_meshes: WayMeshCache,
 
 	pub cache_flags: CacheBitflag,
@@ -149,6 +158,21 @@ impl EditorOsmData {
 		self.orphan_nodes = orphans;
 	}
 
+	pub fn recompute_way_node_dedup(&mut self) {
+		self.way_node_dedup.clear();
+		self.cache_flags &= !(CacheFlag::WayNodesDedup as u8);
+
+		let mut positions = HashSet::new();
+		self.way_node_dedup = self.data.ways.values()
+			.flat_map(|way| &way.nodes)
+			.filter(|id| {
+				let pos_bits = coordinate_to_bits(&self.data.nodes.get(id).unwrap().pos);
+				positions.insert(pos_bits)
+			})
+			.copied()
+			.collect::<WayNodePosDedupCache>();
+	}
+
 	pub fn retriangulate_way_meshes(&mut self, start_pos: Position) {
 		self.reset_mesh_offsets(start_pos);
 		self.way_meshes.clear();
@@ -200,6 +224,7 @@ impl EditorOsmData {
 		if !from.nodes.is_empty() {
 			self.cache_flags ^= CacheFlag::Projection as u8;
 			self.cache_flags ^= CacheFlag::Orphan as u8;
+			self.cache_flags ^= CacheFlag::WayNodesDedup as u8;
 		}
 
 		for (id, way) in from.ways {
@@ -237,3 +262,6 @@ impl EditorOsmData {
 pub fn coordinate_to_pos(c: &Coordinate) -> Position {
 	Position::new(c.lon, c.lat)
 }
+
+// Workaround to use Eq and Hash for Coordinates
+pub fn coordinate_to_bits(c: &Coordinate) -> (u64, u64) { (c.lat.to_bits(), c.lon.to_bits()) }
