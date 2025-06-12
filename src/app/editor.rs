@@ -49,7 +49,7 @@ impl Plugin for EditorPlugin<'_> {
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
 					// reproject occasionally to minify possible precision errors?
 					self.osm.refresh_projected_nodes_cache(projector, self.current_pos);
-				} else {
+				} else if !self.osm.data.nodes.is_empty() {
 					self.osm.node_offset_move = diff;
 				}
 			}
@@ -66,16 +66,16 @@ impl Plugin for EditorPlugin<'_> {
 				self.osm.refresh_way_nodes_dedup_cache();
 			}
 
-			if self.osm.cache_flags & CacheFlag::WayMesh as u8 != 0 {
+			if (self.osm.cache_flags & CacheFlag::WayMesh as u8) != 0 {
+				// it might be possible to use emath::TSTransform for more performance
 				self.osm.refresh_way_mesh_cache(self.current_pos);
-			} else {
+			} else if !self.osm.data.ways.is_empty() {
 				// update move offset
 				let p_start = projector.project(self.osm.mesh_start);
 				let current_projected = projector.project(self.current_pos);
 				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
-					// reproject occasionally to minify possible precision errors?
 					self.osm.refresh_way_mesh_cache(self.current_pos);
 				} else {
 					self.osm.mesh_offset_move = diff;
@@ -147,7 +147,7 @@ impl Plugin for EditorPlugin<'_> {
 									if order { points.into_iter().skip(1).collect() }
 									else { points.into_iter().rev().skip(1).collect() }
 								} else {
-									#[cfg(feature = "debug")]
+									#[cfg(debug_assertions)]
 									eprintln!("winding_order failed for {points:?}");
 									points.into_iter().skip(1).collect()
 								},

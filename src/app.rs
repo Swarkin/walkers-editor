@@ -150,7 +150,7 @@ impl eframe::App for MyApp {
 					let curr_zoom = self.editor.map_memory.zoom();
 					let curr_size = ctx.screen_rect().size();
 
-					if self.editor.prev_zoom != curr_zoom {
+					if self.editor.prev_zoom != curr_zoom && self.editor.prev_zoom != 0.0 { // avoid running on first frame
 						self.editor.osm_data.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::WayMesh as u8;
 					}
 
@@ -197,6 +197,7 @@ impl eframe::App for MyApp {
 						windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
 
 						if self.editor.map_state.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
+							// is it necessary to rebuild WayArea cache here?
 							self.editor.osm_data.cache_flags |= CacheFlag::WayMesh as u8;
 						}
 					}

@@ -193,24 +193,27 @@ impl EditorOsmData {
 	// - NodeOrphan
 	// - WayArea
 	pub fn refresh_way_nodes_dedup_cache(&mut self) {
-		debug_assert!((self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8)) == 0);
+		#[cfg(debug_assertions)] {
+			assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8), 0);
+		}
 
 		self.node_dedup.clear();
 		self.cache_flags &= !(CacheFlag::NodeDedup as u8);
 
 		let mut positions = HashSet::new();
 		self.node_dedup.way_nodes = self.data.ways.values()
-			.filter(|way| !*self.way_area.get(&way.id).expect("way not found in cache"))
 			.flat_map(|way| {
-				match way.nodes.len() {
-					0 => vec![],
-					1 => vec![way.nodes[0]],
-					len => {
-						let first = way.nodes[0];
-						let last = way.nodes[len - 1];
-						vec![first, last]
+				if !*self.way_area.get(&way.id).expect("way not found in cache") {
+					match way.nodes.len() {
+						0 => vec![],
+						1 => vec![way.nodes[0]],
+						len => {
+							let first = way.nodes[0];
+							let last = way.nodes[len - 1];
+							vec![first, last]
+						}
 					}
-				}
+				} else { vec![] }
 			})
 			.filter(|id| {
 				let pos_quantized = coordinate_quantized(&self.data.nodes.get(id).unwrap().pos, 10000000.0);
@@ -231,7 +234,9 @@ impl EditorOsmData {
 	// Required caches:
 	// - WayArea
 	pub fn refresh_way_mesh_cache(&mut self, start_pos: Position) {
-		debug_assert!((self.cache_flags & CacheFlag::WayArea as u8) == 0);
+		#[cfg(debug_assertions)] {
+			assert_eq!(self.cache_flags & CacheFlag::WayArea as u8, 0);
+		}
 
 		self.reset_mesh_offsets(start_pos);
 		self.way_mesh.clear();
@@ -278,15 +283,11 @@ impl EditorOsmData {
 		if from.is_empty() { return; }
 
 		if !from.ways.is_empty() {
-			self.cache_flags ^= CacheFlag::WayMesh as u8;
+			self.cache_flags |= CacheFlag::WayArea as u8 | CacheFlag::WayMesh as u8;
 		}
 
 		if !from.nodes.is_empty() {
-			self.cache_flags ^= CacheFlag::NodeProjection as u8;
-			self.cache_flags ^= CacheFlag::NodeOrphan as u8;
-			self.cache_flags ^= CacheFlag::WayArea as u8;
-			self.cache_flags ^= CacheFlag::NodeDedup as u8;
-			self.cache_flags ^= CacheFlag::WayMesh as u8;
+			self.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::NodeOrphan as u8 | CacheFlag::NodeDedup as u8;
 		}
 
 		for (id, way) in from.ways {
@@ -332,11 +333,17 @@ pub fn coordinate_quantized(c: &Coordinate, scale: f64) -> (u64, u64) { ((c.lat 
 fn is_way_area(way: &Way) -> bool {
 	if !is_way_closed(way) || way.nodes.len() < 3 || way.tags.is_empty() { return false; }
 
+	if let Some(area) = way.tags.get("area") {
+		match area.as_str() {
+			"yes" => return true,
+			"no" => return false,
+			_ => {},
+		}
+	}
+
 	for key in ["building", "landuse", "natural", "leisure", "amenity", "playground"] {
 		if way.tags.contains_key(key) { return true; }
 	}
-
-	if way.tags.get("area") == Some(&"yes".into()) { return true; }
 
 	false
 }
