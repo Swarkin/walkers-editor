@@ -39,6 +39,9 @@ impl NodeDedupCache {
 	}
 }
 
+// Maps Node IDs to Way IDs
+pub type NodeUsageCache = HashMap<Id, Vec<Id>>;
+
 // Contains cached MeshData, used by FillMode::Full.
 pub type WayMeshCache = HashMap<Id, MeshData>;
 
@@ -78,6 +81,7 @@ pub struct EditorOsmData {
 	pub orphan_nodes: OrphanNodeCache,
 	pub way_area: WayAreaCache,
 	pub node_dedup: NodeDedupCache,
+	pub node_usage: NodeUsageCache,
 	way_mesh: WayMeshCache,
 
 	pub node_start: Position,
@@ -229,6 +233,20 @@ impl EditorOsmData {
 			})
 			.copied()
 			.collect();
+	}
+
+	// No required caches
+	pub fn refresh_node_usage_cache(&mut self) {
+		self.node_usage.clear();
+
+		for way in self.data.ways.values() {
+			for node_id in &way.nodes {
+				self.node_usage
+					.entry(*node_id)
+					.or_default()
+					.push(way.id)
+			}
+		}
 	}
 
 	// Required caches:

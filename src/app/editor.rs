@@ -58,6 +58,10 @@ impl Plugin for EditorPlugin<'_> {
 				self.osm.refresh_orphan_nodes_cache();
 			}
 
+			if self.osm.cache_flags & CacheFlag::NodeUsage as u8 != 0 {
+				self.osm.refresh_node_usage_cache();
+			}
+
 			if self.osm.cache_flags & CacheFlag::WayArea as u8 != 0 {
 				self.osm.refresh_way_area_cache();
 			}
