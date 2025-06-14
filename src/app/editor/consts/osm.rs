@@ -5,6 +5,7 @@ use eframe::egui::Color32;
 pub const NODE_SIZE: f32 = 3.0;
 pub const NODE_SIZE_ORPHAN: f32 = 4.0;
 pub const NODE_COLOR: Color32 = Color32::WHITE;
+pub const NODE_CONNECTED_COLOR: Color32 = Color32::LIGHT_GRAY;
 pub const NODE_STROKE_COLOR: Color32 = Color32::GRAY;
 
 pub const WAY_WIDTH: f32 = 1.0;

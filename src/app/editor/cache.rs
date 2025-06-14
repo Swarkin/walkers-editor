@@ -305,7 +305,7 @@ impl EditorOsmData {
 		}
 
 		if !from.nodes.is_empty() {
-			self.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::NodeOrphan as u8 | CacheFlag::NodeDedup as u8;
+			self.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::NodeOrphan as u8 | CacheFlag::NodeDedup as u8 | CacheFlag::NodeUsage as u8;
 		}
 
 		for (id, way) in from.ways {

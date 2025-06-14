@@ -5,6 +5,7 @@ pub mod attribute2d;
 pub mod states;
 
 use super::osm::Bbox;
+use super::places::school;
 use cache::{Change, EditorOsmData, ElementRef, MAX_OFFSET};
 use consts::{osm::*, *};
 use eframe::egui::{Color32, Pos2, Response, Shape, Stroke, Ui};
@@ -13,15 +14,14 @@ use osm_parser::*;
 use states::{CacheFlag, MapState, SelectionFlag};
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
-use walkers::{Plugin, Position, Projector};
+use walkers::{MapMemory, Plugin, Position, Projector};
 
 /// Data that is passed in every frame
 pub struct EditorPlugin<'a> {
 	pub editor_state: &'a mut EditorPluginState,
 	pub map_state: &'a mut MapState,
 	pub osm: &'a mut EditorOsmData,
-	pub current_zoom: f64,
-	pub current_pos: Position,
+	pub map_memory: MapMemory,
 }
 
 /// Data that persists or is produced between frames
@@ -37,18 +37,19 @@ impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
 	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
 		/* cache invalidation */ {
+			let current_pos = self.map_memory.detached().unwrap_or_else(school);
 			// todo: fix 1 frame delay
 			if self.osm.cache_flags & CacheFlag::NodeProjection as u8 != 0 {
-				self.osm.refresh_projected_nodes_cache(projector, self.current_pos);
+				self.osm.refresh_projected_nodes_cache(projector, current_pos);
 			} else {
 				// update move offset
 				let p_start = projector.project(self.osm.node_start);
-				let current_projected = projector.project(self.current_pos);
+				let current_projected = projector.project(current_pos);
 				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
 					// reproject occasionally to minify possible precision errors?
-					self.osm.refresh_projected_nodes_cache(projector, self.current_pos);
+					self.osm.refresh_projected_nodes_cache(projector, current_pos);
 				} else if !self.osm.data.nodes.is_empty() {
 					self.osm.node_offset_move = diff;
 				}
@@ -70,17 +71,17 @@ impl Plugin for EditorPlugin<'_> {
 				self.osm.refresh_way_nodes_dedup_cache();
 			}
 
-			if (self.osm.cache_flags & CacheFlag::WayMesh as u8) != 0 {
+			if self.osm.cache_flags & CacheFlag::WayMesh as u8 != 0 {
 				// it might be possible to use emath::TSTransform for more performance
-				self.osm.refresh_way_mesh_cache(self.current_pos);
+				self.osm.refresh_way_mesh_cache(current_pos);
 			} else if !self.osm.data.ways.is_empty() {
 				// update move offset
 				let p_start = projector.project(self.osm.mesh_start);
-				let current_projected = projector.project(self.current_pos);
+				let current_projected = projector.project(current_pos);
 				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
-					self.osm.refresh_way_mesh_cache(self.current_pos);
+					self.osm.refresh_way_mesh_cache(current_pos);
 				} else {
 					self.osm.mesh_offset_move = diff;
 				}
@@ -92,7 +93,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		// override fill mode
 		let mut target_fill = self.map_state.selected_fill_mode;
-		if target_fill == FillMode::Partial && self.current_zoom < PARTIAL_FILL_THRESHOLD {
+		if target_fill == FillMode::Partial && self.map_memory.zoom() < PARTIAL_FILL_THRESHOLD {
 			target_fill = FillMode::Full
 		};
 
@@ -117,22 +118,19 @@ impl Plugin for EditorPlugin<'_> {
 		let mut shapes = Vec::with_capacity(capacity);
 
 		/* draw osm data and detect interactions */ {
-			let detect_interactions = (self.map_state.selection_mode & SelectionFlag::Ways as u8) != 0
-				&& hover.is_some();
+			let mut detect_interactions = hover.is_some()
+				&& self.map_state.selection_mode & SelectionFlag::Ways as u8 != 0;
 
 			for way in self.osm.data.ways.values() {
 				let points = self.osm.get_projected_positions_in_way(&way.id);
-				let color = self.way_color(way);
 
 				if detect_interactions {
-					// detect interactions
 					let width = self.way_width(way);
 					let mouse = hover.unwrap();
 
-					if (self.map_state.selection_mode & SelectionFlag::Ways as u8) != 0
-						&& is_way_hovered(&points, &mouse, width.powi(2))
-					{
+					if is_way_hovered(&points, &mouse, width.powi(2)) {
 						self.editor_state.hovered = Some(way.id);
+						detect_interactions = false;
 					}
 				}
 
@@ -146,24 +144,21 @@ impl Plugin for EditorPlugin<'_> {
 
 							// partial fill
 							// todo: https://github.com/Swarkin/walkers-editor/issues/9
-							shapes.push(PathShape::closed_line(
+							shapes.push(self.draw_fill_partial_from(
 								if let Some(order) = winding_order(&points) {
-									if order { points.into_iter().skip(1).collect() }
-									else { points.into_iter().rev().skip(1).collect() }
+									if order { points.into_iter().skip(1).collect() } else { points.into_iter().rev().skip(1).collect() }
 								} else {
 									#[cfg(debug_assertions)]
 									eprintln!("winding_order failed for {points:?}");
 									points.into_iter().skip(1).collect()
 								},
-								PathStroke {
-									width: PARTIAL_FILL_WIDTH,
-									color: ColorMode::Solid(color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY)),
-									kind: StrokeKind::Inside,
-								}
+								PARTIAL_FILL_WIDTH,
+								self.way_color(way).gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY),
 							).into());
 						}
 						FillMode::Full => {
 							// draw area
+							let color = self.way_color(way);
 							let mesh = self.osm.get_way_mesh(&way.id, color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY));
 							shapes.push(Shape::Mesh(Arc::new(mesh)));
 
@@ -178,6 +173,7 @@ impl Plugin for EditorPlugin<'_> {
 					}
 				} else {
 					// draw way
+					let color = self.way_color(way);
 					let width = self.way_width(way);
 
 					shapes.extend(match &self.map_state.selected_visualization {
@@ -188,10 +184,15 @@ impl Plugin for EditorPlugin<'_> {
 			}
 
 			/* draw nodes and detect hover */ {
-				if (self.map_state.selection_mode & SelectionFlag::Nodes as u8) != 0 && hover.is_some() {
+				if self.map_state.selection_mode & SelectionFlag::Nodes as u8 != 0 && hover.is_some() {
 					let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
 						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
-						shapes.push(self.draw_node_at(pos).into());
+						let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
+							self.draw_node_connected_at(pos)
+						} else {
+							self.draw_node_at(pos)
+						}.into();
+						shapes.push(shape);
 						(pos, id)
 					}).collect::<Vec<_>>();
 
@@ -222,9 +223,14 @@ impl Plugin for EditorPlugin<'_> {
 							}
 						}
 					}
-				} else {
-					for id in &self.osm.node_dedup.way_nodes { shapes.push(self.draw_node(id).into()); }
-					for id in &self.osm.node_dedup.orphan_nodes { shapes.push(self.draw_node_orphan(id).into()) }
+				} else { // optimized without hover detection
+					for id in &self.osm.node_dedup.way_nodes {
+						shapes.push(self.draw_node_dynamic(id).into());
+					}
+
+					for id in &self.osm.node_dedup.orphan_nodes {
+						shapes.push(self.draw_node_orphan(id).into())
+					}
 				}
 			}
 		}
@@ -233,7 +239,7 @@ impl Plugin for EditorPlugin<'_> {
 			if let Some(hover) = self.editor_state.hovered {
 				let element = self.osm.data.nodes.get(&hover).map(ElementRef::Node)
 					.or_else(|| self.osm.data.ways.get(&hover).map(ElementRef::Way))
-					.expect("id not found");
+					.expect("id not found in data");
 
 				match element {
 					ElementRef::Node(node) => {
@@ -250,8 +256,18 @@ impl Plugin for EditorPlugin<'_> {
 							} else { // deselect when clicking irrelevant way
 								self.editor_state.selected = None;
 							}
+						} else if is_way_closed(way) {
+							shapes.push(self.draw_way_closed_hovered(&way.id).into());
+							shapes.extend(
+								way.nodes.iter().skip(1)
+									.map(|id| self.draw_node_dynamic(id).into())
+							);
 						} else {
 							shapes.push(self.draw_way_hovered(&way.id).into());
+							shapes.extend(
+								way.nodes.iter()
+									.map(|id| self.draw_node_dynamic(id).into())
+							);
 						}
 					}
 				}
@@ -271,15 +287,13 @@ impl Plugin for EditorPlugin<'_> {
 							shapes.push(self.draw_way_closed_selected(&id).into());
 							shapes.extend(
 								way.nodes.iter().skip(1)
-									.filter(|id| !self.osm.node_dedup.way_nodes.contains(id))
-									.map(|id| self.draw_node(id).into())
+									.map(|id| self.draw_node_dynamic(id).into())
 							);
 						} else {
 							shapes.push(self.draw_way_selected(&id).into());
 							shapes.extend(
 								way.nodes.iter()
-									.filter(|id| !self.osm.node_dedup.way_nodes.contains(id))
-									.map(|id| self.draw_node(id).into())
+									.map(|id| self.draw_node_dynamic(id).into())
 							);
 						}
 
@@ -319,6 +333,24 @@ impl EditorPlugin<'_> {
 		}
 	}
 
+	fn draw_node_connected(&self, id: &Id) -> CircleShape {
+		CircleShape {
+			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
+			radius: NODE_SIZE * self.map_state.scale_factor,
+			fill: NODE_CONNECTED_COLOR,
+			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+		}
+	}
+
+	fn draw_node_connected_at(&self, center: Pos2) -> CircleShape {
+		CircleShape {
+			center,
+			radius: NODE_SIZE * self.map_state.scale_factor,
+			fill: NODE_CONNECTED_COLOR,
+			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+		}
+	}
+
 	fn draw_node_orphan(&self, id: &Id) -> CircleShape {
 		CircleShape {
 			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
@@ -352,6 +384,14 @@ impl EditorPlugin<'_> {
 			radius: NODE_SIZE * self.map_state.scale_factor,
 			fill: NODE_COLOR,
 			stroke: Stroke { width: NODE_STROKE_WIDTH + SELECTION_SIZE_INCREASE, color: SELECTION_COLOR },
+		}
+	}
+
+	fn draw_node_dynamic(&self, id: &Id) -> CircleShape {
+		if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
+			self.draw_node_connected(id)
+		} else {
+			self.draw_node(id)
 		}
 	}
 }
@@ -399,6 +439,20 @@ impl EditorPlugin<'_> {
 		}
 	}
 
+	fn draw_way_closed_hovered(&self, id: &Id) -> PathShape {
+		let way = self.osm.data.ways.get(id).expect("id not found in cache");
+		PathShape {
+			points: self.osm.get_projected_positions_in_way(id).into_iter().skip(1).collect(),
+			closed: true,
+			fill: Color32::default(),
+			stroke: PathStroke {
+				width: self.way_width(way) + HOVER_SIZE_INCREASE,
+				color: ColorMode::Solid(HOVER_COLOR),
+				kind: StrokeKind::Middle,
+			}
+		}
+	}
+
 	fn draw_way_selected(&self, id: &Id) -> PathShape {
 		let way = self.osm.data.ways.get(id).expect("id not found in cache");
 		PathShape {
@@ -423,6 +477,19 @@ impl EditorPlugin<'_> {
 				width: self.way_width(way) + SELECTION_SIZE_INCREASE,
 				color: ColorMode::Solid(SELECTION_COLOR),
 				kind: StrokeKind::Middle,
+			}
+		}
+	}
+
+	fn draw_fill_partial_from(&self, points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
+		PathShape {
+			points,
+			closed: true,
+			fill: Color32::TRANSPARENT,
+			stroke: PathStroke {
+				width,
+				color: ColorMode::Solid(color),
+				kind: StrokeKind::Inside,
 			}
 		}
 	}
