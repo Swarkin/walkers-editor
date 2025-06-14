@@ -169,8 +169,7 @@ impl eframe::App for MyApp {
 						editor_state: &mut self.editor.plugin_state,
 						map_state: &mut self.editor.map_state,
 						osm: &mut self.editor.osm_data,
-						current_zoom: curr_zoom,
-						current_pos: self.editor.map_memory.detached().unwrap_or_else(places::school),
+						map_memory: self.editor.map_memory.clone(),
 					};
 
 					if let Some(tiles) = tiles {
@@ -180,18 +179,18 @@ impl eframe::App for MyApp {
 						map(ui, None, &mut self.editor.map_memory, editor_plugin);
 					};
 
-					if (self.editor.window_flags & (Window::Tags as u8)) == 0 {
+					if self.editor.window_flags & Window::Tags as u8 == 0 {
 						if let Some(id) = self.editor.plugin_state.selected.or(self.editor.plugin_state.hovered) {
 							let element = self.editor.osm_data.get(&id).expect("id not found");
 							windows::tags(ui, element.tags());
 						}
 					}
 
-					if (self.editor.window_flags & (Window::History as u8)) == 0 {
+					if self.editor.window_flags & Window::History as u8 == 0 {
 						windows::history(ui, &self.editor.osm_data.changes);
 					}
 
-					if (self.editor.window_flags & (Window::Map as u8)) == 0 {
+					if self.editor.window_flags & Window::Map as u8 == 0 {
 						let prev_fill_mode = self.editor.map_state.selected_fill_mode;
 
 						windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
@@ -202,14 +201,14 @@ impl eframe::App for MyApp {
 						}
 					}
 
-					if (self.editor.window_flags & (Window::Download as u8)) == 0 {
+					if self.editor.window_flags & Window::Download as u8 == 0 {
 						if let Some(request) = windows::download(ui, &self.editor.plugin_state.map_bbox, &self.editor.map_state.download) {
 							self.worker_handle.sender.send(request).unwrap();
 							self.editor.map_state.download = MapDownloadState::Downloading;
 						}
 					}
 
-					if (self.editor.window_flags & (Window::Toolbar as u8)) == 0 {
+					if self.editor.window_flags & Window::Toolbar as u8 == 0 {
 						windows::toolbar(ui, &mut self.editor.map_state.selection_mode);
 					}
 

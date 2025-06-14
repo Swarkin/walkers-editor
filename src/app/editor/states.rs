@@ -1,6 +1,5 @@
-use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState};
+use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState, FillMode};
 use crate::app::config::TargetServer;
-use crate::app::editor::visual::FillMode;
 use crate::app::osm::{OsmToken, Result};
 use crate::app::osmchange::OsmChange;
 use crate::app::providers::{Provider, ProviderMap, TilesKind};
