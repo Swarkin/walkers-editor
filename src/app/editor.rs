@@ -173,13 +173,16 @@ impl Plugin for EditorPlugin<'_> {
 					}
 				} else {
 					// draw way
-					let color = self.way_color(way);
 					let width = self.way_width(way);
+					let color = self.way_color(way);
 
-					shapes.extend(match &self.map_state.selected_visualization {
-						Visualization::Default => vec![self.draw_way_from(points, width, color).into()],
-						Visualization::Sidewalks => visual::sidewalks(&way.tags, points, width, color),
-					});
+					shapes.push(self.draw_way_from(points.to_vec(), width, color).into());
+
+					#[allow(clippy::single_match)] // there will be more visualizations in the future
+					match &self.map_state.selected_visualization {
+						Visualization::Sidewalks => shapes.extend(visual::sidewalks(&way.tags, points, width)),
+						_ => {},
+					}
 				}
 			}
 
@@ -251,7 +254,7 @@ impl Plugin for EditorPlugin<'_> {
 					}
 					ElementRef::Way(way) => {
 						if resp.clicked() { // selected
-							if self.is_way_relevant(&way.tags) {
+							if self.is_way_relevant(&way.tags) || self.map_state.selected_visualization == Visualization::Default {
 								self.editor_state.selected = Some(hover);
 							} else { // deselect when clicking irrelevant way
 								self.editor_state.selected = None;
@@ -499,21 +502,20 @@ impl EditorPlugin<'_> {
 impl EditorPlugin<'_> {
 	fn way_width(&self, way: &Way) -> f32 {
 		match self.map_state.selected_visualization {
-			Visualization::Default => visual::width_default(way) * self.map_state.scale_factor,
-			Visualization::Sidewalks => visual::width_sidewalk(way) * self.map_state.scale_factor,
+			Visualization::Default | Visualization::Sidewalks => visual::width_default(way) * self.map_state.scale_factor,
 		}
 	}
 
 	fn way_color(&self, way: &Way) -> Color32 {
 		match self.map_state.selected_visualization {
-			Visualization::Default => visual::color_default(way),
-			Visualization::Sidewalks => visual::color_sidewalk(way),
+			Visualization::Default | Visualization::Sidewalks => visual::color_default(way),
 		}
 	}
 
+	// returns whether the way is relevant for the current visualization, or false if none selected.
 	fn is_way_relevant(&self, tags: &Tags) -> bool {
 		match self.map_state.selected_visualization {
-			Visualization::Default => true,
+			Visualization::Default => false,
 			Visualization::Sidewalks => visual::sidewalks_relevant(tags),
 		}
 	}

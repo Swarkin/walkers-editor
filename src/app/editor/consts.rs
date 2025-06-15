@@ -16,13 +16,6 @@ pub const PARTIAL_FILL_WIDTH: f32 = 12.0;
 pub const PARTIAL_FILL_GAMMA_MULTIPLY: f32 = 0.5;
 pub const PARTIAL_FILL_THRESHOLD: f64 = 18.0;
 
-//region sidewalk overlay
-pub const SIDEWALK_YES_COLOR: Color32 = Color32::LIGHT_GREEN;
-pub const SIDEWALK_NO_COLOR: Color32 = Color32::LIGHT_GRAY;
-pub const SIDEWALK_SEPARATE_COLOR: Color32 = Color32::LIGHT_BLUE;
-pub const SIDEWALK_UNKNOWN_COLOR: Color32 = Color32::LIGHT_RED;
-//endregion
-
 fn tint(dark: bool) -> u8 {
 	if dark { TINT_DARK } else { TINT_LIGHT }
 }
