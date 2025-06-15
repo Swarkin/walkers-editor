@@ -1,12 +1,10 @@
-# walkers: OpenStreetMap editor
+# walkers-editor
 
-<img width="128px" src="https://raw.githubusercontent.com/Swarkin/walkers-editor/50ce9df2b5cc258d950630ff968ad55c022c5f0a/assets/walkers.svg" alt="icon">
+<img width="100px" align="right" src="https://raw.githubusercontent.com/Swarkin/walkers-editor/50ce9df2b5cc258d950630ff968ad55c022c5f0a/assets/walkers.svg" alt="icon">
 
----
+**walkers-editor** is an [OpenStreetMap](https://www.openstreetmap.org/about) editor written in 🦀 **Rust** with a focus on performance. It is heavily inspired by the _Overlays_-feature of [StreetComplete](https://github.com/streetcomplete/StreetComplete) and aims to bring its user-friendliness to the desktop.
 
-> [!NOTE]  
-> This editor can't actually upload anything yet, it's very early in development.
+> [!NOTE]
+> This editor can't actually upload anything yet - it is very early in development.
 
-**walkers** is an OpenStreetMap editor inspired by the overlays of [StreetComplete](https://github.com/streetcomplete/StreetComplete).
-
-![preview](https://github.com/user-attachments/assets/3842b037-41dc-4fae-9770-534e78624ef8)
+![preview](https://github.com/user-attachments/assets/0e4a3b0f-c050-4c17-96e8-ede416eb70ad)
