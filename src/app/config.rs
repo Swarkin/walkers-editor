@@ -1,18 +1,8 @@
-//todo: clean up the MyApp struct and move editor config related things into this file
-
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TargetServer {
 	OpenStreetMap,
 	#[default]
 	OpenStreetMapDev,
-}
-
-#[derive(Default, Copy, Clone, PartialEq)]
-pub enum UploaderState {
-	#[default]
-	Viewing,
-	//Authenticating,
-	//Uploading,
 }
 
 impl TargetServer {

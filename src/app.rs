@@ -7,31 +7,35 @@ mod osmchange;
 mod config;
 mod worker;
 
-use crate::app::providers::Provider;
 use config::TargetServer;
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
 use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
 use osm::OsmClient;
 use osmchange::{OsmChange, Tag};
-use providers::providers;
+use providers::{providers, Provider};
 use walkers::{Map, Tiles};
 use windows::Window;
 use worker::{Response, Worker, WorkerHandle};
 
+#[derive(Default)]
+pub struct AppState {
+	pub view: View,
+	pub target_server_ui: TargetServer,
+	pub show_licenses_modal: bool,
+}
+
 #[derive(Default, PartialEq)]
-enum View {
+pub enum View {
 	#[default]
 	Edit,
 	Upload,
 	Auth,
 }
 
-// todo: split the fields into their own structs based on usage
 pub struct MyApp {
 	worker_handle: WorkerHandle,
-	view: View,
-	target_server_ui: TargetServer, // todo: use Arc<RwLock<T>> for data shared with worker
+	state: AppState,
 	editor: EditorState,
 	uploader: UploaderState,
 	authenticator: AuthenticatorState,
@@ -58,12 +62,10 @@ impl MyApp {
 
 		Self {
 			worker_handle,
+			state: AppState::default(),
 			editor: EditorState::new(providers(egui_ctx)),
 			uploader: UploaderState::default(),
 			authenticator: AuthenticatorState::default(),
-
-			view: Default::default(),
-			target_server_ui: Default::default(),
 		}
 	}
 }
@@ -110,13 +112,13 @@ impl eframe::App for MyApp {
 					egui::Sides::new().show(ui,
 						|ui| {
 							let btn = title_bar_button("Editor", load_icon(ctx, egui::include_image!("../assets/ui/line.svg"), TOP_BAR_ICON_SIZE));
-							if ui.add_enabled(self.view != View::Edit, btn).clicked() {
-								self.view = View::Edit;
+							if ui.add_enabled(self.state.view != View::Edit, btn).clicked() {
+								self.state.view = View::Edit;
 							}
 
 							let btn = title_bar_button("Upload", load_icon(ctx, egui::include_image!("../assets/ui/upload.svg"), TOP_BAR_ICON_SIZE));
-							if ui.add_enabled(self.view != View::Upload, btn).clicked() {
-								self.view = View::Upload;
+							if ui.add_enabled(self.state.view != View::Upload, btn).clicked() {
+								self.state.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
 								self.uploader.osmchange = OsmChange::from(&self.editor.osm_data.changes);
 								self.uploader.osmchange.prepare_upload(0); // temporary
@@ -125,8 +127,8 @@ impl eframe::App for MyApp {
 							}
 
 							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg"), TOP_BAR_ICON_SIZE));
-							if ui.add_enabled(self.view != View::Auth, btn).clicked() {
-								self.view = View::Auth;
+							if ui.add_enabled(self.state.view != View::Auth, btn).clicked() {
+								self.state.view = View::Auth;
 							}
 						},
 						|ui| {
@@ -143,7 +145,7 @@ impl eframe::App for MyApp {
 				});
 			});
 
-		match self.view {
+		match self.state.view {
 			View::Edit => {
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
 					// determine whether regenerating a cache is necessary
@@ -193,10 +195,12 @@ impl eframe::App for MyApp {
 					if self.editor.window_flags & Window::Map as u8 == 0 {
 						let prev_fill_mode = self.editor.map_state.selected_fill_mode;
 
-						windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
+						let show_licenses = windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
+						if show_licenses {
+							self.state.show_licenses_modal = true;
+						}
 
 						if self.editor.map_state.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
-							// is it necessary to rebuild WayArea cache here?
 							self.editor.osm_data.cache_flags |= CacheFlag::WayMesh as u8;
 						}
 					}
@@ -235,7 +239,7 @@ impl eframe::App for MyApp {
 					});
 
 					// todo: simple function to check whether authentication exists
-					if !self.authenticator.token.get(&self.target_server_ui).is_some_and(|x| x.is_ok()) {
+					if !self.authenticator.token.get(&self.state.target_server_ui).is_some_and(|x| x.is_ok()) {
 						ui.strong("Please authenticate to OSM using the Auth tab.");
 					} else {
 						ui.add_space(10.0);
@@ -250,7 +254,7 @@ impl eframe::App for MyApp {
 								Ok(id) => {
 									ui.horizontal(|ui| {
 										ui.label("Changeset ID: ");
-										ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.target_server_ui.base_url(), id));
+										ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.state.target_server_ui.base_url(), id));
 									});
 								}
 								Err(err) => {
@@ -265,20 +269,20 @@ impl eframe::App for MyApp {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading("Authenticate to OpenStreetMap");
 
-					let prev_server = self.target_server_ui;
-					server_selector(ui, &mut self.target_server_ui);
-					if prev_server != self.target_server_ui {
+					let prev_server = self.state.target_server_ui;
+					server_selector(ui, &mut self.state.target_server_ui);
+					if prev_server != self.state.target_server_ui {
 						// update target server for OsmClient of worker
-						self.worker_handle.sender.send(worker::Request::SetTargetServer(self.target_server_ui)).unwrap();
+						self.worker_handle.sender.send(worker::Request::SetTargetServer(self.state.target_server_ui)).unwrap();
 					}
 
 					ui.add_space(10.0);
 
-					if self.target_server_ui == TargetServer::OpenStreetMap {
+					if self.state.target_server_ui == TargetServer::OpenStreetMap {
 						ui.strong("The main OpenStreetMap instance is not available for editing in walkers as of now.");
 					} else {
 						ui.label("1. Open this URL and follow the authorization process:");
-						ui.hyperlink(osm::client_auth_url(self.target_server_ui));
+						ui.hyperlink(osm::client_auth_url(self.state.target_server_ui));
 
 						ui.add_space(10.0);
 						ui.label("2. Paste the resulting code into the field below:");
@@ -292,6 +296,13 @@ impl eframe::App for MyApp {
 						// todo: logout button
 					}
 				});
+			}
+		}
+	
+		if self.state.show_licenses_modal {
+			let close_modal = windows::licenses_modal(ctx);
+			if close_modal {
+				self.state.show_licenses_modal = false;
 			}
 		}
 	}

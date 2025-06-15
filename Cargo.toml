@@ -1,6 +1,9 @@
 [package]
 name = "walkers-editor"
 version = "0.1.0"
+authors = ["Swarkin"]
+repository = "https://github.com/Swarkin/walkers-editor"
+readme = "README.md"
 edition = "2024"
 build = "build.rs"
 

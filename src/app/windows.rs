@@ -9,6 +9,7 @@ use super::providers::Provider;
 #[cfg(feature = "debug")]
 use super::providers::TilesKind;
 use eframe::egui;
+use eframe::egui::{Area, RichText, TextStyle};
 use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Order, Shadow, Stroke, Ui, Vec2};
 use walkers::sources::Attribution;
 
@@ -118,11 +119,12 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
 		});
 }
 
+// Returns whether the licenses button was pressed
 pub fn map<'a>(
 	ui: &Ui,
 	map_state: &mut MapState,
 	providers: &mut impl Iterator<Item = &'a Provider>,
-) {
+) -> bool {
 	egui::Window::new("Map")
 		.collapsible(false)
 		.resizable(false)
@@ -169,8 +171,10 @@ pub fn map<'a>(
 
 				ui.add(egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text("Scale factor"));
 				ui.checkbox(&mut map_state.zoom_with_ctrl, "Zoom with Ctrl");
-			});
-		});
+
+				ui.button("Show Open-Source Licenses").clicked()
+			}).body_returned.unwrap_or(false)
+		}).unwrap().inner.unwrap_or(false)
 }
 
 pub fn history(ui: &Ui, history: &Vec<Change>) {
@@ -261,4 +265,39 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&Ti
 				ui.label(format!("in-progress requests for {:?}: {}", selected_provider.unwrap(), stats.in_progress));
 			}
 		});
+}
+
+pub fn licenses_modal(ctx: &egui::Context) -> bool {
+	let screen = ctx.screen_rect();
+	let width = screen.width() * 0.8;
+	let height = screen.height() * 0.6;
+
+	let area = Area::new("licenses_area".into())
+		.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0))
+		.default_width(width);
+
+	egui::Modal::new("licenses".into()).area(area).show(ctx, |ui| {
+		ui.heading("Open-Source Licenses");
+		ui.add_space(4.0);
+		ui.horizontal(|ui| {
+			ui.spacing_mut().item_spacing = Vec2::ZERO;
+			ui.hyperlink_to(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY"));
+			ui.label(" has been made possible by the following awesome open-source libraries:");
+		});
+		ui.separator();
+		egui::ScrollArea::vertical()
+			.max_height(height)
+			.show(ui, |ui| {
+				let text = RichText::new(crate::LICENSES_TEXT)
+					.text_style(TextStyle::Monospace);
+
+				ui.label(text);
+			});
+		ui.separator();
+		ui.label("Packages marked with (*) have been \"de-duplicated\".\n\
+		          The dependencies for the package have already been shown elsewhere in the graph, \
+		          and so are not repeated.");
+		ui.add_space(4.0);
+		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
+	}).inner
 }
