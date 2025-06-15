@@ -1,7 +1,7 @@
-use std::fmt::{Display, Formatter};
-use super::consts::*;
+use super::visual::{SIDEWALK_NO_COLOR, SIDEWALK_SEPARATE_COLOR, SIDEWALK_UNKNOWN_COLOR, SIDEWALK_YES_COLOR};
 use eframe::egui::Color32;
 use osm_parser::Tags;
+use std::fmt::{Display, Formatter};
 
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct Attribute2D {

@@ -159,15 +159,13 @@ pub fn map<'a>(
 						}
 					});
 
-				ui.add_enabled_ui((map_state.selection_mode & SelectionFlag::Ways as u8) == 0, |ui| {
-					egui::ComboBox::from_label("Visualization")
-						.selected_text(format!("{:?}", map_state.selected_visualization))
-						.show_ui(ui, |ui| {
-							for visualization in Visualization::ITER {
-								ui.selectable_value(&mut map_state.selected_visualization, visualization, format!("{visualization:?}"));
-							}
-						});
-				});
+				egui::ComboBox::from_label("Visualization")
+					.selected_text(format!("{:?}", map_state.selected_visualization))
+					.show_ui(ui, |ui| {
+						for visualization in Visualization::ITER {
+							ui.selectable_value(&mut map_state.selected_visualization, visualization, format!("{visualization:?}"));
+						}
+					});
 
 				ui.add(egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text("Scale factor"));
 				ui.checkbox(&mut map_state.zoom_with_ctrl, "Zoom with Ctrl");

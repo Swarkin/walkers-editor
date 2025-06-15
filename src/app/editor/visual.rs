@@ -2,7 +2,7 @@ use super::attribute2d::{Attribute2D, TagValue};
 use super::cache::Change;
 use super::consts::osm::*;
 use eframe::egui;
-use eframe::epaint::{PathShape, Stroke};
+use eframe::epaint::Stroke;
 use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
 use osm_parser::{Tags, Way};
@@ -34,6 +34,12 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 	MOTORWAY_LINK, TRUNK_LINK, PRIMARY_LINK, SECONDARY_LINK, TERTIARY_LINK,
 ];
 
+pub const SIDEWALK_WIDTH: f32 = 4.0;
+pub const SIDEWALK_YES_COLOR: Color32 = Color32::LIGHT_GREEN;
+pub const SIDEWALK_NO_COLOR: Color32 = Color32::LIGHT_GRAY;
+pub const SIDEWALK_SEPARATE_COLOR: Color32 = Color32::LIGHT_BLUE;
+pub const SIDEWALK_UNKNOWN_COLOR: Color32 = Color32::LIGHT_RED;
+
 pub fn width_default(w: &Way) -> f32 {
 	if let Some(building) = w.tags.get("building") {
 		match building.as_str() {
@@ -50,10 +56,6 @@ pub fn width_default(w: &Way) -> f32 {
 			_ => WAY_WIDTH,
 		}
 	} else { WAY_WIDTH }
-}
-
-pub fn width_sidewalk(w: &Way) -> f32 {
-	width_default(w)
 }
 
 pub fn color_default(w: &Way) -> Color32 {
@@ -73,12 +75,9 @@ pub fn color_default(w: &Way) -> Color32 {
 	} else { WAY_COLOR }
 }
 
-pub fn color_sidewalk(w: &Way) -> Color32 {
-	color_default(w)
-}
-
-pub fn sidewalks(tags: &Tags, points: Vec<Pos2>, width: f32, color: Color32) -> Vec<Shape> {
-	if tags.keys().any(|k| k.starts_with("sidewalk")) && sidewalks_relevant(tags) {
+// todo: use PathShape
+pub fn sidewalks(tags: &Tags, points: Vec<Pos2>, width: f32) -> Vec<Shape> {
+	if sidewalks_relevant(tags) {
 		let mut shapes = Vec::with_capacity((points.len() - 1) * 2 + 1);
 		let attr = Attribute2D::new(tags, "sidewalk");
 
@@ -91,18 +90,13 @@ pub fn sidewalks(tags: &Tags, points: Vec<Pos2>, width: f32, color: Color32) -> 
 
 			shapes.push(Shape::LineSegment {
 				points: [from + offset, to + offset],
-				stroke: Stroke::new(width, attr.left),
+				stroke: Stroke::new(SIDEWALK_WIDTH, attr.left),
 			});
 			shapes.push(Shape::LineSegment {
 				points: [from - offset, to - offset],
-				stroke: Stroke::new(width, attr.right),
+				stroke: Stroke::new(SIDEWALK_WIDTH, attr.right),
 			});
 		}
-
-		shapes.push(Shape::Path(PathShape::line(
-			points,
-			Stroke::new(width, color),
-		)));
 
 		shapes
 	} else { vec![] }
