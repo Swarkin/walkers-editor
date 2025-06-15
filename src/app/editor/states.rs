@@ -21,6 +21,29 @@ pub struct EditorState {
 	pub prev_zoom: f64,
 }
 
+impl EditorState {
+	pub fn new(providers: ProviderMap) -> Self {
+		Self {
+			tile_providers: providers,
+			map_memory: MapMemory::default(),
+			map_state: MapState {
+				selected_provider: Some(Provider::default()),
+				selected_visualization: Visualization::default(),
+				selected_fill_mode: FillMode::default(),
+				selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
+				download: MapDownloadState::Idle(None),
+				scale_factor: 1.0,
+				zoom_with_ctrl: false,
+			},
+			osm_data: EditorOsmData::default(),
+			plugin_state: EditorPluginState::default(),
+			window_flags: WindowBitflag::default(),
+			prev_size: Vec2::ZERO,
+			prev_zoom: 0.0,
+		}
+	}
+}
+
 pub struct MapState {
 	pub selected_provider: Option<Provider>,
 	pub selected_visualization: Visualization,
@@ -78,29 +101,6 @@ impl MapDownloadState {
 		match self {
 			MapDownloadState::Idle(_) => false,
 			MapDownloadState::Downloading => true,
-		}
-	}
-}
-
-impl EditorState {
-	pub fn new(providers: ProviderMap) -> Self {
-		Self {
-			tile_providers: providers,
-			map_memory: MapMemory::default(),
-			map_state: MapState {
-				selected_provider: Some(Provider::default()),
-				selected_visualization: Visualization::default(),
-				selected_fill_mode: FillMode::default(),
-				selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
-				download: MapDownloadState::Idle(None),
-				scale_factor: 1.0,
-				zoom_with_ctrl: false,
-			},
-			osm_data: EditorOsmData::default(),
-			plugin_state: EditorPluginState::default(),
-			window_flags: WindowBitflag::default(),
-			prev_size: Vec2::ZERO,
-			prev_zoom: 0.0,
 		}
 	}
 }
