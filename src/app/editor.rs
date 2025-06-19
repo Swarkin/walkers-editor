@@ -104,8 +104,8 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		/* update state.map_bbox */ {
-			let tl = projector.unproject(resp.rect.min.to_vec2() + resp.rect.center().to_vec2());
-			let br = projector.unproject(resp.rect.max.to_vec2() + resp.rect.center().to_vec2());
+			let tl = projector.unproject(resp.rect.min.to_vec2());
+			let br = projector.unproject(resp.rect.max.to_vec2());
 			self.editor_state.map_bbox.left = tl.x();
 			self.editor_state.map_bbox.bottom = br.y();
 			self.editor_state.map_bbox.right = br.x();
