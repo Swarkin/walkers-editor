@@ -10,7 +10,7 @@ const SCOPES: &str = "write_api";
 type AnyError = Box<dyn std::error::Error + Sync + Send>;
 pub type Result<T> = core::result::Result<T, AnyError>;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Bbox {
 	pub left: f64,
 	pub bottom: f64,

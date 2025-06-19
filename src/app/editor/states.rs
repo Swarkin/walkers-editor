@@ -1,13 +1,17 @@
 use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState, FillMode};
-use crate::app::config::TargetServer;
-use crate::app::osm::{OsmToken, Result};
-use crate::app::osmchange::OsmChange;
-use crate::app::providers::{Provider, ProviderMap, TilesKind};
-use crate::app::windows::WindowBitflag;
+use crate::app::{
+	config::TargetServer,
+	osm::{OsmToken, Result},
+	osmchange::OsmChange,
+	providers::{Provider, ProviderMap, TilesKind},
+	windows::WindowBitflag,
+};
 use eframe::egui::Vec2;
-use std::collections::HashMap;
-use std::fmt::{Display, Formatter};
-use std::num::NonZeroU32;
+use std::{
+	collections::HashMap,
+	fmt::{Display, Formatter},
+	num::NonZeroU32
+};
 use walkers::MapMemory;
 
 pub struct EditorState {
@@ -94,15 +98,6 @@ pub enum CacheFlag {
 pub enum MapDownloadState {
 	Idle(Option<Result<()>>),
 	Downloading,
-}
-
-impl MapDownloadState {
-	pub fn is_busy(&self) -> bool {
-		match self {
-			MapDownloadState::Idle(_) => false,
-			MapDownloadState::Downloading => true,
-		}
-	}
 }
 
 #[derive(Default)]

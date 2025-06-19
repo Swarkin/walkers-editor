@@ -1,29 +1,17 @@
 use super::editor::{
 	cache::Change,
 	consts::{osm::ATTRIBUTION_URL, TOP_BAR_HEIGHT, WINDOW_MARGIN},
-	states::{MapDownloadState, MapState, SelectionBitflag, SelectionFlag},
+	states::{MapDownloadState, MapState, SelectionFlag},
 	visual::{FillMode, Visualization},
 };
-use super::osm::Bbox;
 use super::providers::Provider;
-#[cfg(feature = "debug")]
-use super::providers::TilesKind;
 use eframe::egui;
-use eframe::egui::{Area, RichText, TextStyle};
-use egui::{include_image, Align2, Button, Color32, CornerRadius, Frame, Grid, Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Order, Shadow, Stroke, Ui, Vec2};
+use egui::{
+	include_image, Align2, Area, Button, Color32, CornerRadius, CursorIcon, Event, Frame, Grid,
+	Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Order, RichText, Shadow, Stroke,
+	TextStyle, Ui, Vec2,
+};
 use walkers::sources::Attribution;
-
-const TOOLBAR_IMAGES: [ImageSource; 3] = [
-	include_image!("../../assets/ui/primitives/node24.svg"),
-	include_image!("../../assets/ui/primitives/way24.svg"),
-	include_image!("../../assets/ui/primitives/area24.svg")
-];
-
-const TOOLBAR_SHORTCUTS: [KeyboardShortcut; 3] = [
-	KeyboardShortcut { modifiers: Modifiers::NONE, logical_key: Key::Num1 },
-	KeyboardShortcut { modifiers: Modifiers::NONE, logical_key: Key::Num2 },
-	KeyboardShortcut { modifiers: Modifiers::NONE, logical_key: Key::Num3 },
-];
 
 const TRANSPARENT_FRAME: Frame = Frame {
 	inner_margin: Margin::same(6),
@@ -42,8 +30,7 @@ pub enum Window {
 	Tags = 1 << 0,
 	Map = 1 << 1,
 	History = 1 << 2,
-	Download = 1 << 3,
-	Toolbar = 1 << 4,
+	Toolbar = 1 << 3,
 	#[cfg(feature = "debug")]
 	Debug = 1 << 7,
 }
@@ -54,7 +41,6 @@ impl std::fmt::Display for Window {
 			Window::Tags => "Tags",
 			Window::Map => "Controls",
 			Window::History => "History",
-			Window::Download => "Download",
 			Window::Toolbar => "Toolbar",
 			#[cfg(feature = "debug")]
 			Window::Debug => "Debug",
@@ -64,9 +50,9 @@ impl std::fmt::Display for Window {
 
 impl Window {
 	#[cfg(not(feature = "debug"))]
-	pub const ITER: [Window; 5] = [Window::Tags, Window::Map, Window::History, Window::Download, Window::Toolbar];
+	pub const ITER: [Window; 4] = [Window::Tags, Window::Map, Window::History, Window::Toolbar];
 	#[cfg(feature = "debug")]
-	pub const ITER: [Window; 6] = [Window::Tags, Window::Map, Window::History, Window::Download, Window::Toolbar, Window::Debug];
+	pub const ITER: [Window; 5] = [Window::Tags, Window::Map, Window::History, Window::Toolbar, Window::Debug];
 }
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
@@ -193,41 +179,8 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 		});
 }
 
-pub fn download(ui: &Ui, bbox: &Bbox, download_state: &MapDownloadState) -> Option<super::worker::Request> {
-	egui::Window::new("Download")
-		.collapsible(true)
-		.resizable(false)
-		.title_bar(false)
-		.anchor(Align2::CENTER_BOTTOM, [0., -WINDOW_MARGIN])
-		.frame(TRANSPARENT_FRAME)
-		.show(ui.ctx(), |ui| {
-			ui.horizontal(|ui| {
-				let req = if ui.add_enabled(!download_state.is_busy(), Button::new("Download Area")).clicked() {
-					let diff_x = (bbox.left - bbox.right) / 2.0;
-					let diff_y = (bbox.bottom - bbox.top) / 2.0;
-					Some(super::worker::Request::GetMap(Box::new(Bbox{ left: bbox.left + diff_x, bottom: bbox.bottom - diff_y, right: bbox.right + diff_x, top: bbox.top - diff_y })))
-				} else { None };
-
-				match &download_state {
-					MapDownloadState::Idle(prev) => {
-						if let Some(prev) = prev {
-							match prev {
-								Ok(_) => ui.strong("✔"),
-								Err(_) => ui.strong("✘"), // todo: global error modal / toast
-							};
-						}
-					}
-					MapDownloadState::Downloading => {
-						ui.spinner();
-					}
-				}
-
-				req
-			}).inner
-		})?.inner?
-}
-
-pub fn toolbar(ui: &Ui, selection_flags: &mut SelectionBitflag) {
+// Returns whether a download was triggered
+pub fn toolbar(ui: &Ui, state: &mut MapState) -> bool {
 	egui::Window::new("Toolbar")
 		.title_bar(false)
 		.resizable(false)
@@ -236,20 +189,78 @@ pub fn toolbar(ui: &Ui, selection_flags: &mut SelectionBitflag) {
 		.show(ui.ctx(), |ui| {
 			ui.spacing_mut().button_padding = Vec2::splat(2.0);
 			ui.horizontal(|ui| {
-				for ((flag, image), shortcut) in SelectionFlag::ITER.into_iter().zip(TOOLBAR_IMAGES).zip(&TOOLBAR_SHORTCUTS) {
-					let state = *selection_flags & flag as u8 != 0;
-					let image = Image::new(image).fit_to_exact_size(Vec2::splat(24.0));
+				/* selection modes */ {
+					const ICONS: [ImageSource; 2] = [
+						include_image!("../../assets/ui/primitives/node24.svg"),
+						include_image!("../../assets/ui/primitives/way24.svg"),
+						//include_image!("../../assets/ui/primitives/area24.svg"),
+					];
+					static SHORTCUTS: [&KeyboardShortcut; 2] = [
+						&KeyboardShortcut::new(Modifiers::NONE, Key::Num1),
+						&KeyboardShortcut::new(Modifiers::NONE, Key::Num2),
+						//KeyboardShortcut::new(Modifiers::NONE, Key::Num3),
+					];
 
-					if ui.add(Button::image(image).selected(state).corner_radius(CornerRadius::same(4))).clicked() || ui.input_mut(|i| i.consume_shortcut(shortcut)) {
-						*selection_flags ^= flag as u8;
+					for ((flag, icon), shortcut) in SelectionFlag::ITER.into_iter()
+						.zip(ICONS).zip(SHORTCUTS)
+					{
+						let selected = state.selection_mode & flag as u8 != 0;
+						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(24.0));
+
+						let resp = ui.add(Button::image(image).selected(selected).corner_radius(4));
+						if !ui.ctx().wants_keyboard_input()
+							&& (resp.clicked() || ui.input_mut(|i| i.consume_shortcut(shortcut)))
+						{
+							state.selection_mode ^= flag as u8;
+						}
 					}
 				}
-			});
-		});
+
+				ui.separator();
+
+				/* map download */ {
+					match &mut state.download {
+						MapDownloadState::Idle(status) => {
+							const ICON: ImageSource = include_image!("../../assets/ui/download.svg");
+							static SHORTCUT: &KeyboardShortcut =
+								&KeyboardShortcut::new(Modifiers::CTRL.plus(Modifiers::SHIFT), Key::ArrowDown);
+
+							let image = Image::new(ICON).fit_to_exact_size(Vec2::splat(24.0));
+							let button_resp = ui.add(Button::image(image).corner_radius(4));
+							let status_resp = status.as_mut().map(|status| match status {
+								Ok(_) => ui.strong("✔"),
+								Err(_) => ui.strong("✘"), // todo: global error modal / success toast
+							});
+
+							if let Some(resp) = status_resp {
+								if resp.clicked() {
+									*status = None;
+								} else if resp.hovered() {
+									ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
+								}
+							}
+
+							!ui.ctx().wants_keyboard_input() && (button_resp.clicked() || ui.input_mut(|i| {
+								let any_echo_events = i.events.iter().any(|e| {
+									if let Event::Key { repeat, .. } = e { *repeat } else { false }
+								});
+								!any_echo_events && i.consume_shortcut(SHORTCUT)
+							}))
+						}
+						MapDownloadState::Downloading => {
+							let resp = ui.add_enabled(false, Button::new("").min_size(Vec2::splat(28.0)));
+							ui.put(resp.rect, egui::Spinner::new());
+
+							false
+						}
+					}
+				}
+			}).inner
+		}).unwrap().inner.unwrap()
 }
 
 #[cfg(feature = "debug")]
-pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&TilesKind>) {
+pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>) {
 	egui::Window::new("Debug")
 		.collapsible(true)
 		.resizable(false)
@@ -258,7 +269,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&Ti
 		.show(ui.ctx(), |ui| {
 			ui.heading(format!("Δt: {} ms", ui.input(|i| i.unstable_dt) * 1000.0));
 			if let Some(p) = provider {
-				let TilesKind::Http(http_tiles) = p;
+				let super::providers::TilesKind::Http(http_tiles) = p;
 				let stats = http_tiles.stats();
 				ui.label(format!("in-progress requests for {:?}: {}", selected_provider.unwrap(), stats.in_progress));
 			}

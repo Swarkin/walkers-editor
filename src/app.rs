@@ -16,7 +16,7 @@ use osmchange::{OsmChange, Tag};
 use providers::{providers, Provider};
 use walkers::{Map, Tiles};
 use windows::Window;
-use worker::{Response, Worker, WorkerHandle};
+use worker::{Request, Response, Worker, WorkerHandle};
 
 #[derive(Default)]
 pub struct AppState {
@@ -45,7 +45,7 @@ impl MyApp {
 	pub fn new(egui_ctx: &Context) -> Self {
 		egui_extras::install_image_loaders(egui_ctx);
 
-		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<worker::Request>();
+		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<Request>();
 		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<Response>();
 
 		let mut worker = Worker {
@@ -205,15 +205,9 @@ impl eframe::App for MyApp {
 						}
 					}
 
-					if self.editor.window_flags & Window::Download as u8 == 0 {
-						if let Some(request) = windows::download(ui, &self.editor.plugin_state.map_bbox, &self.editor.map_state.download) {
-							self.worker_handle.sender.send(request).unwrap();
-							self.editor.map_state.download = MapDownloadState::Downloading;
-						}
-					}
-
-					if self.editor.window_flags & Window::Toolbar as u8 == 0 {
-						windows::toolbar(ui, &mut self.editor.map_state.selection_mode);
+					if self.editor.window_flags & Window::Toolbar as u8 == 0 && windows::toolbar(ui, &mut self.editor.map_state) {
+						self.worker_handle.sender.send(Request::GetMap(Box::new(self.editor.plugin_state.map_bbox.clone()))).unwrap();
+						self.editor.map_state.download = MapDownloadState::Downloading;
 					}
 
 					#[cfg(feature = "debug")] {
@@ -246,7 +240,7 @@ impl eframe::App for MyApp {
 						if ui.button("Create Changeset").clicked() {
 							// todo: figure out why tags do not show up on OSM
 							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }]; // todo
-							self.worker_handle.sender.send(worker::Request::CreateChangeset(tags)).unwrap();
+							self.worker_handle.sender.send(Request::CreateChangeset(tags)).unwrap();
 						}
 
 						if let Some(result) = &self.uploader.changeset_creation {
@@ -273,13 +267,13 @@ impl eframe::App for MyApp {
 					server_selector(ui, &mut self.state.target_server_ui);
 					if prev_server != self.state.target_server_ui {
 						// update target server for OsmClient of worker
-						self.worker_handle.sender.send(worker::Request::SetTargetServer(self.state.target_server_ui)).unwrap();
+						self.worker_handle.sender.send(Request::SetTargetServer(self.state.target_server_ui)).unwrap();
 					}
 
 					ui.add_space(10.0);
 
 					if self.state.target_server_ui == TargetServer::OpenStreetMap {
-						ui.strong("The main OpenStreetMap instance is not available for editing in walkers as of now.");
+						ui.strong(format!("The main OpenStreetMap instance is not available for editing in {} as of now.", env!("CARGO_PKG_NAME")));
 					} else {
 						ui.label("1. Open this URL and follow the authorization process:");
 						ui.hyperlink(osm::client_auth_url(self.state.target_server_ui));
@@ -288,7 +282,7 @@ impl eframe::App for MyApp {
 						ui.label("2. Paste the resulting code into the field below:");
 						let widget = TextEdit::singleline(&mut self.authenticator.authorization_code);
 						if ui.add_enabled(!self.authenticator.request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-							self.worker_handle.sender.send(worker::Request::FetchToken(self.authenticator.authorization_code.clone())).unwrap();
+							self.worker_handle.sender.send(Request::FetchToken(self.authenticator.authorization_code.clone())).unwrap();
 							self.authenticator.request_pending = true;
 						}
 
@@ -298,7 +292,7 @@ impl eframe::App for MyApp {
 				});
 			}
 		}
-	
+
 		if self.state.show_licenses_modal {
 			let close_modal = windows::licenses_modal(ctx);
 			if close_modal {
