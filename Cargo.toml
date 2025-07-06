@@ -16,7 +16,7 @@ eframe = { version = "*", default-features = false, features = ["glow", "default
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
 ureq = { version = "3.0", default-features = false, features = ["rustls", "json", "gzip"] }
 serde = { version = "1", features = ["derive"] }
-quick-xml = { version = "0.37", features = ["serialize"] }
+quick-xml = { version = "0.38", features = ["serialize"] }
 crossbeam-channel = "0.5"
 osm-parser = { version = "*", git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"
