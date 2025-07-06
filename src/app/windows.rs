@@ -5,6 +5,7 @@ use super::editor::{
 	visual::{FillMode, Visualization},
 };
 use super::providers::Provider;
+use crate::app::editor::consts::DOWNLOAD_MIN_ZOOM;
 use eframe::egui;
 use egui::{
 	include_image, Align2, Area, Button, Color32, CornerRadius, CursorIcon, Event, Frame, Grid,
@@ -180,7 +181,7 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 }
 
 // Returns whether a download was triggered
-pub fn toolbar(ui: &Ui, state: &mut MapState) -> bool {
+pub fn toolbar(ui: &Ui, state: &mut MapState, zoom: f64) -> bool {
 	egui::Window::new("Toolbar")
 		.title_bar(false)
 		.resizable(false)
@@ -225,8 +226,12 @@ pub fn toolbar(ui: &Ui, state: &mut MapState) -> bool {
 							static SHORTCUT: &KeyboardShortcut =
 								&KeyboardShortcut::new(Modifiers::CTRL.plus(Modifiers::SHIFT), Key::ArrowDown);
 
+							let enabled = zoom > DOWNLOAD_MIN_ZOOM;
 							let image = Image::new(ICON).fit_to_exact_size(Vec2::splat(24.0));
-							let button_resp = ui.add(Button::image(image).corner_radius(4));
+							let button_resp = ui.add_enabled(enabled,
+								Button::image(image).corner_radius(4)
+							);
+
 							let status_resp = status.as_mut().map(|status| match status {
 								Ok(_) => ui.strong("✔"),
 								Err(_) => ui.strong("✘"), // todo: global error modal / success toast
@@ -240,7 +245,8 @@ pub fn toolbar(ui: &Ui, state: &mut MapState) -> bool {
 								}
 							}
 
-							!ui.ctx().wants_keyboard_input() && (button_resp.clicked() || ui.input_mut(|i| {
+							// Return whether a download was triggered
+							enabled && !ui.ctx().wants_keyboard_input() && (button_resp.clicked() || ui.input_mut(|i| {
 								let any_echo_events = i.events.iter().any(|e| {
 									if let Event::Key { repeat, .. } = e { *repeat } else { false }
 								});
