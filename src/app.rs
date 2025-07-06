@@ -171,7 +171,6 @@ impl eframe::App for MyApp {
 						editor_state: &mut self.editor.plugin_state,
 						map_state: &mut self.editor.map_state,
 						osm: &mut self.editor.osm_data,
-						map_memory: self.editor.map_memory.clone(),
 					};
 
 					if let Some(tiles) = tiles {

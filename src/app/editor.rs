@@ -21,7 +21,6 @@ pub struct EditorPlugin<'a> {
 	pub editor_state: &'a mut EditorPluginState,
 	pub map_state: &'a mut MapState,
 	pub osm: &'a mut EditorOsmData,
-	pub map_memory: MapMemory,
 }
 
 /// Data that persists or is produced between frames
@@ -35,10 +34,9 @@ pub struct EditorPluginState {
 
 impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
-	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector) {
+	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector, map_memory: &MapMemory) {
 		/* cache invalidation */ {
-			let current_pos = self.map_memory.detached().unwrap_or_else(school);
-			// todo: fix 1 frame delay
+			let current_pos = map_memory.detached().unwrap_or_else(school);
 			if self.osm.cache_flags & CacheFlag::NodeProjection as u8 != 0 {
 				self.osm.refresh_projected_nodes_cache(projector, current_pos);
 			} else {
@@ -93,7 +91,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		// override fill mode
 		let mut target_fill = self.map_state.selected_fill_mode;
-		if target_fill == FillMode::Partial && self.map_memory.zoom() < PARTIAL_FILL_THRESHOLD {
+		if target_fill == FillMode::Partial && map_memory.zoom() < PARTIAL_FILL_THRESHOLD {
 			target_fill = FillMode::Full
 		};
 
