@@ -45,6 +45,9 @@ pub type NodeUsageCache = HashMap<Id, Vec<Id>>;
 // Contains cached MeshData, used by FillMode::Full.
 pub type WayMeshCache = HashMap<Id, MeshData>;
 
+/// Stores the area size of each way, used for rendering.
+pub type AreaSizeCache = HashMap<Id, f32>;
+
 pub struct MeshData {
 	pub indices: Vec<u32>,
 	pub vertices: Vec<Vertex>,
@@ -83,6 +86,7 @@ pub struct EditorOsmData {
 	pub node_dedup: NodeDedupCache,
 	pub node_usage: NodeUsageCache,
 	way_mesh: WayMeshCache,
+	pub area_size: AreaSizeCache,
 
 	pub node_start: Position,
 	pub mesh_start: Position,
@@ -186,7 +190,7 @@ impl EditorOsmData {
 	// No required caches
 	pub fn refresh_way_area_cache(&mut self) {
 		self.way_area.clear();
-		self.cache_flags &= !(CacheFlag::WayArea as u8);
+		self.cache_flags &= !(CacheFlag::WayAreaAndAreaSize as u8);
 
 		for way in self.data.ways.values() {
 			self.way_area.insert(way.id, is_way_area(way));
@@ -198,7 +202,7 @@ impl EditorOsmData {
 	// - WayArea
 	pub fn refresh_way_nodes_dedup_cache(&mut self) {
 		#[cfg(debug_assertions)] {
-			assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8), 0);
+			assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayAreaAndAreaSize as u8), 0);
 		}
 
 		self.node_dedup.clear();
@@ -251,9 +255,9 @@ impl EditorOsmData {
 
 	// Required caches:
 	// - WayArea
-	pub fn refresh_way_mesh_cache(&mut self, start_pos: Position) {
+	pub fn refresh_way_mesh_and_area_size_cache(&mut self, start_pos: Position) {
 		#[cfg(debug_assertions)] {
-			assert_eq!(self.cache_flags & CacheFlag::WayArea as u8, 0);
+			assert_eq!(self.cache_flags & CacheFlag::WayAreaAndAreaSize as u8, 0);
 		}
 
 		self.reset_mesh_offsets(start_pos);
@@ -271,6 +275,9 @@ impl EditorOsmData {
 				}
 
 				builder.close();
+				let path = builder.build();
+
+				self.area_size.insert(way.id, lyon_algorithms::area::approximate_signed_area(1.0, &path));
 
 				// todo: re-use vertexbuffers allocation
 				let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
@@ -278,7 +285,7 @@ impl EditorOsmData {
 
 				// todo: intersection handling
 				tessellator.tessellate_path(
-					&builder.build(),
+					&path,
 					&FillOptions::default().with_intersections(false),
 					&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
 						Vertex {
@@ -301,7 +308,7 @@ impl EditorOsmData {
 		if from.is_empty() { return; }
 
 		if !from.ways.is_empty() {
-			self.cache_flags |= CacheFlag::WayArea as u8 | CacheFlag::WayMesh as u8;
+			self.cache_flags |= CacheFlag::WayAreaAndAreaSize as u8 | CacheFlag::WayMesh as u8;
 		}
 
 		if !from.nodes.is_empty() {
