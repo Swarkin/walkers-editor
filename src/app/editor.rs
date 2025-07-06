@@ -61,7 +61,7 @@ impl Plugin for EditorPlugin<'_> {
 				self.osm.refresh_node_usage_cache();
 			}
 
-			if self.osm.cache_flags & CacheFlag::WayArea as u8 != 0 {
+			if self.osm.cache_flags & CacheFlag::WayAreaAndAreaSize as u8 != 0 {
 				self.osm.refresh_way_area_cache();
 			}
 
@@ -71,7 +71,7 @@ impl Plugin for EditorPlugin<'_> {
 
 			if self.osm.cache_flags & CacheFlag::WayMesh as u8 != 0 {
 				// it might be possible to use emath::TSTransform for more performance
-				self.osm.refresh_way_mesh_cache(current_pos);
+				self.osm.refresh_way_mesh_and_area_size_cache(current_pos);
 			} else if !self.osm.data.ways.is_empty() {
 				// update move offset
 				let p_start = projector.project(self.osm.mesh_start);
@@ -79,7 +79,7 @@ impl Plugin for EditorPlugin<'_> {
 				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
-					self.osm.refresh_way_mesh_cache(current_pos);
+					self.osm.refresh_way_mesh_and_area_size_cache(current_pos);
 				} else {
 					self.osm.mesh_offset_move = diff;
 				}

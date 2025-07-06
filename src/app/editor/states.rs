@@ -91,7 +91,7 @@ pub enum CacheFlag {
 	NodeOrphan = 1 << 1,
 	NodeDedup = 1 << 2,
 	NodeUsage = 1 << 3,
-	WayArea = 1 << 4,
+	WayAreaAndAreaSize = 1 << 4,
 	WayMesh = 1 << 5,
 }
 
