@@ -7,6 +7,8 @@ pub const TOP_BAR_FONT_SIZE: f32 = 14.0;
 pub const TOP_BAR_BUTTON_SIZE: f32 = 28.0;
 pub const TOP_BAR_ICON_SIZE: f32 = 24.0;
 
+pub const DOWNLOAD_MIN_ZOOM: f64 = 16.0;
+
 const TINT_DARK: u8 = 222;
 const TINT_LIGHT: u8 = 22;
 
