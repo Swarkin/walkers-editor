@@ -11,7 +11,7 @@ build = "build.rs"
 debug = []
 
 [dependencies]
-walkers = "0.41.0"
+walkers = "0.42.0"
 eframe = { version = "*", default-features = false, features = ["glow", "default_fonts"] }
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
 ureq = { version = "3.0", default-features = false, features = ["rustls", "json", "gzip"] }
@@ -30,3 +30,4 @@ winresource = "0.1"
 opt-level = 3
 strip = true
 lto = true
+#debug = "none"
