@@ -96,7 +96,7 @@ pub struct EditorOsmData {
 	pub mesh_offset_resize: Vec2,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ElementRef<'a> {
 	Node(&'a Node),
 	Way(&'a Way),
@@ -107,6 +107,21 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => &n.tags,
 			ElementRef::Way(w) => &w.tags,
+		}
+	}
+}
+
+#[derive(Debug, Clone)]
+pub enum ElementId {
+	Node(Id),
+	Way(Id),
+}
+
+impl ElementId {
+	pub fn id_ref(&self) -> &Id {
+		match self {
+			ElementId::Node(id) => id,
+			ElementId::Way(id) => id,
 		}
 	}
 }

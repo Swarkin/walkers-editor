@@ -1,6 +1,11 @@
 #![allow(dead_code)]
 
-use eframe::egui::Color32;
+use eframe::egui::{include_image, Color32, ImageSource};
+
+pub const PRIMITIVE_NODE_ICON: ImageSource = include_image!("../../../../assets/ui/primitives/node24.svg");
+pub const PRIMITIVE_WAY_ICON: ImageSource = include_image!("../../../../assets/ui/primitives/way24.svg");
+pub const PRIMITIVE_AREA_ICON: ImageSource = include_image!("../../../../assets/ui/primitives/area24.svg");
+pub const PRIMITIVE_RELATION_ICON: ImageSource = include_image!("../../../../assets/ui/primitives/relation24.svg");
 
 pub const NODE_SIZE: f32 = 3.0;
 pub const NODE_SIZE_ORPHAN: f32 = 4.0;
