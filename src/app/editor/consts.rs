@@ -7,6 +7,10 @@ pub const TOP_BAR_FONT_SIZE: f32 = 14.0;
 pub const TOP_BAR_BUTTON_SIZE: f32 = 28.0;
 pub const TOP_BAR_ICON_SIZE: f32 = 24.0;
 
+pub const HOVER_TOOLTIP_OFFSET: Vec2 = Vec2::splat(16.0);
+pub const HOVER_TOOLTIP_COLOR: Color32 = Color32::from_black_alpha(200);
+pub const HOVER_TOOLTIP_FONT_SIZE: f32 = 14.0;
+
 pub const DOWNLOAD_MIN_ZOOM: f64 = 16.0;
 
 const TINT_DARK: u8 = 222;
