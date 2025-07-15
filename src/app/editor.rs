@@ -8,8 +8,8 @@ use super::osm::Bbox;
 use super::places::school;
 use cache::{Change, EditorOsmData, ElementRef, MAX_OFFSET};
 use consts::{osm::*, *};
-use eframe::egui::{Color32, Pos2, Response, Shape, Stroke, Ui};
-use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, StrokeKind};
+use eframe::egui::{Color32, FontId, Pos2, Response, Shape, Stroke, Ui};
+use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use osm_parser::*;
 use states::{CacheFlag, MapState, SelectionFlag};
 use std::sync::Arc;
@@ -236,24 +236,39 @@ impl Plugin for EditorPlugin<'_> {
 			}
 		}
 
+		let mut shapes_hover_tooltip = Vec::new();
+
 		/* draw hovered element and detect whether it was selected */ {
-			if let Some(hover) = self.editor_state.hovered {
-				let element = self.osm.data.nodes.get(&hover).map(ElementRef::Node)
-					.or_else(|| self.osm.data.ways.get(&hover).map(ElementRef::Way))
+			if let Some(hovered_id) = self.editor_state.hovered {
+				let element = self.osm.data.nodes.get(&hovered_id).map(ElementRef::Node)
+					.or_else(|| self.osm.data.ways.get(&hovered_id).map(ElementRef::Way))
 					.expect("id not found in data");
+
+				if let Some(name) = element.tags().get("name") {
+					let hover = hover.unwrap();
+					let galley = ui.fonts(|f| {
+						f.layout_no_wrap(name.to_owned(), FontId::proportional(HOVER_TOOLTIP_FONT_SIZE), Color32::LIGHT_GRAY)
+					});
+					let rect = galley.rect
+						.translate(hover.to_vec2() + HOVER_TOOLTIP_OFFSET)
+						.expand(4.0);
+
+					shapes_hover_tooltip.push(RectShape::filled(rect, 4.0, HOVER_TOOLTIP_COLOR).into());
+					shapes_hover_tooltip.push(TextShape::new(hover + HOVER_TOOLTIP_OFFSET, galley, Color32::PLACEHOLDER).into());
+				}
 
 				match element {
 					ElementRef::Node(node) => {
 						shapes.push(self.draw_node_hovered(&node.id).into());
 
 						if resp.clicked() {
-							self.editor_state.selected = Some(hover);
+							self.editor_state.selected = Some(hovered_id);
 						}
 					}
 					ElementRef::Way(way) => {
 						if resp.clicked() { // selected
 							if self.is_way_relevant(&way.tags) || self.map_state.selected_visualization == Visualization::Default {
-								self.editor_state.selected = Some(hover);
+								self.editor_state.selected = Some(hovered_id);
 							} else { // deselect when clicking irrelevant way
 								self.editor_state.selected = None;
 							}
@@ -309,6 +324,9 @@ impl Plugin for EditorPlugin<'_> {
 			}
 		}
 
+		shapes.extend(shapes_hover_tooltip);
+
+		// we want to preallocate as much memory as possible without overallocating
 		debug_assert!(shapes.len() >= capacity, "overallocated shape buffer: {} - {capacity}", shapes.len());
 		ui.painter().extend(shapes);
 	}
