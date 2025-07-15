@@ -5,8 +5,11 @@ use super::editor::{
 	visual::{FillMode, Visualization},
 };
 use super::providers::Provider;
+use crate::app::editor::cache::ElementId;
+use crate::app::editor::consts::osm::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
 use crate::app::editor::consts::DOWNLOAD_MIN_ZOOM;
 use eframe::egui;
+use eframe::egui::{AtomExt, InnerResponse, Pos2};
 use egui::{
 	include_image, Align2, Area, Button, Color32, CornerRadius, CursorIcon, Event, Frame, Grid,
 	Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Order, RichText, Shadow, Stroke,
@@ -315,4 +318,32 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 		ui.add_space(4.0);
 		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
 	}).inner
+}
+
+pub fn on_top_selector<'a>(ui: &mut Ui, pos: Pos2, hovered: &'a Vec<ElementId>) -> InnerResponse<Option<Option<&'a ElementId>>> {
+	egui::Window::new("On Top Selector")
+		.title_bar(false)
+		.auto_sized()
+		.frame(TRANSPARENT_FRAME)
+		.fixed_pos(pos)
+		.show(ui.ctx(), |ui| {
+			let mut selected = None;
+
+			for element in hovered {
+				match *element {
+					ElementId::Node(n) => {
+						if ui.button((PRIMITIVE_NODE_ICON.atom_max_height(24.0), format!("Node {n}"))).clicked() {
+							selected = Some(element);
+						}
+					}
+					ElementId::Way(w) => {
+						if ui.button((PRIMITIVE_WAY_ICON.atom_max_height(24.0), format!("Way {w}"))).clicked() {
+							selected = Some(element);
+						}
+					}
+				}
+			}
+
+			selected
+		}).unwrap()
 }

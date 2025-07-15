@@ -181,8 +181,8 @@ impl eframe::App for MyApp {
 					};
 
 					if self.editor.window_flags & Window::Tags as u8 == 0 {
-						if let Some(id) = self.editor.plugin_state.selected.or(self.editor.plugin_state.hovered) {
-							let element = self.editor.osm_data.get(&id).expect("id not found");
+						if let Some(element) = self.editor.plugin_state.selected.as_ref().or(self.editor.plugin_state.hovered.first()) {
+							let element = self.editor.osm_data.get(element.id_ref()).expect("id not found");
 							windows::tags(ui, element.tags());
 						}
 					}
