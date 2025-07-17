@@ -1,11 +1,13 @@
 use super::editor::{
-	cache::{Change, ElementId},
-	consts::{osm::{ATTRIBUTION_URL, PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON}, DOWNLOAD_MIN_ZOOM, TOP_BAR_HEIGHT, WINDOW_MARGIN},
+	cache::Change,
+	consts::{osm::ATTRIBUTION_URL, DOWNLOAD_MIN_ZOOM, TOP_BAR_HEIGHT, WINDOW_MARGIN},
 	states::{MapDownloadState, MapState, SelectionFlag},
 	visual::{FillMode, Visualization},
 };
 use super::providers::Provider;
 use eframe::egui;
+use eframe::egui::text::{LayoutJob, TextWrapping};
+use eframe::egui::{FontId, TextFormat};
 use egui::{
 	include_image, Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
 	Grid, Image, ImageSource, InnerResponse, Key, KeyboardShortcut, Margin, Modifiers, Order, Pos2,
@@ -264,6 +266,7 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, zoom: f64) -> bool {
 		}).unwrap().inner.unwrap()
 }
 
+use crate::app::editor::cache::ElementRef;
 #[cfg(feature = "debug")]
 use crate::app::editor::{cache::CacheDebug, states::CacheFlag};
 
@@ -337,30 +340,44 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 	}).inner
 }
 
-pub fn on_top_selector<'a>(ui: &mut Ui, pos: Pos2, hovered: &'a Vec<ElementId>) -> InnerResponse<Option<Option<&'a ElementId>>> {
+pub enum OnTopSelectorResult<'a> {
+	None,
+	Hovered(ElementRef<'a>),
+	Selected(ElementRef<'a>),
+}
+
+pub fn on_top_selector<'a>(ui: &mut Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) -> InnerResponse<Option<OnTopSelectorResult<'a>>> {
 	egui::Window::new("On Top Selector")
 		.title_bar(false)
 		.auto_sized()
 		.frame(TRANSPARENT_FRAME)
 		.fixed_pos(pos)
 		.show(ui.ctx(), |ui| {
-			let mut selected = None;
+			let mut resp = OnTopSelectorResult::None;
 
 			for element in hovered {
-				match *element {
-					ElementId::Node(n) => {
-						if ui.button((PRIMITIVE_NODE_ICON.atom_max_height(24.0), format!("Node {n}"))).clicked() {
-							selected = Some(element);
-						}
-					}
-					ElementId::Way(w) => {
-						if ui.button((PRIMITIVE_WAY_ICON.atom_max_height(24.0), format!("Way {w}"))).clicked() {
-							selected = Some(element);
-						}
-					}
+				let icon = element.element_icon()
+					.atom_max_height(14.0);
+
+				let name = element.name()
+					.map(|x| format!("{x}\n"))
+					.unwrap_or_else(|| format!("Unnamed {}\n", element.type_str()));
+
+				let mut text = LayoutJob {
+					wrap: TextWrapping::wrap_at_width(40.0),
+					..Default::default()
+				};
+				text.append(&name, 0.0, TextFormat::simple(FontId::proportional(14.0), Color32::LIGHT_GRAY));
+				text.append(&element.id_ref().to_string(), 0.0, TextFormat::simple(FontId::proportional(12.0), Color32::GRAY));
+
+				let button_resp = ui.button((icon, text));
+				if button_resp.clicked() {
+					resp = OnTopSelectorResult::Selected(element);
+				} else if button_resp.hovered() {
+					resp = OnTopSelectorResult::Hovered(element);
 				}
 			}
 
-			selected
+			resp
 		}).unwrap()
 }

@@ -6,6 +6,7 @@ pub mod states;
 
 use super::osm::Bbox;
 use super::places::school;
+use crate::app::windows::OnTopSelectorResult;
 use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_OFFSET};
 use consts::{osm::*, *};
 use eframe::egui::{Color32, FontId, PointerButton, Pos2, Response, Shape, Stroke, Ui};
@@ -119,7 +120,8 @@ impl Plugin for EditorPlugin<'_> {
 
 		/* draw osm data and detect interactions */ {
 			let detect_interactions = mouse.is_some()
-				&& self.map_state.selection_mode & SelectionFlag::Ways as u8 != 0;
+				&& self.map_state.selection_mode & SelectionFlag::Ways as u8 != 0
+				&& self.editor_state.on_top_selector_elements.is_empty();
 
 			for way in self.osm.data.ways.values() {
 				let points = self.osm.get_projected_positions_in_way(&way.id);
@@ -186,7 +188,11 @@ impl Plugin for EditorPlugin<'_> {
 			}
 
 			/* draw nodes and detect hover */ {
-				if self.map_state.selection_mode & SelectionFlag::Nodes as u8 != 0 && mouse.is_some() {
+				let detect_interactions = mouse.is_some()
+					&& self.map_state.selection_mode & SelectionFlag::Nodes as u8 != 0
+					&& self.editor_state.on_top_selector_elements.is_empty();
+
+				if detect_interactions {
 					let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
 						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
 						let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
@@ -238,6 +244,38 @@ impl Plugin for EditorPlugin<'_> {
 			}
 		}
 
+		/* draw on-top selector */ {
+			if ui.ctx().input(|i| i.pointer.button_clicked(PointerButton::Middle)) {
+				self.editor_state.on_top_selector_elements = self.editor_state.hovered.clone();
+				self.editor_state.on_top_selector_pos = mouse.unwrap();
+			}
+
+			if !self.editor_state.on_top_selector_elements.is_empty() {
+				let resolved_elements = self.editor_state.on_top_selector_elements.iter()
+					.filter_map(|id| self.osm.get(id.id_ref()))
+					.collect::<Vec<_>>();
+
+				let resp = super::windows::on_top_selector(
+					ui,
+					self.editor_state.on_top_selector_pos,
+					resolved_elements,
+				);
+
+				match resp.inner.unwrap() {
+					OnTopSelectorResult::None => self.editor_state.hovered.clear(),
+					OnTopSelectorResult::Hovered(e) => self.editor_state.hovered = vec![e.element_id()],
+					OnTopSelectorResult::Selected(e) => self.editor_state.selected = Some(e.element_id()),
+				}
+
+				if let Some(mouse) = mouse
+					&& ui.ctx().input(|i| i.pointer.any_pressed())
+					&& !resp.response.rect.contains(mouse)
+				{
+					self.editor_state.on_top_selector_elements.clear();
+				}
+			}
+		}
+
 		let mut shapes_hover_tooltip = Vec::new();
 
 		/* draw hovered element and detect whether it was selected */ {
@@ -246,7 +284,7 @@ impl Plugin for EditorPlugin<'_> {
 					.or_else(|| self.osm.data.ways.get(hovered_element.id_ref()).map(ElementRef::Way))
 					.expect("id not found in data");
 
-				if let Some(name) = element.tags().get("name") {
+				if self.editor_state.on_top_selector_elements.is_empty() && let Some(name) = element.tags().get("name") {
 					let hover = mouse.unwrap();
 					let galley = ui.fonts(|f| {
 						f.layout_no_wrap(name.to_owned(), FontId::proportional(HOVER_TOOLTIP_FONT_SIZE), Color32::LIGHT_GRAY)
@@ -327,32 +365,6 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		shapes.extend(shapes_hover_tooltip);
-
-		/* draw on-top selector */ {
-			if ui.ctx().input(|i| i.pointer.button_clicked(PointerButton::Middle)) {
-				self.editor_state.on_top_selector_elements = self.editor_state.hovered.clone();
-				self.editor_state.on_top_selector_pos = mouse.unwrap();
-			}
-
-			if !self.editor_state.on_top_selector_elements.is_empty() {
-				let resp = super::windows::on_top_selector(
-					ui,
-					self.editor_state.on_top_selector_pos,
-					&self.editor_state.on_top_selector_elements
-				);
-
-				if let Some(chosen_id) = resp.inner.unwrap() {
-					self.editor_state.selected = Some(chosen_id.clone());
-				}
-
-				if let Some(mouse) = mouse
-					&& ui.ctx().input(|i| i.pointer.any_pressed())
-					&& !resp.response.rect.contains(mouse)
-				{
-					self.editor_state.on_top_selector_elements.clear();
-				}
-			}
-		}
 
 		// we want to preallocate as much memory as possible without overallocating
 		debug_assert!(shapes.len() >= capacity, "overallocated shape buffer: {} - {capacity}", shapes.len());
