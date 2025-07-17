@@ -6,7 +6,7 @@ use super::editor::{
 };
 use super::providers::Provider;
 use eframe::egui;
-use eframe::egui::text::{LayoutJob, TextWrapping};
+use eframe::egui::text::LayoutJob;
 use eframe::egui::{FontId, TextFormat};
 use egui::{
 	include_image, Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
@@ -340,41 +340,38 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 	}).inner
 }
 
-pub enum OnTopSelectorResult<'a> {
+pub enum OverlapSelectorResult<'a> {
 	None,
 	Hovered(ElementRef<'a>),
 	Selected(ElementRef<'a>),
 }
 
-pub fn on_top_selector<'a>(ui: &mut Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) -> InnerResponse<Option<OnTopSelectorResult<'a>>> {
+pub fn overlap_selector<'a>(ui: &mut Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) -> InnerResponse<Option<OverlapSelectorResult<'a>>> {
 	egui::Window::new("On Top Selector")
 		.title_bar(false)
 		.auto_sized()
 		.frame(TRANSPARENT_FRAME)
 		.fixed_pos(pos)
 		.show(ui.ctx(), |ui| {
-			let mut resp = OnTopSelectorResult::None;
+			let mut resp = OverlapSelectorResult::None;
 
 			for element in hovered {
 				let icon = element.element_icon()
-					.atom_max_height(14.0);
+					.atom_max_height(24.0);
 
 				let name = element.name()
 					.map(|x| format!("{x}\n"))
 					.unwrap_or_else(|| format!("Unnamed {}\n", element.type_str()));
 
-				let mut text = LayoutJob {
-					wrap: TextWrapping::wrap_at_width(40.0),
-					..Default::default()
-				};
+				let mut text = LayoutJob::default();
 				text.append(&name, 0.0, TextFormat::simple(FontId::proportional(14.0), Color32::LIGHT_GRAY));
 				text.append(&element.id_ref().to_string(), 0.0, TextFormat::simple(FontId::proportional(12.0), Color32::GRAY));
 
 				let button_resp = ui.button((icon, text));
 				if button_resp.clicked() {
-					resp = OnTopSelectorResult::Selected(element);
+					resp = OverlapSelectorResult::Selected(element);
 				} else if button_resp.hovered() {
-					resp = OnTopSelectorResult::Hovered(element);
+					resp = OverlapSelectorResult::Hovered(element);
 				}
 			}
 

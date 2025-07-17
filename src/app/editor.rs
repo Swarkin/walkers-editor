@@ -6,7 +6,7 @@ pub mod states;
 
 use super::osm::Bbox;
 use super::places::school;
-use crate::app::windows::OnTopSelectorResult;
+use crate::app::windows::OverlapSelectorResult;
 use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_OFFSET};
 use consts::{osm::*, *};
 use eframe::egui::{Color32, FontId, PointerButton, Pos2, Response, Shape, Stroke, Ui};
@@ -31,8 +31,8 @@ pub struct EditorPluginState {
 	pub selected: Option<ElementId>,
 	pub map_bbox: Bbox,
 	pub last_click_coords: Position,
-	pub on_top_selector_elements: Vec<ElementId>,
-	pub on_top_selector_pos: Pos2,
+	pub overlap_selector_elements: Vec<ElementId>,
+	pub overlap_selector_pos: Pos2,
 }
 
 impl Plugin for EditorPlugin<'_> {
@@ -121,7 +121,7 @@ impl Plugin for EditorPlugin<'_> {
 		/* draw osm data and detect interactions */ {
 			let detect_interactions = mouse.is_some()
 				&& self.map_state.selection_mode & SelectionFlag::Ways as u8 != 0
-				&& self.editor_state.on_top_selector_elements.is_empty();
+				&& self.editor_state.overlap_selector_elements.is_empty();
 
 			for way in self.osm.data.ways.values() {
 				let points = self.osm.get_projected_positions_in_way(&way.id);
@@ -190,7 +190,7 @@ impl Plugin for EditorPlugin<'_> {
 			/* draw nodes and detect hover */ {
 				let detect_interactions = mouse.is_some()
 					&& self.map_state.selection_mode & SelectionFlag::Nodes as u8 != 0
-					&& self.editor_state.on_top_selector_elements.is_empty();
+					&& self.editor_state.overlap_selector_elements.is_empty();
 
 				if detect_interactions {
 					let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
@@ -246,32 +246,32 @@ impl Plugin for EditorPlugin<'_> {
 
 		/* draw on-top selector */ {
 			if ui.ctx().input(|i| i.pointer.button_clicked(PointerButton::Middle)) {
-				self.editor_state.on_top_selector_elements = self.editor_state.hovered.clone();
-				self.editor_state.on_top_selector_pos = mouse.unwrap();
+				self.editor_state.overlap_selector_elements = self.editor_state.hovered.clone();
+				self.editor_state.overlap_selector_pos = mouse.unwrap();
 			}
 
-			if !self.editor_state.on_top_selector_elements.is_empty() {
-				let resolved_elements = self.editor_state.on_top_selector_elements.iter()
+			if !self.editor_state.overlap_selector_elements.is_empty() {
+				let resolved_elements = self.editor_state.overlap_selector_elements.iter()
 					.filter_map(|id| self.osm.get(id.id_ref()))
 					.collect::<Vec<_>>();
 
-				let resp = super::windows::on_top_selector(
+				let resp = super::windows::overlap_selector(
 					ui,
-					self.editor_state.on_top_selector_pos,
+					self.editor_state.overlap_selector_pos,
 					resolved_elements,
 				);
 
 				match resp.inner.unwrap() {
-					OnTopSelectorResult::None => self.editor_state.hovered.clear(),
-					OnTopSelectorResult::Hovered(e) => self.editor_state.hovered = vec![e.element_id()],
-					OnTopSelectorResult::Selected(e) => self.editor_state.selected = Some(e.element_id()),
+					OverlapSelectorResult::None => self.editor_state.hovered.clear(),
+					OverlapSelectorResult::Hovered(e) => self.editor_state.hovered = vec![e.element_id()],
+					OverlapSelectorResult::Selected(e) => self.editor_state.selected = Some(e.element_id()),
 				}
 
 				if let Some(mouse) = mouse
 					&& ui.ctx().input(|i| i.pointer.any_pressed())
 					&& !resp.response.rect.contains(mouse)
 				{
-					self.editor_state.on_top_selector_elements.clear();
+					self.editor_state.overlap_selector_elements.clear();
 				}
 			}
 		}
@@ -284,7 +284,7 @@ impl Plugin for EditorPlugin<'_> {
 					.or_else(|| self.osm.data.ways.get(hovered_element.id_ref()).map(ElementRef::Way))
 					.expect("id not found in data");
 
-				if self.editor_state.on_top_selector_elements.is_empty() && let Some(name) = element.tags().get("name") {
+				if self.editor_state.overlap_selector_elements.is_empty() && let Some(name) = element.tags().get("name") {
 					let hover = mouse.unwrap();
 					let galley = ui.fonts(|f| {
 						f.layout_no_wrap(name.to_owned(), FontId::proportional(HOVER_TOOLTIP_FONT_SIZE), Color32::LIGHT_GRAY)
