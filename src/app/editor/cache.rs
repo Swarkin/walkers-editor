@@ -1,6 +1,7 @@
 use super::states::{CacheBitflag, CacheFlag};
+use crate::app::editor::consts::osm::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
 use crate::app::editor::is_way_closed;
-use eframe::egui::{Color32, Mesh, Pos2, TextureId, Vec2};
+use eframe::egui::{Color32, ImageSource, Mesh, Pos2, TextureId, Vec2};
 use eframe::epaint::{Vertex, WHITE_UV};
 use lyon_tessellation::geom::Point;
 use lyon_tessellation::path::Path;
@@ -120,10 +121,45 @@ pub enum ElementRef<'a> {
 }
 
 impl ElementRef<'_> {
+	pub fn element_id(&self) -> ElementId {
+		match self {
+			ElementRef::Node(n) => ElementId::Node(n.id),
+			ElementRef::Way(w) => ElementId::Way(w.id),
+		}
+	}
+
+	pub fn element_icon(&self) -> ImageSource {
+		match self {
+			ElementRef::Node(_) => PRIMITIVE_NODE_ICON,
+			ElementRef::Way(_) => PRIMITIVE_WAY_ICON,
+		}
+	}
+
+	pub fn id_ref(&self) -> &Id {
+		match self {
+			ElementRef::Node(n) => &n.id,
+			ElementRef::Way(w) => &w.id,
+		}
+	}
+
 	pub fn tags(&self) -> &Tags {
 		match self {
 			ElementRef::Node(n) => &n.tags,
 			ElementRef::Way(w) => &w.tags,
+		}
+	}
+
+	pub fn name(&self) -> Option<&str> {
+		match self {
+			ElementRef::Node(n) => n.tags.get("name").map(String::as_str),
+			ElementRef::Way(w) => w.tags.get("name").map(String::as_str),
+		}
+	}
+
+	pub fn type_str(&self) -> &'static str {
+		match self {
+			ElementRef::Node(_) => "Node",
+			ElementRef::Way(_) => "Way",
 		}
 	}
 }
