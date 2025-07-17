@@ -63,7 +63,7 @@ impl Plugin for EditorPlugin<'_> {
 				self.osm.refresh_node_usage_cache();
 			}
 
-			if self.osm.cache_flags & CacheFlag::WayAreaAndAreaSize as u8 != 0 {
+			if self.osm.cache_flags & CacheFlag::WayArea as u8 != 0 {
 				self.osm.refresh_way_area_cache();
 			}
 
@@ -71,7 +71,7 @@ impl Plugin for EditorPlugin<'_> {
 				self.osm.refresh_way_nodes_dedup_cache();
 			}
 
-			if self.osm.cache_flags & CacheFlag::WayMesh as u8 != 0 {
+			if self.osm.cache_flags & CacheFlag::WayMeshAndAreaSize as u8 != 0 {
 				// it might be possible to use emath::TSTransform for more performance
 				self.osm.refresh_way_mesh_and_area_size_cache(current_pos);
 			} else if !self.osm.data.ways.is_empty() {

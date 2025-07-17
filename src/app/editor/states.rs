@@ -84,15 +84,28 @@ impl SelectionFlag {
 
 pub type CacheBitflag = u8;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(u8)]
 pub enum CacheFlag {
 	NodeProjection = 1 << 0,
 	NodeOrphan = 1 << 1,
 	NodeDedup = 1 << 2,
 	NodeUsage = 1 << 3,
-	WayAreaAndAreaSize = 1 << 4,
-	WayMesh = 1 << 5,
+	WayArea = 1 << 4,
+	WayMeshAndAreaSize = 1 << 5,
+}
+
+#[cfg(feature = "debug")]
+impl CacheFlag {
+	pub const SIZE: usize = 6;
+	pub const ITER: [CacheFlag; Self::SIZE] = [
+		CacheFlag::NodeProjection,
+		CacheFlag::NodeOrphan,
+		CacheFlag::NodeDedup,
+		CacheFlag::NodeUsage,
+		CacheFlag::WayArea,
+		CacheFlag::WayMeshAndAreaSize,
+	];
 }
 
 pub enum MapDownloadState {

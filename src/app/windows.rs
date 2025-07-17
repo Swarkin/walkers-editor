@@ -1,19 +1,15 @@
 use super::editor::{
-	cache::Change,
-	consts::{osm::ATTRIBUTION_URL, TOP_BAR_HEIGHT, WINDOW_MARGIN},
+	cache::{Change, ElementId},
+	consts::{osm::{ATTRIBUTION_URL, PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON}, DOWNLOAD_MIN_ZOOM, TOP_BAR_HEIGHT, WINDOW_MARGIN},
 	states::{MapDownloadState, MapState, SelectionFlag},
 	visual::{FillMode, Visualization},
 };
 use super::providers::Provider;
-use crate::app::editor::cache::ElementId;
-use crate::app::editor::consts::osm::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
-use crate::app::editor::consts::DOWNLOAD_MIN_ZOOM;
 use eframe::egui;
-use eframe::egui::{AtomExt, InnerResponse, Pos2};
 use egui::{
-	include_image, Align2, Area, Button, Color32, CornerRadius, CursorIcon, Event, Frame, Grid,
-	Image, ImageSource, Key, KeyboardShortcut, Margin, Modifiers, Order, RichText, Shadow, Stroke,
-	TextStyle, Ui, Vec2,
+	include_image, Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
+	Grid, Image, ImageSource, InnerResponse, Key, KeyboardShortcut, Margin, Modifiers, Order, Pos2,
+	RichText, Shadow, Stroke, TextStyle, Ui, Vec2
 };
 use walkers::sources::Attribution;
 
@@ -269,11 +265,12 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, zoom: f64) -> bool {
 }
 
 #[cfg(feature = "debug")]
-pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>) {
+use crate::app::editor::{cache::CacheDebug, states::CacheFlag};
+
+#[cfg(feature = "debug")]
+pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, cache_debug: &CacheDebug) {
 	egui::Window::new("Debug")
-		.collapsible(true)
 		.resizable(false)
-		.anchor(Align2::CENTER_TOP, [0., 42.])
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			ui.heading(format!("Δt: {} ms", ui.input(|i| i.unstable_dt) * 1000.0));
@@ -282,6 +279,26 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 				let stats = http_tiles.stats();
 				ui.label(format!("in-progress requests for {:?}: {}", selected_provider.unwrap(), stats.in_progress));
 			}
+
+			ui.collapsing("Cache Timings", |ui| {
+				egui_extras::TableBuilder::new(ui)
+					.striped(true)
+					.columns(egui_extras::Column::auto(), 3)
+					.header(18.0, |mut header| {
+						header.col(|ui| { ui.label("Cache"); });
+						header.col(|ui| { ui.label("Time (ms)"); });
+						header.col(|ui| { ui.label("Refresh"); });
+					})
+					.body(|body| {
+						body.rows(18.0, CacheFlag::SIZE, |mut row| {
+							let i = row.index();
+							let (time, refresh) = cache_debug.0[i];
+							row.col(|ui| { ui.label(format!("{:?}", CacheFlag::ITER[i])); });
+							row.col(|ui| { ui.label(format!("{}", time as f32 / 1000.0)); });
+							row.col(|ui| { ui.label(format!("{refresh}")); });
+						});
+					});
+			});
 		});
 }
 
