@@ -153,7 +153,7 @@ impl eframe::App for MyApp {
 					let curr_size = ctx.screen_rect().size();
 
 					if self.editor.prev_zoom != curr_zoom && self.editor.prev_zoom != 0.0 { // avoid running on first frame
-						self.editor.osm_data.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::WayMesh as u8;
+						self.editor.osm_data.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::WayMeshAndAreaSize as u8;
 					}
 
 					let size_diff = (curr_size - self.editor.prev_size) / 2.0;
@@ -200,7 +200,7 @@ impl eframe::App for MyApp {
 						}
 
 						if self.editor.map_state.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
-							self.editor.osm_data.cache_flags |= CacheFlag::WayMesh as u8;
+							self.editor.osm_data.cache_flags |= CacheFlag::WayMeshAndAreaSize as u8;
 						}
 					}
 
@@ -214,7 +214,7 @@ impl eframe::App for MyApp {
 							let tiles = self.editor.map_state.selected_provider.as_ref()
 								.map(|a| self.editor.tile_providers.get(a).unwrap());
 
-							windows::debug(ui, self.editor.map_state.selected_provider.as_ref(), tiles);
+							windows::debug(ui, self.editor.map_state.selected_provider.as_ref(), tiles, &self.editor.osm_data.cache_debug);
 						}
 					}
 

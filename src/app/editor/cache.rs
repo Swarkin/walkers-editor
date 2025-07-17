@@ -6,9 +6,11 @@ use lyon_tessellation::geom::Point;
 use lyon_tessellation::path::Path;
 use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
 use osm_parser::{Coordinate, Id, Node, OsmData, Tags, Way};
-use std::collections::{HashMap, HashSet};
 use std::fmt::{Display, Formatter};
 use walkers::{Position, Projector};
+
+type HashMap<K, V> = rustc_hash::FxHashMap<K, V>;
+type HashSet<K> = rustc_hash::FxHashSet<K>;
 
 pub const MAX_OFFSET: f32 = 4000.0; // arbitrary threshold, may not be required?
 
@@ -48,6 +50,19 @@ pub type WayMeshCache = HashMap<Id, MeshData>;
 /// Stores the area size of each way, used for rendering.
 pub type AreaSizeCache = HashMap<Id, f32>;
 
+#[cfg(feature = "debug")]
+#[derive(Default)]
+pub struct CacheDebug(pub [(u32, u32); CacheFlag::SIZE]);
+
+#[cfg(feature = "debug")]
+impl CacheDebug {
+	pub fn update(&mut self, flag: CacheFlag, time: u32) {
+		let entry = &mut self.0[(flag as u8).trailing_zeros() as usize];
+		entry.0 = time;
+		entry.1 += 1;
+	}
+}
+
 pub struct MeshData {
 	pub indices: Vec<u32>,
 	pub vertices: Vec<Vertex>,
@@ -78,6 +93,8 @@ pub struct EditorOsmData {
 	pub data: OsmData, // latest state of the osm data
 	pub changes: Vec<Change>,
 	pub cache_flags: CacheBitflag,
+	#[cfg(feature = "debug")]
+	pub cache_debug: CacheDebug,
 
 	// caches
 	projected_nodes: ProjectedNodeCache,
@@ -175,6 +192,9 @@ impl EditorOsmData {
 
 	// No required caches
 	pub fn refresh_projected_nodes_cache(&mut self, projector: &Projector, start_pos: Position) {
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
+
 		self.reset_node_offsets(start_pos);
 		self.projected_nodes.clear();
 		self.cache_flags &= !(CacheFlag::NodeProjection as u8);
@@ -182,15 +202,21 @@ impl EditorOsmData {
 		for (id, node) in &self.data.nodes {
 			self.projected_nodes.insert(*id, projector.project(coordinate_to_pos(&node.pos)).to_pos2());
 		}
+
+		#[cfg(feature = "debug")]
+		self.cache_debug.update(CacheFlag::NodeProjection, t.elapsed().as_micros() as u32);
 	}
 
 	// No required caches
 	pub fn refresh_orphan_nodes_cache(&mut self) {
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
+
 		self.orphan_nodes.clear();
 		self.cache_flags &= !(CacheFlag::NodeOrphan as u8);
 
 		let mut orphans = self.data.nodes.keys().copied().collect::<OrphanNodeCache>();
-		let mut parented = HashSet::new();
+		let mut parented = HashSet::default();
 
 		for way in self.data.ways.values() {
 			for id in &way.nodes {
@@ -200,30 +226,40 @@ impl EditorOsmData {
 
 		orphans.retain(|x| !parented.contains(x));
 		self.orphan_nodes = orphans;
+
+		#[cfg(feature = "debug")]
+		self.cache_debug.update(CacheFlag::NodeOrphan, t.elapsed().as_micros() as u32);
 	}
 
 	// No required caches
 	pub fn refresh_way_area_cache(&mut self) {
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
+
 		self.way_area.clear();
-		self.cache_flags &= !(CacheFlag::WayAreaAndAreaSize as u8);
+		self.cache_flags &= !(CacheFlag::WayArea as u8);
 
 		for way in self.data.ways.values() {
 			self.way_area.insert(way.id, is_way_area(way));
 		}
+
+		#[cfg(feature = "debug")]
+		self.cache_debug.update(CacheFlag::WayArea, t.elapsed().as_micros() as u32);
 	}
 
 	// Required caches:
 	// - NodeOrphan
 	// - WayArea
 	pub fn refresh_way_nodes_dedup_cache(&mut self) {
-		#[cfg(debug_assertions)] {
-			assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayAreaAndAreaSize as u8), 0);
-		}
+		debug_assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8), 0);
+
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
 
 		self.node_dedup.clear();
 		self.cache_flags &= !(CacheFlag::NodeDedup as u8);
 
-		let mut positions = HashSet::new();
+		let mut positions = HashSet::default();
 		self.node_dedup.way_nodes = self.data.ways.values()
 			.flat_map(|way| {
 				if !*self.way_area.get(&way.id).expect("way not found in cache") {
@@ -252,11 +288,18 @@ impl EditorOsmData {
 			})
 			.copied()
 			.collect();
+
+		#[cfg(feature = "debug")]
+		self.cache_debug.update(CacheFlag::NodeDedup, t.elapsed().as_micros() as u32);
 	}
 
 	// No required caches
 	pub fn refresh_node_usage_cache(&mut self) {
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
+
 		self.node_usage.clear();
+		self.cache_flags &= !(CacheFlag::NodeUsage as u8);
 
 		for way in self.data.ways.values() {
 			for node_id in &way.nodes {
@@ -266,18 +309,22 @@ impl EditorOsmData {
 					.push(way.id)
 			}
 		}
+
+		#[cfg(feature = "debug")]
+		self.cache_debug.update(CacheFlag::NodeUsage, t.elapsed().as_micros() as u32);
 	}
 
 	// Required caches:
 	// - WayArea
 	pub fn refresh_way_mesh_and_area_size_cache(&mut self, start_pos: Position) {
-		#[cfg(debug_assertions)] {
-			assert_eq!(self.cache_flags & CacheFlag::WayAreaAndAreaSize as u8, 0);
-		}
+		debug_assert_eq!(self.cache_flags & CacheFlag::WayArea as u8, 0);
+
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
 
 		self.reset_mesh_offsets(start_pos);
 		self.way_mesh.clear();
-		self.cache_flags &= !(CacheFlag::WayMesh as u8);
+		self.cache_flags &= !(CacheFlag::WayMeshAndAreaSize as u8);
 
 		for way in self.data.ways.values() {
 			if *self.way_area.get(&way.id).expect("way not found in cache") {
@@ -317,13 +364,16 @@ impl EditorOsmData {
 				});
 			}
 		}
+
+		#[cfg(feature = "debug")]
+		self.cache_debug.update(CacheFlag::WayMeshAndAreaSize, t.elapsed().as_micros() as u32);
 	}
 
 	pub fn append_new_nodes_ways(&mut self, from: OsmData) {
 		if from.is_empty() { return; }
 
 		if !from.ways.is_empty() {
-			self.cache_flags |= CacheFlag::WayAreaAndAreaSize as u8 | CacheFlag::WayMesh as u8;
+			self.cache_flags |= CacheFlag::WayArea as u8 | CacheFlag::WayMeshAndAreaSize as u8;
 		}
 
 		if !from.nodes.is_empty() {
