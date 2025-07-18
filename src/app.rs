@@ -308,6 +308,7 @@ fn map(
 	editor_plugin: editor::EditorPlugin,
 ) -> egui::Response {
 	ui.add(Map::new(tiles, map_memory, places::school())
+		.double_click_to_zoom(true)
 		.zoom_with_ctrl(editor_plugin.map_state.zoom_with_ctrl)
 		.with_plugin(editor_plugin)
 	)
