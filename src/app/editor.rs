@@ -9,7 +9,7 @@ use super::places::school;
 use crate::app::windows::OverlapSelectorResult;
 use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_OFFSET};
 use consts::{osm::*, *};
-use eframe::egui::{Color32, FontId, PointerButton, Pos2, Response, Shape, Stroke, Ui};
+use eframe::egui::{Color32, FontId, PointerButton, Pos2, Response, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use osm_parser::*;
 use states::{CacheFlag, MapState, SelectionFlag};
@@ -42,7 +42,7 @@ impl Plugin for EditorPlugin<'_> {
 			let current_pos = map_memory.detached().unwrap_or_else(school);
 			if self.osm.cache_flags & CacheFlag::NodeProjection as u8 != 0 {
 				self.osm.refresh_projected_nodes_cache(projector, current_pos);
-			} else {
+			} else if !self.osm.data.nodes.is_empty() {
 				// update move offset
 				let p_start = projector.project(self.osm.node_start);
 				let current_projected = projector.project(current_pos);
@@ -69,12 +69,12 @@ impl Plugin for EditorPlugin<'_> {
 			}
 
 			if self.osm.cache_flags & CacheFlag::NodeDedup as u8 != 0 {
-				self.osm.refresh_way_nodes_dedup_cache();
+				self.osm.refresh_node_dedup_cache();
 			}
 
 			if self.osm.cache_flags & CacheFlag::WayMeshAndAreaSize as u8 != 0 {
 				// it might be possible to use emath::TSTransform for more performance
-				self.osm.refresh_way_mesh_and_area_size_cache(current_pos);
+				self.osm.refresh_way_mesh_cache(current_pos);
 			} else if !self.osm.data.ways.is_empty() {
 				// update move offset
 				let p_start = projector.project(self.osm.mesh_start);
@@ -82,14 +82,16 @@ impl Plugin for EditorPlugin<'_> {
 				let diff = p_start - current_projected;
 
 				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
-					self.osm.refresh_way_mesh_and_area_size_cache(current_pos);
+					self.osm.refresh_way_mesh_cache(current_pos);
 				} else {
 					self.osm.mesh_offset_move = diff;
 				}
 			}
-		}
 
-		//let deferred_ui_callbacks = Vec::<Box<dyn Fn() -> ()>>::new();
+			if self.osm.cache_flags & CacheFlag::AreaSizeOrdered as u8 != 0 {
+				self.osm.refresh_area_size_ordered_cache();
+			}
+		}
 
 		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
 		self.editor_state.hovered.clear();
@@ -113,9 +115,13 @@ impl Plugin for EditorPlugin<'_> {
 			self.editor_state.map_bbox.top = tl.y();
 		}
 
-		// minimum capacity
-		let capacity = self.osm.node_dedup.len() + self.osm.data.ways.len();
-		// todo: cache shapes between frames
+		// minimum capacity to prevent most reallocations
+		let capacity = self.osm.node_dedup.way_nodes.len()
+			+ self.osm.node_dedup.orphan_nodes.len()
+			+ self.osm.area_size_ordered.len();
+
+		let mut skipped = 0;
+		// todo: https://github.com/Swarkin/walkers-editor/issues/20
 		let mut shapes = Vec::with_capacity(capacity);
 
 		/* draw osm data and detect interactions */ {
@@ -123,128 +129,138 @@ impl Plugin for EditorPlugin<'_> {
 				&& self.map_state.selection_mode & SelectionFlag::Ways as u8 != 0
 				&& self.editor_state.overlap_selector_elements.is_empty();
 
-			for way in self.osm.data.ways.values() {
-				let points = self.osm.get_projected_positions_in_way(&way.id);
+			// 1. draw areas
+			for area_id in self.osm.area_size_ordered.keys() {
+				let way = self.osm.data.ways.get(area_id).expect("id not found in data");
+				let points = self.osm.get_projected_positions_in_way(area_id);
+				let width = self.way_width(way);
+				let color = self.way_color(way);
 
-				if detect_interactions {
-					let width = self.way_width(way);
-					let hover = mouse.unwrap();
-
-					if distance_to_way(&points, &hover) < width.powi(2) {
-						self.editor_state.hovered.push(ElementId::Way(way.id));
-					}
+				if detect_interactions && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
+					self.editor_state.hovered.push(ElementId::Way(*area_id));
 				}
 
-				if *self.osm.way_area.get(&way.id).expect("way not found in cache") {
-					// draw area
-					match target_fill {
-						FillMode::Wireframe => shapes.push(self.draw_way_closed(&way.id).into()),
-						FillMode::Partial => {
-							// outline
-							shapes.push(self.draw_way_closed(&way.id).into());
+				match target_fill {
+					FillMode::Wireframe => shapes.push(self.draw_way_closed_from(points, width, color).into()),
+					FillMode::Partial => {
+						// outline
+						shapes.push(self.draw_way_closed_from(points.clone(), width, color).into());
 
-							// partial fill
-							// todo: https://github.com/Swarkin/walkers-editor/issues/9
-							shapes.push(self.draw_fill_partial_from(
-								if let Some(order) = winding_order(&points) {
-									if order { points.into_iter().skip(1).collect() } else { points.into_iter().rev().skip(1).collect() }
-								} else {
-									#[cfg(debug_assertions)]
-									eprintln!("winding_order failed for {points:?}");
-									points.into_iter().skip(1).collect()
-								},
-								PARTIAL_FILL_WIDTH,
-								self.way_color(way).gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY),
-							).into());
-						}
-						FillMode::Full => {
-							// draw area
-							let color = self.way_color(way);
-							let mesh = self.osm.get_way_mesh(&way.id, color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY));
-							shapes.push(Shape::Mesh(Arc::new(mesh)));
+						// partial fill
+						// todo: https://github.com/Swarkin/walkers-editor/issues/9
+						let area = *self.osm.area_size_ordered.get(area_id).unwrap();
+						let points = if area > 0.0 {
+							points.into_iter().skip(1).collect()
+						} else if area < 0.0 {
+							points.into_iter().rev().skip(1).collect()
+						} else {
+							skipped += 1;
+							continue;
+						};
 
-							// draw stroke
-							shapes.push(PathShape {
-								points: points.into_iter().skip(1).collect(),
-								closed: true,
-								fill: Color32::TRANSPARENT,
-								stroke: PathStroke::new(self.way_width(way), color),
-							}.into());
-						}
+						shapes.push(self.draw_fill_partial_from(
+							points,
+							PARTIAL_FILL_WIDTH,
+							color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY),
+						).into());
 					}
-				} else {
-					// draw way
-					let width = self.way_width(way);
-					let color = self.way_color(way);
+					FillMode::Full => {
+						// draw area
+						let mesh = self.osm.get_way_mesh(&way.id, color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY));
+						shapes.push(Arc::new(mesh).into());
 
-					shapes.push(self.draw_way_from(points.to_vec(), width, color).into());
+						// draw stroke
+						shapes.push(PathShape {
+							points: points.into_iter().skip(1).collect(),
+							closed: true,
+							fill: Color32::TRANSPARENT,
+							stroke: PathStroke::new(width, color),
+						}.into());
+					}
+				}
+			}
+
+			// 2. draw ways
+			for way_id in &self.osm.way_area.ways {
+				let way = self.osm.data.ways.get(way_id).expect("id not found in data");
+				let points = self.osm.get_projected_positions_in_way(way_id);
+				let width = self.way_width(way);
+				let color = self.way_color(way);
+
+				if detect_interactions && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
+					self.editor_state.hovered.push(ElementId::Way(*way_id));
+				}
+
+				if self.is_way_relevant(&way.tags) {
+					shapes.push(self.draw_way_from(points.clone(), width, color).into());
 
 					#[allow(clippy::single_match)] // there will be more visualizations in the future
 					match &self.map_state.selected_visualization {
 						Visualization::Sidewalks => shapes.extend(visual::sidewalks(&way.tags, points, width)),
-						_ => {},
+						_ => unreachable!("is_way_relevant returned invalid information"),
 					}
+				} else {
+					shapes.push(self.draw_way_from(points, width, color).into());
 				}
 			}
 
-			/* draw nodes and detect hover */ {
-				let detect_interactions = mouse.is_some()
-					&& self.map_state.selection_mode & SelectionFlag::Nodes as u8 != 0
-					&& self.editor_state.overlap_selector_elements.is_empty();
+			// 3. draw nodes
+			let detect_interactions = mouse.is_some()
+				&& self.map_state.selection_mode & SelectionFlag::Nodes as u8 != 0
+				&& self.editor_state.overlap_selector_elements.is_empty();
 
-				if detect_interactions {
-					let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
-						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
-						let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
-							self.draw_node_connected_at(pos)
-						} else {
-							self.draw_node_at(pos)
-						}.into();
-						shapes.push(shape);
-						(pos, id)
-					}).collect::<Vec<_>>();
+			if detect_interactions {
+				let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
+					let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
+					let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
+						self.draw_node_connected_at(pos)
+					} else {
+						self.draw_node_at(pos)
+					}.into();
+					shapes.push(shape);
+					(pos, id)
+				}).collect::<Vec<_>>();
 
-					let orphan_nodes = self.osm.node_dedup.orphan_nodes.iter().map(|id| {
-						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
-						shapes.push(self.draw_node_orphan_at(pos).into());
-						(pos, id)
-					}).collect::<Vec<_>>();
+				let orphan_nodes = self.osm.node_dedup.orphan_nodes.iter().map(|id| {
+					let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
+					shapes.push(self.draw_node_orphan_at(pos).into());
+					(pos, id)
+				}).collect::<Vec<_>>();
 
-					let mouse = mouse.unwrap();
-					let mut done = false;
+				let mouse = mouse.unwrap();
+				let mut done = false;
 
-					// node hover detection
-					let distance_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
-					for (pos, id) in way_nodes {
+				// node hover detection
+				let distance_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
+				for (pos, id) in way_nodes {
+					if pos.distance_sq(mouse) < distance_sq {
+						self.editor_state.hovered.push(ElementId::Node(*id));
+						done = true;
+						break;
+					}
+				}
+
+				if !done {
+					let distance_sq = (NODE_SIZE_ORPHAN * self.map_state.scale_factor).powi(2);
+					for (pos, id) in orphan_nodes {
 						if pos.distance_sq(mouse) < distance_sq {
 							self.editor_state.hovered.push(ElementId::Node(*id));
-							done = true;
 							break;
 						}
 					}
+				}
+			} else { // optimized without hover detection
+				for id in &self.osm.node_dedup.way_nodes {
+					shapes.push(self.draw_node_dynamic(id).into());
+				}
 
-					if !done {
-						let distance_sq = (NODE_SIZE_ORPHAN * self.map_state.scale_factor).powi(2);
-						for (pos, id) in orphan_nodes {
-							if pos.distance_sq(mouse) < distance_sq {
-								self.editor_state.hovered.push(ElementId::Node(*id));
-								break;
-							}
-						}
-					}
-				} else { // optimized without hover detection
-					for id in &self.osm.node_dedup.way_nodes {
-						shapes.push(self.draw_node_dynamic(id).into());
-					}
-
-					for id in &self.osm.node_dedup.orphan_nodes {
-						shapes.push(self.draw_node_orphan(id).into())
-					}
+				for id in &self.osm.node_dedup.orphan_nodes {
+					shapes.push(self.draw_node_orphan(id).into())
 				}
 			}
 		}
 
-		/* draw on-top selector */ {
+		/* draw overlap selector */ {
 			if ui.ctx().input(|i| i.pointer.button_clicked(PointerButton::Middle)) {
 				self.editor_state.overlap_selector_elements = self.editor_state.hovered.clone();
 				self.editor_state.overlap_selector_pos = mouse.unwrap();
@@ -367,7 +383,7 @@ impl Plugin for EditorPlugin<'_> {
 		shapes.extend(shapes_hover_tooltip);
 
 		// we want to preallocate as much memory as possible without overallocating
-		debug_assert!(shapes.len() >= capacity, "overallocated shape buffer: {} - {capacity}", shapes.len());
+		debug_assert!(shapes.len() >= capacity - skipped, "overallocated shape buffer: {} > ({capacity} - {skipped})", shapes.len());
 		ui.painter().extend(shapes);
 	}
 }
@@ -471,15 +487,14 @@ impl EditorPlugin<'_> {
 	}
 
 	//noinspection DuplicatedCode
-	fn draw_way_closed(&self, id: &Id) -> PathShape {
-		let way = self.osm.data.ways.get(id).expect("id not found in cache");
+	fn draw_way_closed_from(&self, points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
 		PathShape {
-			points: self.osm.get_projected_positions_in_way(id).into_iter().skip(1).collect(),
+			points,
 			closed: true,
 			fill: Color32::default(),
 			stroke: PathStroke {
-				width: self.way_width(way),
-				color: ColorMode::Solid(self.way_color(way)),
+				width,
+				color: ColorMode::Solid(color),
 				kind: StrokeKind::Middle,
 			}
 		}
@@ -635,26 +650,4 @@ fn distance_to_way(points: &[Pos2], mouse: &Pos2) -> f32 {
 
 fn is_way_closed(way: &Way) -> bool {
 	way.nodes.first() == way.nodes.last()
-}
-
-fn winding_order(points: &[Pos2]) -> Option<bool> {
-	let n = points.len();
-	if n < 3 {
-		return None;
-	}
-
-	let mut area = 0.0;
-	for i in 0..n {
-		let p1 = points[i];
-		let p2 = points[(i + 1) % n];
-		area += (p1.x * p2.y) - (p2.x * p1.y);
-	}
-
-	if area > 0.0 {
-		Some(true)
-	} else if area < 0.0 {
-		Some(false)
-	} else {
-		None
-	}
 }
