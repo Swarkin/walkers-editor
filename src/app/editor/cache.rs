@@ -3,10 +3,12 @@ use crate::app::editor::consts::osm::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
 use crate::app::editor::is_way_closed;
 use eframe::egui::{Color32, ImageSource, Mesh, Pos2, TextureId, Vec2};
 use eframe::epaint::{Vertex, WHITE_UV};
+use indexmap::IndexMap;
 use lyon_tessellation::geom::Point;
 use lyon_tessellation::path::Path;
 use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
 use osm_parser::{Coordinate, Id, Node, OsmData, Tags, Way};
+use rustc_hash::FxBuildHasher;
 use std::fmt::{Display, Formatter};
 use walkers::{Position, Projector};
 
@@ -21,8 +23,12 @@ pub type ProjectedNodeCache = HashMap<Id, Pos2>;
 // Holds orphan (standalone) Node Ids.
 pub type OrphanNodeCache = HashSet<Id>;
 
-// Stores whether a way is detected to be an area.
-pub type WayAreaCache = HashMap<Id, bool>;
+// Stores separate way and area IDs.
+#[derive(Default)]
+pub struct WayAreaCache {
+	pub ways: HashSet<Id>,
+	pub areas: HashSet<Id>,
+}
 
 // Used to avoid rendering Nodes twice when they occupy the same position.
 #[derive(Default)]
@@ -31,25 +37,14 @@ pub struct NodeDedupCache {
 	pub orphan_nodes: HashSet<Id>,
 }
 
-impl NodeDedupCache {
-	pub fn clear(&mut self) {
-		self.way_nodes.clear();
-		self.orphan_nodes.clear();
-	}
-
-	pub fn len(&self) -> usize {
-		self.way_nodes.len() + self.orphan_nodes.len()
-	}
-}
-
 // Maps Node IDs to Way IDs
 pub type NodeUsageCache = HashMap<Id, Vec<Id>>;
 
 // Contains cached MeshData, used by FillMode::Full.
 pub type WayMeshCache = HashMap<Id, MeshData>;
 
-/// Stores the area size of each way, used for rendering.
-pub type AreaSizeCache = HashMap<Id, f32>;
+/// Stores a list of area IDs ordered by the area size, used for rendering.
+pub type AreaSizeOrderedCache = IndexMap<Id, f32, FxBuildHasher>; // can easily be refactored to use indexmap if the size is needed
 
 #[cfg(feature = "debug")]
 #[derive(Default)]
@@ -88,7 +83,7 @@ impl Display for Change {
 	}
 }
 
-// stores the soure data, changes, and handles caching.
+// stores the source data, changes, and caches.
 #[derive(Default)]
 pub struct EditorOsmData {
 	pub data: OsmData, // latest state of the osm data
@@ -104,7 +99,7 @@ pub struct EditorOsmData {
 	pub node_dedup: NodeDedupCache,
 	pub node_usage: NodeUsageCache,
 	way_mesh: WayMeshCache,
-	pub area_size: AreaSizeCache,
+	pub area_size_ordered: AreaSizeOrderedCache,
 
 	pub node_start: Position,
 	pub mesh_start: Position,
@@ -213,6 +208,24 @@ impl EditorOsmData {
 		self.projected_nodes.get(node_id).map(|pos| pos.to_owned() + self.node_offset_move + self.node_offset_resize)
 	}
 
+	pub fn get_projected_origin_positions_in_way(&self, way_id: &Id) -> Vec<Pos2> {
+		self.data.ways.get(way_id).expect("way id must be valid")
+			.nodes.iter()
+			.map(|node_id| self.get_projected_origin_pos(node_id).expect("id not found in cache"))
+			.collect()
+	}
+
+	pub fn get_projected_origin_pos(&self, node_id: &Id) -> Option<Pos2> {
+		self.projected_nodes.get(node_id).map(|pos| pos.to_owned())
+	}
+
+	pub fn get_nodes_in_way(&self, way_id: &Id) -> impl Iterator<Item=&Node> {
+		self.data.ways
+			.get(way_id).expect("way not found in data")
+			.nodes.iter()
+			.map(|id| self.data.nodes.get(id).expect("node not found in data"))
+	}
+
 	pub fn get_way_mesh(&self, way_id: &Id, color: Color32) -> Mesh {
 		let data = self.way_mesh.get(way_id).expect("id not found in cache");
 		Mesh {
@@ -226,6 +239,7 @@ impl EditorOsmData {
 		}
 	}
 
+	// todo: only reproject the quantized nodes?
 	// No required caches
 	pub fn refresh_projected_nodes_cache(&mut self, projector: &Projector, start_pos: Position) {
 		#[cfg(feature = "debug")]
@@ -272,11 +286,16 @@ impl EditorOsmData {
 		#[cfg(feature = "debug")]
 		let t = std::time::Instant::now();
 
-		self.way_area.clear();
+		self.way_area.ways.clear();
+		self.way_area.areas.clear();
 		self.cache_flags &= !(CacheFlag::WayArea as u8);
 
-		for way in self.data.ways.values() {
-			self.way_area.insert(way.id, is_way_area(way));
+		for raw_way in self.data.ways.values() {
+			if is_way_area(raw_way) {
+				self.way_area.areas.insert(raw_way.id);
+			} else {
+				self.way_area.ways.insert(raw_way.id);
+			}
 		}
 
 		#[cfg(feature = "debug")]
@@ -286,42 +305,41 @@ impl EditorOsmData {
 	// Required caches:
 	// - NodeOrphan
 	// - WayArea
-	pub fn refresh_way_nodes_dedup_cache(&mut self) {
+	pub fn refresh_node_dedup_cache(&mut self) {
 		debug_assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8), 0);
+
+		fn quantize_and_insert(positions: &mut HashSet<(u64, u64)>, pos: &Coordinate, amount: f64) -> bool {
+			let pos_quantized = coordinate_quantized(pos, amount);
+			positions.insert(pos_quantized)
+		}
 
 		#[cfg(feature = "debug")]
 		let t = std::time::Instant::now();
 
-		self.node_dedup.clear();
+		self.node_dedup.way_nodes.clear();
+		self.node_dedup.orphan_nodes.clear();
 		self.cache_flags &= !(CacheFlag::NodeDedup as u8);
 
 		let mut positions = HashSet::default();
-		self.node_dedup.way_nodes = self.data.ways.values()
-			.flat_map(|way| {
-				if !*self.way_area.get(&way.id).expect("way not found in cache") {
-					match way.nodes.len() {
-						0 => vec![],
-						1 => vec![way.nodes[0]],
-						len => {
-							let first = way.nodes[0];
-							let last = way.nodes[len - 1];
-							vec![first, last]
-						}
+		self.node_dedup.way_nodes = self.way_area.ways.iter()
+			.flat_map(|id| {
+				let way = self.data.ways.get(id).expect("way not found in cache");
+				match way.nodes.len() {
+					0 => vec![],
+					1 => vec![way.nodes[0]],
+					len => {
+						let first = way.nodes[0];
+						let last = way.nodes[len - 1];
+						vec![first, last]
 					}
-				} else { vec![] }
+				}
 			})
-			.filter(|id| {
-				let pos_quantized = coordinate_quantized(&self.data.nodes.get(id).unwrap().pos, 10000000.0);
-				positions.insert(pos_quantized)
-			})
+			.filter(|id| quantize_and_insert(&mut positions, &self.data.nodes.get(id).expect("id not found in data").pos, 10000000.0))
 			.collect();
 
 		positions.clear();
 		self.node_dedup.orphan_nodes = self.orphan_nodes.iter()
-			.filter(|id| {
-				let pos_quantized = coordinate_quantized(&self.data.nodes.get(id).unwrap().pos, 10000000.0);
-				positions.insert(pos_quantized)
-			})
+			.filter(|id| quantize_and_insert(&mut positions, &self.data.nodes.get(id).expect("id not found in data").pos, 10000000.0))
 			.copied()
 			.collect();
 
@@ -350,9 +368,10 @@ impl EditorOsmData {
 		self.cache_debug.update(CacheFlag::NodeUsage, t.elapsed().as_micros() as u32);
 	}
 
+	// This cache would greatly benefit from https://github.com/Swarkin/walkers-editor/issues/38
 	// Required caches:
 	// - WayArea
-	pub fn refresh_way_mesh_and_area_size_cache(&mut self, start_pos: Position) {
+	pub fn refresh_way_mesh_cache(&mut self, start_pos: Position) {
 		debug_assert_eq!(self.cache_flags & CacheFlag::WayArea as u8, 0);
 
 		#[cfg(feature = "debug")]
@@ -362,54 +381,106 @@ impl EditorOsmData {
 		self.way_mesh.clear();
 		self.cache_flags &= !(CacheFlag::WayMeshAndAreaSize as u8);
 
-		for way in self.data.ways.values() {
-			if *self.way_area.get(&way.id).expect("way not found in cache") {
-				let points = self.get_projected_positions_in_way(&way.id);
-				let mut builder = Path::builder();
-				builder.begin(Point::new(points[0].x, points[0].y));
+		for id in &self.way_area.areas {
+			// next 15 lines take ~10% of the total time
+			// todo: separate cache to eliminate doing this twice
+			let mut points = self.get_projected_positions_in_way(id).into_iter();
+			let mut builder = Path::builder();
 
-				for p in points.iter().skip(1) {
-					builder.line_to(Point::new(p.x, p.y));
-				}
-
-				builder.close();
-				let path = builder.build();
-
-				self.area_size.insert(way.id, lyon_algorithms::area::approximate_signed_area(1.0, &path));
-
-				// todo: re-use vertexbuffers allocation
-				let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
-				let mut tessellator = FillTessellator::new();
-
-				// todo: intersection handling
-				tessellator.tessellate_path(
-					&path,
-					&FillOptions::default().with_intersections(false),
-					&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
-						Vertex {
-							pos: Pos2::from(vertex.position().to_array()),
-							uv: WHITE_UV,
-							color: Color32::WHITE,
-						}
-					}),
-				).expect("path tesselation failed");
-
-				self.way_mesh.insert(way.id, MeshData {
-					indices: geometry.indices,
-					vertices: geometry.vertices,
-				});
+			if let Some(first) = points.next() {
+				builder.begin(Point::new(first.x, first.y));
+			} else {
+				continue; // skip empty ways
 			}
+
+			for p in points {
+				builder.line_to(Point::new(p.x, p.y));
+			}
+
+			builder.close();
+			let path = builder.build();
+
+			// next 15 lines take ~70% of the total time
+			// todo: re-use vertexbuffers allocation
+			let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
+			let mut tessellator = FillTessellator::new();
+
+			// todo: intersection handling
+			tessellator.tessellate_path(
+				&path,
+				&FillOptions::default().with_intersections(false),
+				&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
+					Vertex {
+						pos: Pos2::from(vertex.position().to_array()),
+						uv: WHITE_UV,
+						color: Color32::WHITE,
+					}
+				}),
+			).expect("path tesselation failed");
+
+			self.way_mesh.insert(*id, MeshData {
+				indices: geometry.indices,
+				vertices: geometry.vertices,
+			});
 		}
 
 		#[cfg(feature = "debug")]
 		self.cache_debug.update(CacheFlag::WayMeshAndAreaSize, t.elapsed().as_micros() as u32);
 	}
 
+	// Builds off of the WayArea cache.
+	// Required caches:
+	// - NodeProjection
+	// - WayArea
+	pub fn refresh_area_size_ordered_cache(&mut self) {
+		debug_assert_eq!(self.cache_flags & (CacheFlag::NodeProjection as u8 | CacheFlag::WayArea as u8), 0);
+
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
+
+		// Shoelace formula for area calculation, returns twice the area.
+		fn area_size(points: &[Pos2]) -> f32 {
+			let n = points.len();
+			if n < 3 {
+				0.0
+			} else {
+				let mut area = 0.0;
+				for i in 0..n {
+					let p1 = points[i];
+					let p2 = points[(i + 1) % n];
+					area += (p1.y * p2.x) - (p2.y * p1.x);
+				}
+				area
+			}
+		}
+
+		self.area_size_ordered.clear();
+		self.cache_flags &= !(CacheFlag::AreaSizeOrdered as u8);
+
+		let mut area_sizes = self.way_area.areas.iter()
+			.map(|area_id| {
+				let points = self.get_projected_origin_positions_in_way(area_id);
+				(area_id, area_size(&points).abs())
+			})
+			.collect::<Vec<_>>();
+
+		area_sizes.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+
+		// Does it make a difference to sort the IndexMap directly instead of the intermediate Vec?
+
+		for (k, v) in area_sizes {
+			self.area_size_ordered.insert(*k, v);
+		}
+
+		#[cfg(feature = "debug")]
+		self.cache_debug.update(CacheFlag::AreaSizeOrdered, t.elapsed().as_micros() as u32);
+	}
+
 	pub fn append_new_nodes_ways(&mut self, from: OsmData) {
 		if from.is_empty() { return; }
 
 		if !from.ways.is_empty() {
-			self.cache_flags |= CacheFlag::WayArea as u8 | CacheFlag::WayMeshAndAreaSize as u8;
+			self.cache_flags |= CacheFlag::WayArea as u8 | CacheFlag::WayMeshAndAreaSize as u8 | CacheFlag::AreaSizeOrdered as u8;
 		}
 
 		if !from.nodes.is_empty() {

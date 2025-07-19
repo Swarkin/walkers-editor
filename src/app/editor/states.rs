@@ -93,11 +93,12 @@ pub enum CacheFlag {
 	NodeUsage = 1 << 3,
 	WayArea = 1 << 4,
 	WayMeshAndAreaSize = 1 << 5,
+	AreaSizeOrdered = 1 << 6,
 }
 
 #[cfg(feature = "debug")]
 impl CacheFlag {
-	pub const SIZE: usize = 6;
+	pub const SIZE: usize = 7;
 	pub const ITER: [CacheFlag; Self::SIZE] = [
 		CacheFlag::NodeProjection,
 		CacheFlag::NodeOrphan,
@@ -105,6 +106,7 @@ impl CacheFlag {
 		CacheFlag::NodeUsage,
 		CacheFlag::WayArea,
 		CacheFlag::WayMeshAndAreaSize,
+		CacheFlag::AreaSizeOrdered,
 	];
 }
 

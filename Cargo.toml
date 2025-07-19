@@ -23,6 +23,7 @@ webmercator_tiles = "1.0"
 lyon_tessellation = "1.0"
 lyon_algorithms = "1.0"
 rustc-hash = "2.1.1"
+indexmap = "2.10"
 
 [build-dependencies]
 winresource = "0.1"
