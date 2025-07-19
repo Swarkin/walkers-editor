@@ -159,7 +159,7 @@ impl ElementRef<'_> {
 	}
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ElementId {
 	Node(Id),
 	Way(Id),
