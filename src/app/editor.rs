@@ -125,9 +125,7 @@ impl Plugin for EditorPlugin<'_> {
 		let mut shapes = Vec::with_capacity(capacity);
 
 		/* draw osm data and detect interactions */ {
-			let detect_interactions = mouse.is_some()
-				&& self.map_state.selection_mode & SelectionFlag::Ways as u8 != 0
-				&& self.editor_state.overlap_selector_elements.is_empty();
+			let detect_interactions = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
 
 			// 1. draw areas
 			for area_id in self.osm.area_size_ordered.keys() {
@@ -205,11 +203,7 @@ impl Plugin for EditorPlugin<'_> {
 			}
 
 			// 3. draw nodes
-			let detect_interactions = mouse.is_some()
-				&& self.map_state.selection_mode & SelectionFlag::Nodes as u8 != 0
-				&& self.editor_state.overlap_selector_elements.is_empty();
-
-			if detect_interactions {
+			if self.should_detect_interactions(&mouse, SelectionFlag::Nodes) {
 				let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
 					let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
 					let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
@@ -218,7 +212,7 @@ impl Plugin for EditorPlugin<'_> {
 						self.draw_node_at(pos)
 					}.into();
 					shapes.push(shape);
-					(pos, id)
+					(id, pos)
 				}).collect::<Vec<_>>();
 
 				let orphan_nodes = self.osm.node_dedup.orphan_nodes.iter().map(|id| {
@@ -228,25 +222,19 @@ impl Plugin for EditorPlugin<'_> {
 				}).collect::<Vec<_>>();
 
 				let mouse = mouse.unwrap();
-				let mut done = false;
 
 				// node hover detection
 				let distance_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
-				for (pos, id) in way_nodes {
+				for (id, pos) in way_nodes {
 					if pos.distance_sq(mouse) < distance_sq {
-						self.editor_state.hovered.push(ElementId::Node(*id));
-						done = true;
-						break;
+						self.editor_state.hovered.insert(0, ElementId::Node(*id));
 					}
 				}
 
-				if !done {
-					let distance_sq = (NODE_SIZE_ORPHAN * self.map_state.scale_factor).powi(2);
-					for (pos, id) in orphan_nodes {
-						if pos.distance_sq(mouse) < distance_sq {
-							self.editor_state.hovered.push(ElementId::Node(*id));
-							break;
-						}
+				let distance_sq = (NODE_SIZE_ORPHAN * self.map_state.scale_factor).powi(2);
+				for (pos, id) in orphan_nodes {
+					if pos.distance_sq(mouse) < distance_sq {
+						self.editor_state.hovered.insert(0, ElementId::Node(*id));
 					}
 				}
 			} else { // optimized without hover detection
@@ -256,6 +244,27 @@ impl Plugin for EditorPlugin<'_> {
 
 				for id in &self.osm.node_dedup.orphan_nodes {
 					shapes.push(self.draw_node_orphan(id).into())
+				}
+			}
+		}
+
+		/* detect interactions on selected element */ {
+			if let Some(element) = &self.editor_state.selected
+				&& let ElementId::Way(w) = element
+				&& self.should_detect_interactions(&mouse, SelectionFlag::Nodes)
+			{
+				let range_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
+
+				let points = self.osm.data.ways
+					.get(w).expect("id not found in data")
+					.nodes.iter()
+					.map(|id| (id, self.osm.get_projected_pos(id).expect("id not found in cache")))
+					.collect::<Vec<_>>();
+
+				for (id, pos) in points {
+					if pos.distance_sq(mouse.unwrap()) < range_sq {
+						self.editor_state.hovered.insert(0, ElementId::Node(*id));
+					}
 				}
 			}
 		}
@@ -295,12 +304,12 @@ impl Plugin for EditorPlugin<'_> {
 		let mut shapes_hover_tooltip = Vec::new();
 
 		/* draw hovered element and detect whether it was selected */ {
-			if let Some(hovered_element) = self.editor_state.hovered.first() {
-				let element = self.osm.data.nodes.get(hovered_element.id_ref()).map(ElementRef::Node)
-					.or_else(|| self.osm.data.ways.get(hovered_element.id_ref()).map(ElementRef::Way))
+			if let Some(hovered_element) = self.editor_state.hovered.first() && self.editor_state.hovered.first() != self.editor_state.selected.as_ref() {
+				let element = self.osm.get(hovered_element.id_ref())
 					.expect("id not found in data");
 
-				if self.editor_state.overlap_selector_elements.is_empty() && let Some(name) = element.tags().get("name") {
+				// draw hovered element name tooltip
+				if let Some(name) = element.tags().get("name") && self.editor_state.overlap_selector_elements.is_empty() {
 					let hover = mouse.unwrap();
 					let galley = ui.fonts(|f| {
 						f.layout_no_wrap(name.to_owned(), FontId::proportional(HOVER_TOOLTIP_FONT_SIZE), Color32::LIGHT_GRAY)
@@ -318,28 +327,48 @@ impl Plugin for EditorPlugin<'_> {
 						shapes.push(self.draw_node_hovered(&node.id).into());
 
 						if resp.clicked() {
-							self.editor_state.selected = Some(hovered_element.clone());
+							self.editor_state.selected = Some(hovered_element.to_owned());
 						}
 					}
 					ElementRef::Way(way) => {
 						if resp.clicked() { // selected
 							if self.is_way_relevant(&way.tags) || self.map_state.selected_visualization == Visualization::Default {
-								self.editor_state.selected = Some(hovered_element.clone());
+								self.editor_state.selected = Some(hovered_element.to_owned());
 							} else { // deselect when clicking irrelevant way
 								self.editor_state.selected = None;
 							}
-						} else if is_way_closed(way) {
-							shapes.push(self.draw_way_closed_hovered(&way.id).into());
-							shapes.extend(
-								way.nodes.iter().skip(1)
-									.map(|id| self.draw_node_dynamic(id).into())
-							);
 						} else {
-							shapes.push(self.draw_way_hovered(&way.id).into());
-							shapes.extend(
-								way.nodes.iter()
-									.map(|id| self.draw_node_dynamic(id).into())
-							);
+							let closed = is_way_closed(way);
+							let mut newly_hovered_node = None;
+
+							/* detect interactions and draw nodes on hovered way */ {
+								if self.should_detect_interactions(&mouse, SelectionFlag::Nodes) {
+									dbg!("a");
+									let range_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
+
+									let points = way.nodes.iter()
+										.skip(if closed { 1 } else { 0 })
+										.map(|id| (id, self.osm.get_projected_pos(id).expect("id not found in cache")))
+										.collect::<Vec<_>>();
+
+									for (id, pos) in &points {
+										if pos.distance_sq(mouse.unwrap()) < range_sq {
+											newly_hovered_node = Some(*id);
+										}
+									}
+								}
+							}
+
+							if let Some(id) = newly_hovered_node { // only draw the newly hovered node
+								// todo(performance): re-use the existing points
+								shapes.push(self.draw_node_selected(id).into());
+							} else {
+								shapes.push(if closed { self.draw_way_closed_hovered(&way.id) } else { self.draw_way_hovered(&way.id) }.into());
+								shapes.extend( // draw nodes again above the selection
+									way.nodes.iter().skip(if closed { 1 } else { 0 })
+										.map(|id| self.draw_node_dynamic(id).into())
+								);
+							}
 						}
 					}
 				}
@@ -355,14 +384,17 @@ impl Plugin for EditorPlugin<'_> {
 				match element {
 					ElementRef::Node(node) => shapes.push(self.draw_node_selected(&node.id).into()),
 					ElementRef::Way(way) => {
+						let points = self.osm.get_projected_positions_in_way(&way.id);
+						let width = self.way_width(way);
+
 						if is_way_closed(way) {
-							shapes.push(self.draw_way_closed_selected(element_id.id_ref()).into());
+							shapes.push(self.draw_way_closed_selected_from(points.iter().skip(1).copied().collect(), width).into());
 							shapes.extend(
 								way.nodes.iter().skip(1)
 									.map(|id| self.draw_node_dynamic(id).into())
 							);
 						} else {
-							shapes.push(self.draw_way_selected(element_id.id_ref()).into());
+							shapes.push(self.draw_way_selected_from(points, width).into());
 							shapes.extend(
 								way.nodes.iter()
 									.map(|id| self.draw_node_dynamic(id).into())
@@ -531,14 +563,13 @@ impl EditorPlugin<'_> {
 	}
 
 	//noinspection DuplicatedCode
-	fn draw_way_selected(&self, id: &Id) -> PathShape {
-		let way = self.osm.data.ways.get(id).expect("id not found in cache");
+	fn draw_way_selected_from(&self, points: Vec<Pos2>, width: f32) -> PathShape {
 		PathShape {
-			points: self.osm.get_projected_positions_in_way(id),
+			points,
 			closed: false,
 			fill: Color32::default(),
 			stroke: PathStroke {
-				width: self.way_width(way) + SELECTION_SIZE_INCREASE,
+				width: width + SELECTION_SIZE_INCREASE,
 				color: ColorMode::Solid(SELECTION_COLOR),
 				kind: StrokeKind::Middle,
 			}
@@ -546,14 +577,13 @@ impl EditorPlugin<'_> {
 	}
 
 	//noinspection DuplicatedCode
-	fn draw_way_closed_selected(&self, id: &Id) -> PathShape {
-		let way = self.osm.data.ways.get(id).expect("id not found in cache");
+	fn draw_way_closed_selected_from(&self, points: Vec<Pos2>, width: f32) -> PathShape {
 		PathShape {
-			points: self.osm.get_projected_positions_in_way(id).into_iter().skip(1).collect(),
+			points,
 			closed: true,
 			fill: Color32::default(),
 			stroke: PathStroke {
-				width: self.way_width(way) + SELECTION_SIZE_INCREASE,
+				width: width + SELECTION_SIZE_INCREASE,
 				color: ColorMode::Solid(SELECTION_COLOR),
 				kind: StrokeKind::Middle,
 			}
@@ -602,6 +632,12 @@ impl EditorPlugin<'_> {
 			Visualization::Default => None,
 			Visualization::Sidewalks => visual::sidewalks_ui(ui, self.osm.data.ways.get(&id).unwrap(), pos),
 		}
+	}
+
+	fn should_detect_interactions(&self, mouse: &Option<Pos2>, selection_flag: SelectionFlag) -> bool {
+		mouse.is_some()
+			&& self.map_state.selection_mode & selection_flag as u8 != 0
+			&& self.editor_state.overlap_selector_elements.is_empty()
 	}
 }
 
