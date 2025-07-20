@@ -18,6 +18,12 @@ pub struct Bbox {
 	pub top: f64,
 }
 
+impl Bbox {
+	pub fn area(&self) -> f64 {
+		(self.right - self.left) * (self.top - self.bottom)
+	}
+}
+
 #[derive(Debug, Clone, serde::Deserialize)]
 pub struct OsmToken {
 	pub access_token: String,

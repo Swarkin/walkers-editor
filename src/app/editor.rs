@@ -94,6 +94,7 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
+		let should_draw_nodes = map_memory.zoom() > NODE_MIN_ZOOM;
 		self.editor_state.hovered.clear();
 
 		// override fill mode
@@ -116,9 +117,8 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		// minimum capacity to prevent most reallocations
-		let capacity = self.osm.node_dedup.way_nodes.len()
-			+ self.osm.node_dedup.orphan_nodes.len()
-			+ self.osm.area_size_ordered.len();
+		let capacity = self.osm.area_size_ordered.len()
+			+ if should_draw_nodes { self.osm.node_dedup.way_nodes.len() + self.osm.node_dedup.orphan_nodes.len() } else { 0 };
 
 		let mut skipped = 0;
 		// todo: https://github.com/Swarkin/walkers-editor/issues/20
@@ -203,47 +203,49 @@ impl Plugin for EditorPlugin<'_> {
 			}
 
 			// 3. draw nodes
-			if self.should_detect_interactions(&mouse, SelectionFlag::Nodes) {
-				let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
-					let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
-					let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
-						self.draw_node_connected_at(pos)
-					} else {
-						self.draw_node_at(pos)
-					}.into();
-					shapes.push(shape);
-					(id, pos)
-				}).collect::<Vec<_>>();
+			if should_draw_nodes {
+				if self.should_detect_interactions(&mouse, SelectionFlag::Nodes) {
+					let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
+						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
+						let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
+							self.draw_node_connected_at(pos)
+						} else {
+							self.draw_node_at(pos)
+						}.into();
+						shapes.push(shape);
+						(id, pos)
+					}).collect::<Vec<_>>();
 
-				let orphan_nodes = self.osm.node_dedup.orphan_nodes.iter().map(|id| {
-					let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
-					shapes.push(self.draw_node_orphan_at(pos).into());
-					(pos, id)
-				}).collect::<Vec<_>>();
+					let orphan_nodes = self.osm.node_dedup.orphan_nodes.iter().map(|id| {
+						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
+						shapes.push(self.draw_node_orphan_at(pos).into());
+						(pos, id)
+					}).collect::<Vec<_>>();
 
-				let mouse = mouse.unwrap();
+					let mouse = mouse.unwrap();
 
-				// node hover detection
-				let distance_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
-				for (id, pos) in way_nodes {
-					if pos.distance_sq(mouse) < distance_sq {
-						self.editor_state.hovered.insert(0, ElementId::Node(*id));
+					// node hover detection
+					let distance_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
+					for (id, pos) in way_nodes {
+						if pos.distance_sq(mouse) < distance_sq {
+							self.editor_state.hovered.insert(0, ElementId::Node(*id));
+						}
 					}
-				}
 
-				let distance_sq = (NODE_SIZE_ORPHAN * self.map_state.scale_factor).powi(2);
-				for (pos, id) in orphan_nodes {
-					if pos.distance_sq(mouse) < distance_sq {
-						self.editor_state.hovered.insert(0, ElementId::Node(*id));
+					let distance_sq = (NODE_SIZE_ORPHAN * self.map_state.scale_factor).powi(2);
+					for (pos, id) in orphan_nodes {
+						if pos.distance_sq(mouse) < distance_sq {
+							self.editor_state.hovered.insert(0, ElementId::Node(*id));
+						}
 					}
-				}
-			} else { // optimized without hover detection
-				for id in &self.osm.node_dedup.way_nodes {
-					shapes.push(self.draw_node_dynamic(id).into());
-				}
+				} else { // optimized without hover detection
+					for id in &self.osm.node_dedup.way_nodes {
+						shapes.push(self.draw_node_dynamic(id).into());
+					}
 
-				for id in &self.osm.node_dedup.orphan_nodes {
-					shapes.push(self.draw_node_orphan(id).into())
+					for id in &self.osm.node_dedup.orphan_nodes {
+						shapes.push(self.draw_node_orphan(id).into())
+					}
 				}
 			}
 		}
@@ -343,7 +345,6 @@ impl Plugin for EditorPlugin<'_> {
 
 							/* detect interactions and draw nodes on hovered way */ {
 								if self.should_detect_interactions(&mouse, SelectionFlag::Nodes) {
-									dbg!("a");
 									let range_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
 
 									let points = way.nodes.iter()
