@@ -219,13 +219,6 @@ impl EditorOsmData {
 		self.projected_nodes.get(node_id).map(|pos| pos.to_owned())
 	}
 
-	pub fn get_nodes_in_way(&self, way_id: &Id) -> impl Iterator<Item=&Node> {
-		self.data.ways
-			.get(way_id).expect("way not found in data")
-			.nodes.iter()
-			.map(|id| self.data.nodes.get(id).expect("node not found in data"))
-	}
-
 	pub fn get_way_mesh(&self, way_id: &Id, color: Color32) -> Mesh {
 		let data = self.way_mesh.get(way_id).expect("id not found in cache");
 		Mesh {

@@ -93,9 +93,13 @@ impl Plugin for EditorPlugin<'_> {
 			}
 		}
 
-		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
-		let should_draw_nodes = map_memory.zoom() > NODE_MIN_ZOOM;
 		self.editor_state.hovered.clear();
+		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
+		let clicked = resp.clicked();
+		let should_draw_nodes = map_memory.zoom() > NODE_MIN_ZOOM;
+
+		let interact_nodes = self.should_detect_interactions(&mouse, SelectionFlag::Nodes);
+		let interact_ways = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
 
 		// override fill mode
 		let mut target_fill = self.map_state.selected_fill_mode;
@@ -104,7 +108,7 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		/* update editor state */ {
-			if resp.clicked() {
+			if clicked {
 				self.editor_state.last_click_coords = projector.unproject(resp.interact_pointer_pos().unwrap().to_vec2());
 			}
 
@@ -125,8 +129,6 @@ impl Plugin for EditorPlugin<'_> {
 		let mut shapes = Vec::with_capacity(capacity);
 
 		/* draw osm data and detect interactions */ {
-			let detect_interactions = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
-
 			// 1. draw areas
 			// todo: is it faster to iterate over the key-value pairs directly?
 			for area_id in self.osm.area_size_ordered.keys() {
@@ -135,7 +137,7 @@ impl Plugin for EditorPlugin<'_> {
 				let width = self.way_width(way);
 				let color = self.way_color(way);
 
-				if detect_interactions && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
+				if interact_ways && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
 					self.editor_state.hovered.push(ElementId::Way(*area_id));
 				}
 
@@ -186,21 +188,26 @@ impl Plugin for EditorPlugin<'_> {
 				let width = self.way_width(way);
 				let color = self.way_color(way);
 
-				if detect_interactions && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
+				if interact_ways && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
 					self.editor_state.hovered.push(ElementId::Way(*way_id));
-				}
 
-				if self.is_way_relevant(&way.tags) {
-					shapes.push(self.draw_way_from(points.clone(), width, color).into());
+					if interact_nodes {
+						let range_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
 
-					#[allow(clippy::single_match)] // there will be more visualizations in the future
-					match &self.map_state.selected_visualization {
-						Visualization::Sidewalks => shapes.extend(visual::sidewalks(&way.tags, points, width)),
-						_ => unreachable!("is_way_relevant returned invalid information"),
+						for (pos, id) in points.iter().zip(way.nodes.iter()) {
+							if pos.distance_sq(mouse.unwrap()) < range_sq {
+								self.editor_state.hovered.insert(0, ElementId::Node(*id));
+							}
+						}
 					}
-				} else {
-					shapes.push(self.draw_way_from(points, width, color).into());
 				}
+
+				shapes.extend(match &self.map_state.selected_visualization {
+					Visualization::Sidewalks => visual::sidewalks(&way.tags, &points, width),
+					_ => vec![],
+				});
+
+				shapes.push(self.draw_way_from(points, width, color).into());
 			}
 
 			// 3. draw nodes
@@ -246,27 +253,6 @@ impl Plugin for EditorPlugin<'_> {
 
 					for id in &self.osm.node_dedup.orphan_nodes {
 						shapes.push(self.draw_node_orphan(id).into())
-					}
-				}
-			}
-		}
-
-		/* detect interactions on selected element */ {
-			if let Some(element) = &self.editor_state.selected
-				&& let ElementId::Way(w) = element
-				&& self.should_detect_interactions(&mouse, SelectionFlag::Nodes)
-			{
-				let range_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
-
-				let points = self.osm.data.ways
-					.get(w).expect("id not found in data")
-					.nodes.iter()
-					.map(|id| (id, self.osm.get_projected_pos(id).expect("id not found in cache")))
-					.collect::<Vec<_>>();
-
-				for (id, pos) in points {
-					if pos.distance_sq(mouse.unwrap()) < range_sq {
-						self.editor_state.hovered.insert(0, ElementId::Node(*id));
 					}
 				}
 			}
@@ -329,12 +315,12 @@ impl Plugin for EditorPlugin<'_> {
 					ElementRef::Node(node) => {
 						shapes.push(self.draw_node_hovered(&node.id).into());
 
-						if resp.clicked() {
+						if clicked {
 							self.editor_state.selected = Some(hovered_element.to_owned());
 						}
 					}
 					ElementRef::Way(way) => {
-						if resp.clicked() { // selected
+						if clicked { // selected
 							if self.is_way_relevant(&way.tags) || self.map_state.selected_visualization == Visualization::Default {
 								self.editor_state.selected = Some(hovered_element.to_owned());
 							} else { // deselect when clicking irrelevant way
@@ -345,7 +331,7 @@ impl Plugin for EditorPlugin<'_> {
 							let mut newly_hovered_node = None;
 
 							/* detect interactions and draw nodes on hovered way */ {
-								if self.should_detect_interactions(&mouse, SelectionFlag::Nodes) {
+								if interact_nodes {
 									let range_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
 
 									let points = way.nodes.iter()
@@ -356,6 +342,7 @@ impl Plugin for EditorPlugin<'_> {
 									for (id, pos) in &points {
 										if pos.distance_sq(mouse.unwrap()) < range_sq {
 											newly_hovered_node = Some(*id);
+											dbg!("b");
 										}
 									}
 								}
@@ -374,7 +361,7 @@ impl Plugin for EditorPlugin<'_> {
 						}
 					}
 				}
-			} else if resp.clicked() { // clicked on empty space
+			} else if clicked { // on empty space
 				self.editor_state.selected = None;
 			}
 		}
