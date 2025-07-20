@@ -32,7 +32,7 @@ impl Attribute2D {
 	}
 
 	pub fn into_tags(self, tag: &str) -> Tags {
-		let mut tags = Tags::new();
+		let mut tags = Tags::default();
 
 		match self.left {
 			TagValue::Yes | TagValue::No | TagValue::Separate => {
