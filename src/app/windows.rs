@@ -1,9 +1,10 @@
 use super::editor::{
 	cache::Change,
-	consts::{osm::ATTRIBUTION_URL, DOWNLOAD_MIN_ZOOM, TOP_BAR_HEIGHT, WINDOW_MARGIN},
+	consts::{osm::ATTRIBUTION_URL, MAX_DOWNLOAD_AREA, TOP_BAR_HEIGHT, WINDOW_MARGIN},
 	states::{MapDownloadState, MapState, SelectionFlag},
 	visual::{FillMode, Visualization},
 };
+use super::osm::Bbox;
 use super::providers::Provider;
 use eframe::egui;
 use eframe::egui::text::LayoutJob;
@@ -182,7 +183,7 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 }
 
 // Returns whether a download was triggered
-pub fn toolbar(ui: &Ui, state: &mut MapState, zoom: f64) -> bool {
+pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 	egui::Window::new("Toolbar")
 		.title_bar(false)
 		.resizable(false)
@@ -227,7 +228,7 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, zoom: f64) -> bool {
 							static SHORTCUT: &KeyboardShortcut =
 								&KeyboardShortcut::new(Modifiers::CTRL.plus(Modifiers::SHIFT), Key::ArrowDown);
 
-							let enabled = zoom > DOWNLOAD_MIN_ZOOM;
+							let enabled = bbox.area() < MAX_DOWNLOAD_AREA;
 							let image = Image::new(ICON).fit_to_exact_size(Vec2::splat(24.0));
 							let button_resp = ui.add_enabled(enabled,
 								Button::image(image).corner_radius(4)

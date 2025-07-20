@@ -11,7 +11,8 @@ pub const HOVER_TOOLTIP_OFFSET: Vec2 = Vec2::splat(16.0);
 pub const HOVER_TOOLTIP_COLOR: Color32 = Color32::from_black_alpha(200);
 pub const HOVER_TOOLTIP_FONT_SIZE: f32 = 14.0;
 
-pub const DOWNLOAD_MIN_ZOOM: f64 = 15.5;
+pub const MAX_DOWNLOAD_AREA: f64 = 0.0005;
+pub const NODE_MIN_ZOOM: f64 = 17.0;
 
 const TINT_DARK: u8 = 222;
 const TINT_LIGHT: u8 = 22;

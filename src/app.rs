@@ -204,7 +204,7 @@ impl eframe::App for MyApp {
 						}
 					}
 
-					if self.editor.window_flags & Window::Toolbar as u8 == 0 && windows::toolbar(ui, &mut self.editor.map_state, self.editor.map_memory.zoom()) {
+					if self.editor.window_flags & Window::Toolbar as u8 == 0 && windows::toolbar(ui, &mut self.editor.map_state, &self.editor.plugin_state.map_bbox) {
 						self.worker_handle.sender.send(Request::GetMap(Box::new(self.editor.plugin_state.map_bbox.clone()))).unwrap();
 						self.editor.map_state.download = MapDownloadState::Downloading;
 					}
