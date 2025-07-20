@@ -128,6 +128,7 @@ impl Plugin for EditorPlugin<'_> {
 			let detect_interactions = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
 
 			// 1. draw areas
+			// todo: is it faster to iterate over the key-value pairs directly?
 			for area_id in self.osm.area_size_ordered.keys() {
 				let way = self.osm.data.ways.get(area_id).expect("id not found in data");
 				let points = self.osm.get_projected_positions_in_way(area_id);
