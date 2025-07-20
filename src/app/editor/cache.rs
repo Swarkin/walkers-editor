@@ -461,11 +461,11 @@ impl EditorOsmData {
 		let mut area_sizes = self.way_area.areas.iter()
 			.map(|area_id| {
 				let points = self.get_projected_origin_positions_in_way(area_id);
-				(area_id, area_size(&points).abs())
+				(area_id, area_size(&points))
 			})
 			.collect::<Vec<_>>();
 
-		area_sizes.sort_unstable_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
+		area_sizes.sort_unstable_by(|a, b| b.1.abs().partial_cmp(&a.1.abs()).unwrap());
 
 		// Does it make a difference to sort the IndexMap directly instead of the intermediate Vec?
 
