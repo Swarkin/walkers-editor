@@ -448,8 +448,9 @@ impl EditorOsmData {
 				for i in 0..n {
 					let p1 = points[i];
 					let p2 = points[(i + 1) % n];
-					area += (p1.y * p2.x) - (p2.y * p1.x);
+					area += (p1.x * p2.y) - (p2.x * p1.y);
 				}
+
 				area
 			}
 		}
