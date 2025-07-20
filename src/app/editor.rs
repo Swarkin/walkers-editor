@@ -342,7 +342,6 @@ impl Plugin for EditorPlugin<'_> {
 									for (id, pos) in &points {
 										if pos.distance_sq(mouse.unwrap()) < range_sq {
 											newly_hovered_node = Some(*id);
-											dbg!("b");
 										}
 									}
 								}
