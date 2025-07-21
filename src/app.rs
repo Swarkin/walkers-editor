@@ -163,6 +163,11 @@ impl eframe::App for MyApp {
 						self.editor.osm_data.mesh_offset_resize += size_diff;
 					}
 
+					// todo: dont regenerate cache during zoom animation
+					if zoom_changed || curr_size != self.editor.prev_size {
+						self.editor.osm_data.refresh_in_view_flag = true;
+					}
+
 					let tiles = self.editor.map_state.selected_provider.map(|x| {
 						self.editor.tile_providers.get_mut(&x).unwrap().as_mut()
 					});

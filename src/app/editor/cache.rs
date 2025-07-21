@@ -96,6 +96,7 @@ pub struct EditorOsmData {
 	pub ways_in_view: Vec<Id>,
 	#[cfg(feature = "debug")]
 	pub view_timing: u32,
+	pub refresh_in_view_flag: bool,
 
 	pub changes: Vec<Change>,
 	pub cache_flags: CacheBitflag,
@@ -242,18 +243,26 @@ impl EditorOsmData {
 		}
 	}
 
-	// todo: only reproject the quantized nodes?
-	// No required caches
+	// Required caches:
+	// - NodeDedup
 	pub fn refresh_projected_nodes_cache(&mut self, projector: &Projector, start_pos: Position) {
 		#[cfg(feature = "debug")]
 		let t = std::time::Instant::now();
+
+		debug_assert_eq!(self.cache_flags & CacheFlag::NodeDedup as u8, 0);
 
 		self.reset_node_offsets(start_pos);
 		self.projected_nodes.clear();
 		self.cache_flags &= !(CacheFlag::NodeProjection as u8);
 
-		for (id, node) in &self.data.nodes {
-			self.projected_nodes.insert(*id, projector.project(coordinate_to_pos(&node.pos)).to_pos2());
+		for node in self.ways_in_view.iter()
+			.flat_map(|x| {
+				let way = self.data.ways.get(x).expect("way not found in data");
+				way.nodes.iter().map(|x| self.data.nodes.get(x).expect("id not found in data"))
+			})
+			.chain(self.node_dedup.orphan_nodes.iter().map(|x| self.data.nodes.get(x).expect("id not found in data")))
+		{
+			self.projected_nodes.insert(node.id, projector.project(coordinate_to_pos(&node.pos)).to_pos2());
 		}
 
 		#[cfg(feature = "debug")]
@@ -268,12 +277,12 @@ impl EditorOsmData {
 		self.orphan_nodes.clear();
 		self.cache_flags &= !(CacheFlag::NodeOrphan as u8);
 
-		let mut orphans = self.data.nodes.keys().copied().collect::<OrphanNodeCache>();
+		let mut orphans = self.nodes_in_view.iter().copied().collect::<OrphanNodeCache>();
 		let mut parented = HashSet::default();
 
 		for way in self.data.ways.values() {
 			for id in &way.nodes {
-				parented.insert(id);
+				parented.insert(*id);
 			}
 		}
 
@@ -293,11 +302,13 @@ impl EditorOsmData {
 		self.way_area.areas.clear();
 		self.cache_flags &= !(CacheFlag::WayArea as u8);
 
-		for raw_way in self.data.ways.values() {
-			if is_way_area(raw_way) {
-				self.way_area.areas.insert(raw_way.id);
+		for way in self.ways_in_view.iter()
+			.map(|x| self.data.ways.get(x).expect("way not found in data"))
+		{
+			if is_way_area(way) { // todo: cache is_way_area
+				self.way_area.areas.insert(way.id);
 			} else {
-				self.way_area.ways.insert(raw_way.id);
+				self.way_area.ways.insert(way.id);
 			}
 		}
 
@@ -358,7 +369,9 @@ impl EditorOsmData {
 		self.node_usage.clear();
 		self.cache_flags &= !(CacheFlag::NodeUsage as u8);
 
-		for way in self.data.ways.values() {
+		for way in self.ways_in_view.iter()
+			.map(|x| self.data.ways.get(x).expect("way not found in data"))
+		{
 			for node_id in &way.nodes {
 				self.node_usage
 					.entry(*node_id)

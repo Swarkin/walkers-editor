@@ -78,7 +78,7 @@ impl Plugin for EditorPlugin<'_> {
 				let p_start = projector.project(self.osm.view_start);
 				let diff = p_start - current_pos_projected;
 
-				if diff.x.abs() > MAX_VIEW_OFFSET || diff.y.abs() > MAX_VIEW_OFFSET {
+				if diff.x.abs() > MAX_VIEW_OFFSET || diff.y.abs() > MAX_VIEW_OFFSET || self.osm.refresh_in_view_flag {
 					let aabb = &AABB::from_corners(
 						WebMercatorPoint::from((self.editor_state.map_bbox.top as f32, self.editor_state.map_bbox.left as f32)),
 						WebMercatorPoint::from((self.editor_state.map_bbox.bottom as f32, self.editor_state.map_bbox.right as f32))
@@ -86,26 +86,20 @@ impl Plugin for EditorPlugin<'_> {
 
 					self.osm.refresh_elements_in_view(aabb);
 					self.osm.view_start = current_pos;
+					self.osm.refresh_in_view_flag = false;
+
+					self.osm.cache_flags = CacheFlag::ALL;
 				}
 			}
 		}
 
 		/* cache invalidation */ {
-			if self.osm.cache_flags & CacheFlag::NodeProjection as u8 != 0 {
-				self.osm.refresh_projected_nodes_cache(projector, current_pos);
-			} else if !self.osm.data.nodes.is_empty() {
-				let p_start = projector.project(self.osm.node_start);
-				let diff = p_start - current_pos_projected;
-
-				self.osm.node_offset_move = diff;
+			if self.osm.cache_flags & CacheFlag::NodeUsage as u8 != 0 {
+				self.osm.refresh_node_usage_cache();
 			}
 
 			if self.osm.cache_flags & CacheFlag::NodeOrphan as u8 != 0 {
 				self.osm.refresh_orphan_nodes_cache();
-			}
-
-			if self.osm.cache_flags & CacheFlag::NodeUsage as u8 != 0 {
-				self.osm.refresh_node_usage_cache();
 			}
 
 			if self.osm.cache_flags & CacheFlag::WayArea as u8 != 0 {
@@ -114,6 +108,15 @@ impl Plugin for EditorPlugin<'_> {
 
 			if self.osm.cache_flags & CacheFlag::NodeDedup as u8 != 0 {
 				self.osm.refresh_node_dedup_cache();
+			}
+
+			if self.osm.cache_flags & CacheFlag::NodeProjection as u8 != 0 {
+				self.osm.refresh_projected_nodes_cache(projector, current_pos);
+			} else if !self.osm.data.nodes.is_empty() {
+				let p_start = projector.project(self.osm.node_start);
+				let diff = p_start - current_pos_projected;
+
+				self.osm.node_offset_move = diff;
 			}
 
 			if self.osm.cache_flags & CacheFlag::WayMeshAndAreaSize as u8 != 0 {
