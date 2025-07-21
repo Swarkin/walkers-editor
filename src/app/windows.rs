@@ -284,7 +284,11 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 				ui.label(format!("in-progress requests for {:?}: {}", selected_provider.unwrap(), stats.in_progress));
 			}
 
-			ui.collapsing("Elements in view", |ui| {
+			ui.collapsing("Elements", |ui| {
+				ui.strong("In memory:");
+				ui.monospace(format!("Nodes: {:>5}", editor_osm_data.data.nodes.len()));
+				ui.monospace(format!("Ways:  {:>5}", editor_osm_data.data.ways.len()));
+				ui.strong("In view:");
 				ui.monospace(format!("Nodes: {:>5}", editor_osm_data.nodes_in_view.len()));
 				ui.monospace(format!("Ways:  {:>5}", editor_osm_data.ways_in_view.len()));
 			});
