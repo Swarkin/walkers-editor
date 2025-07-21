@@ -108,6 +108,7 @@ impl CacheFlag {
 		CacheFlag::WayMeshAndAreaSize,
 		CacheFlag::AreaSizeOrdered,
 	];
+	pub const ALL: CacheBitflag = 0b11111111;
 }
 
 pub enum MapDownloadState {
