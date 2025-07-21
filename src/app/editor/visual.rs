@@ -76,7 +76,7 @@ pub fn color_default(w: &Way) -> Color32 {
 }
 
 // todo: use PathShape
-pub fn sidewalks(tags: &Tags, points: &Vec<Pos2>, width: f32) -> Vec<Shape> {
+pub fn sidewalks(tags: &Tags, points: &[Pos2], width: f32) -> Vec<Shape> {
 	if sidewalks_relevant(tags) {
 		let mut shapes = Vec::with_capacity((points.len() - 1) * 2 + 1);
 		let attr = Attribute2D::new(tags, "sidewalk");

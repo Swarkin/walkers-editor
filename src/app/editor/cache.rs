@@ -1,3 +1,4 @@
+use super::r_star::*;
 use super::states::{CacheBitflag, CacheFlag};
 use crate::app::editor::consts::osm::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
 use crate::app::editor::is_way_closed;
@@ -8,6 +9,7 @@ use lyon_tessellation::geom::Point;
 use lyon_tessellation::path::Path;
 use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
 use osm_parser::{Coordinate, Id, Node, OsmData, Tags, Way};
+use rstar::AABB;
 use rustc_hash::FxBuildHasher;
 use std::fmt::{Display, Formatter};
 use walkers::{Position, Projector};
@@ -15,7 +17,7 @@ use walkers::{Position, Projector};
 type HashMap<K, V> = rustc_hash::FxHashMap<K, V>;
 type HashSet<K> = rustc_hash::FxHashSet<K>;
 
-pub const MAX_OFFSET: f32 = 4000.0; // arbitrary threshold, may not be required?
+pub const MAX_VIEW_OFFSET: f32 = 100.0; // arbitrary threshold, may not be required?
 
 // Stores projected Node positions by Id.
 pub type ProjectedNodeCache = HashMap<Id, Pos2>;
@@ -48,7 +50,7 @@ pub type AreaSizeOrderedCache = IndexMap<Id, f32, FxBuildHasher>; // can easily 
 
 #[cfg(feature = "debug")]
 #[derive(Default)]
-pub struct CacheDebug(pub [(u32, u32); CacheFlag::SIZE]);
+pub struct CacheDebug(pub [(u32, u32); CacheFlag::SIZE + 1]);
 
 #[cfg(feature = "debug")]
 impl CacheDebug {
@@ -87,6 +89,14 @@ impl Display for Change {
 #[derive(Default)]
 pub struct EditorOsmData {
 	pub data: OsmData, // latest state of the osm data
+	pub rtree_data: RStarOsmData,
+
+	pub view_start: Position,
+	pub nodes_in_view: Vec<Id>,
+	pub ways_in_view: Vec<Id>,
+	#[cfg(feature = "debug")]
+	pub view_timing: u32,
+
 	pub changes: Vec<Change>,
 	pub cache_flags: CacheBitflag,
 	#[cfg(feature = "debug")]
@@ -497,6 +507,25 @@ impl EditorOsmData {
 			}
 
 			self.data.nodes.insert(id, node);
+		}
+
+		self.rtree_data = RStarOsmData::from(&self.data);
+	}
+
+	pub fn refresh_elements_in_view(&mut self, aabb: &AABB<WebMercatorPoint>) {
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
+
+		self.nodes_in_view = self.rtree_data.nodes.locate_in_envelope_intersecting(aabb)
+			.map(|x| x.data)
+			.collect();
+
+		self.ways_in_view = self.rtree_data.ways.locate_in_envelope_intersecting(aabb)
+			.map(|x| x.data)
+			.collect();
+
+		#[cfg(feature = "debug")] {
+			self.view_timing = t.elapsed().as_micros() as u32;
 		}
 	}
 
