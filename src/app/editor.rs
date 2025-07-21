@@ -3,15 +3,18 @@ pub mod cache;
 pub mod consts;
 pub mod attribute2d;
 pub mod states;
+pub mod r_star;
 
 use super::osm::Bbox;
 use super::places::school;
+use crate::app::editor::r_star::WebMercatorPoint;
 use crate::app::windows::OverlapSelectorResult;
-use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_OFFSET};
+use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
 use eframe::egui::{Color32, FontId, PointerButton, Pos2, Response, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use osm_parser::*;
+use rstar::AABB;
 use states::{CacheFlag, MapState, SelectionFlag};
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
@@ -38,22 +41,63 @@ pub struct EditorPluginState {
 impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
 	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector, map_memory: &MapMemory) {
+		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
+		let clicked = resp.clicked();
+
+		let should_draw_nodes = map_memory.zoom() > NODE_MIN_ZOOM;
+
+		let interact_nodes = self.should_detect_interactions(&mouse, SelectionFlag::Nodes);
+		let interact_ways = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
+
+		let current_pos = map_memory.detached().unwrap_or_else(school);
+		let current_pos_projected = projector.project(current_pos);
+
+		// override fill mode
+		let mut target_fill = self.map_state.selected_fill_mode;
+		if target_fill == FillMode::Partial && map_memory.zoom() < PARTIAL_FILL_THRESHOLD {
+			target_fill = FillMode::Full;
+		}
+
+		self.editor_state.hovered.clear();
+
+		/* update editor state */ {
+			if clicked {
+				self.editor_state.last_click_coords = projector.unproject(resp.interact_pointer_pos().unwrap().to_vec2());
+			}
+
+			let tl = projector.unproject(resp.rect.min.to_vec2());
+			let br = projector.unproject(resp.rect.max.to_vec2());
+			self.editor_state.map_bbox.left = tl.x();
+			self.editor_state.map_bbox.bottom = br.y();
+			self.editor_state.map_bbox.right = br.x();
+			self.editor_state.map_bbox.top = tl.y();
+		}
+
+		/* update elements in view */ {
+			if !self.osm.data.nodes.is_empty() {
+				let p_start = projector.project(self.osm.view_start);
+				let diff = p_start - current_pos_projected;
+
+				if diff.x.abs() > MAX_VIEW_OFFSET || diff.y.abs() > MAX_VIEW_OFFSET {
+					let aabb = &AABB::from_corners(
+						WebMercatorPoint::from((self.editor_state.map_bbox.top as f32, self.editor_state.map_bbox.left as f32)),
+						WebMercatorPoint::from((self.editor_state.map_bbox.bottom as f32, self.editor_state.map_bbox.right as f32))
+					);
+
+					self.osm.refresh_elements_in_view(aabb);
+					self.osm.view_start = current_pos;
+				}
+			}
+		}
+
 		/* cache invalidation */ {
-			let current_pos = map_memory.detached().unwrap_or_else(school);
 			if self.osm.cache_flags & CacheFlag::NodeProjection as u8 != 0 {
 				self.osm.refresh_projected_nodes_cache(projector, current_pos);
 			} else if !self.osm.data.nodes.is_empty() {
-				// update move offset
 				let p_start = projector.project(self.osm.node_start);
-				let current_projected = projector.project(current_pos);
-				let diff = p_start - current_projected;
+				let diff = p_start - current_pos_projected;
 
-				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
-					// reproject occasionally to minify possible precision errors?
-					self.osm.refresh_projected_nodes_cache(projector, current_pos);
-				} else if !self.osm.data.nodes.is_empty() {
-					self.osm.node_offset_move = diff;
-				}
+				self.osm.node_offset_move = diff;
 			}
 
 			if self.osm.cache_flags & CacheFlag::NodeOrphan as u8 != 0 {
@@ -78,46 +122,14 @@ impl Plugin for EditorPlugin<'_> {
 			} else if !self.osm.data.ways.is_empty() {
 				// update move offset
 				let p_start = projector.project(self.osm.mesh_start);
-				let current_projected = projector.project(current_pos);
-				let diff = p_start - current_projected;
+				let diff = p_start - current_pos_projected;
 
-				if diff.x > MAX_OFFSET || diff.y > MAX_OFFSET {
-					self.osm.refresh_way_mesh_cache(current_pos);
-				} else {
-					self.osm.mesh_offset_move = diff;
-				}
+				self.osm.mesh_offset_move = diff;
 			}
 
 			if self.osm.cache_flags & CacheFlag::AreaSizeOrdered as u8 != 0 {
 				self.osm.refresh_area_size_ordered_cache();
 			}
-		}
-
-		self.editor_state.hovered.clear();
-		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
-		let clicked = resp.clicked();
-		let should_draw_nodes = map_memory.zoom() > NODE_MIN_ZOOM;
-
-		let interact_nodes = self.should_detect_interactions(&mouse, SelectionFlag::Nodes);
-		let interact_ways = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
-
-		// override fill mode
-		let mut target_fill = self.map_state.selected_fill_mode;
-		if target_fill == FillMode::Partial && map_memory.zoom() < PARTIAL_FILL_THRESHOLD {
-			target_fill = FillMode::Full;
-		}
-
-		/* update editor state */ {
-			if clicked {
-				self.editor_state.last_click_coords = projector.unproject(resp.interact_pointer_pos().unwrap().to_vec2());
-			}
-
-			let tl = projector.unproject(resp.rect.min.to_vec2());
-			let br = projector.unproject(resp.rect.max.to_vec2());
-			self.editor_state.map_bbox.left = tl.x();
-			self.editor_state.map_bbox.bottom = br.y();
-			self.editor_state.map_bbox.right = br.x();
-			self.editor_state.map_bbox.top = tl.y();
 		}
 
 		// minimum capacity to prevent most reallocations

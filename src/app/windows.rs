@@ -267,12 +267,12 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 		}).unwrap().inner.unwrap()
 }
 
-use crate::app::editor::cache::ElementRef;
+use crate::app::editor::cache::{EditorOsmData, ElementRef};
 #[cfg(feature = "debug")]
-use crate::app::editor::{cache::CacheDebug, states::CacheFlag};
+use crate::app::editor::states::CacheFlag;
 
 #[cfg(feature = "debug")]
-pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, cache_debug: &CacheDebug) {
+pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
 	egui::Window::new("Debug")
 		.resizable(false)
 		.frame(TRANSPARENT_FRAME)
@@ -283,6 +283,11 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 				let stats = http_tiles.stats();
 				ui.label(format!("in-progress requests for {:?}: {}", selected_provider.unwrap(), stats.in_progress));
 			}
+
+			ui.collapsing("Elements in view", |ui| {
+				ui.monospace(format!("Nodes: {:>5}", editor_osm_data.nodes_in_view.len()));
+				ui.monospace(format!("Ways:  {:>5}", editor_osm_data.ways_in_view.len()));
+			});
 
 			ui.collapsing("Cache Timings", |ui| {
 				egui_extras::TableBuilder::new(ui)
@@ -296,7 +301,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 					.body(|body| {
 						body.rows(18.0, CacheFlag::SIZE, |mut row| {
 							let i = row.index();
-							let (time, refresh) = cache_debug.0[i];
+							let (time, refresh) = editor_osm_data.cache_debug.0[i];
 							row.col(|ui| { ui.label(format!("{:?}", CacheFlag::ITER[i])); });
 							row.col(|ui| { ui.label(format!("{}", time as f32 / 1000.0)); });
 							row.col(|ui| { ui.label(format!("{refresh}")); });

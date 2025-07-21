@@ -151,8 +151,9 @@ impl eframe::App for MyApp {
 					// determine whether regenerating a cache is necessary
 					let curr_zoom = self.editor.map_memory.zoom();
 					let curr_size = ctx.screen_rect().size();
+					let zoom_changed = self.editor.prev_zoom != curr_zoom;
 
-					if self.editor.prev_zoom != curr_zoom && self.editor.prev_zoom != 0.0 { // avoid running on first frame
+					if zoom_changed && self.editor.prev_zoom != 0.0 { // avoid running on first frame
 						self.editor.osm_data.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::WayMeshAndAreaSize as u8;
 					}
 
@@ -214,7 +215,7 @@ impl eframe::App for MyApp {
 							let tiles = self.editor.map_state.selected_provider.as_ref()
 								.map(|a| self.editor.tile_providers.get(a).unwrap());
 
-							windows::debug(ui, self.editor.map_state.selected_provider.as_ref(), tiles, &self.editor.osm_data.cache_debug);
+							windows::debug(ui, self.editor.map_state.selected_provider.as_ref(), tiles, &self.editor.osm_data);
 						}
 					}
 
