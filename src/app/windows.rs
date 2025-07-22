@@ -6,14 +6,16 @@ use super::editor::{
 };
 use super::osm::Bbox;
 use super::providers::Provider;
+use crate::app::editor::cache::ElementRef;
+use crate::app::icons;
 use eframe::egui;
-use eframe::egui::text::LayoutJob;
-use eframe::egui::{FontId, TextFormat};
+use egui::text::LayoutJob;
 use egui::{
 	Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
 	Grid, Image, ImageSource, InnerResponse, Key, KeyboardShortcut, Margin, Modifiers, Order, Pos2,
 	RichText, Shadow, Stroke, TextStyle, Ui, Vec2
 };
+use egui::{FontId, TextFormat};
 use walkers::sources::Attribution;
 
 const TRANSPARENT_FRAME: Frame = Frame {
@@ -194,8 +196,8 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 			ui.horizontal(|ui| {
 				/* selection modes */ {
 					const ICONS: [ImageSource; 2] = [
-						PRIMITIVE_NODE_ICON,
-						PRIMITIVE_WAY_ICON,
+						icons::PRIMITIVE_NODE_ICON,
+						icons::PRIMITIVE_WAY_ICON,
 					];
 					static SHORTCUTS: [&KeyboardShortcut; 2] = [
 						&KeyboardShortcut::new(Modifiers::NONE, Key::Num1),
@@ -265,11 +267,8 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 		}).unwrap().inner.unwrap()
 }
 
-use crate::app::editor::cache::ElementRef;
 #[cfg(feature = "debug")]
-use crate::app::editor::states::CacheFlag;
-use crate::app::icons;
-use crate::app::icons::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
+use crate::app::editor::{cache::EditorOsmData, states::CacheFlag};
 
 #[cfg(feature = "debug")]
 pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
