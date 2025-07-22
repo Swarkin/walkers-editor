@@ -1,7 +1,7 @@
 use super::r_star::*;
 use super::states::{CacheBitflag, CacheFlag};
-use crate::app::editor::consts::osm::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
 use crate::app::editor::is_way_closed;
+use crate::app::icons::*;
 use eframe::egui::{Color32, ImageSource, Mesh, Pos2, TextureId, Vec2};
 use eframe::epaint::{Vertex, WHITE_UV};
 use indexmap::IndexMap;
