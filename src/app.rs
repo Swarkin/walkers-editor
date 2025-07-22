@@ -151,6 +151,14 @@ impl eframe::App for MyApp {
 
 		match self.state.view {
 			View::Edit => {
+				if ctx.input_mut(|i| i.consume_shortcut(shortcuts::WIREFRAME)) {
+					// todo: avoid refreshing the mesh cache if fill mode isnt partial
+					self.editor.map_state.selected_fill_mode = match self.editor.map_state.selected_fill_mode {
+						FillMode::Wireframe => FillMode::Partial,
+						FillMode::Partial | FillMode::Full => FillMode::Wireframe,
+					}
+				}
+
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
 					// determine whether regenerating a cache is necessary
 					let curr_zoom = self.editor.map_memory.zoom();

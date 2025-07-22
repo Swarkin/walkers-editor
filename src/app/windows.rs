@@ -7,12 +7,13 @@ use super::editor::{
 use super::osm::Bbox;
 use super::providers::Provider;
 use crate::app::editor::cache::ElementRef;
+use crate::app::editor::consts::shortcuts;
 use crate::app::icons;
 use eframe::egui;
 use egui::text::LayoutJob;
 use egui::{
 	Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
-	Grid, Image, ImageSource, InnerResponse, Key, KeyboardShortcut, Margin, Modifiers, Order, Pos2,
+	Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2,
 	RichText, Shadow, Stroke, TextStyle, Ui, Vec2
 };
 use egui::{FontId, TextFormat};
@@ -199,21 +200,17 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 						icons::PRIMITIVE_NODE_ICON,
 						icons::PRIMITIVE_WAY_ICON,
 					];
-					static SHORTCUTS: [&KeyboardShortcut; 2] = [
-						&KeyboardShortcut::new(Modifiers::NONE, Key::Num1),
-						&KeyboardShortcut::new(Modifiers::NONE, Key::Num2),
-						//KeyboardShortcut::new(Modifiers::NONE, Key::Num3),
-					];
+					const KEYS: [Key; 2] = [Key::Num1, Key::Num2];
 
-					for ((flag, icon), shortcut) in SelectionFlag::ITER.into_iter()
-						.zip(ICONS).zip(SHORTCUTS)
+					for ((flag, icon), key) in SelectionFlag::ITER.into_iter()
+						.zip(ICONS).zip(KEYS)
 					{
 						let selected = state.selection_mode & flag as u8 != 0;
 						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(24.0));
 
 						let resp = ui.add(Button::image(image).selected(selected).corner_radius(4));
 						if !ui.ctx().wants_keyboard_input()
-							&& (resp.clicked() || ui.input_mut(|i| i.consume_shortcut(shortcut)))
+							&& (resp.clicked() || ui.input_mut(|i| i.key_pressed(key)))
 						{
 							state.selection_mode ^= flag as u8;
 						}
@@ -225,9 +222,6 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 				/* map download */ {
 					match &mut state.download {
 						MapDownloadState::Idle(status) => {
-							static SHORTCUT: &KeyboardShortcut =
-								&KeyboardShortcut::new(Modifiers::CTRL.plus(Modifiers::SHIFT), Key::ArrowDown);
-
 							let enabled = bbox.area() < MAX_DOWNLOAD_AREA;
 							let image = Image::new(icons::DOWNLOAD).fit_to_exact_size(Vec2::splat(24.0));
 							let button_resp = ui.add_enabled(enabled,
@@ -252,7 +246,7 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 								let any_echo_events = i.events.iter().any(|e| {
 									if let Event::Key { repeat, .. } = e { *repeat } else { false }
 								});
-								!any_echo_events && i.consume_shortcut(SHORTCUT)
+								!any_echo_events && i.consume_shortcut(shortcuts::DOWNLOAD)
 							}))
 						}
 						MapDownloadState::Downloading => {
