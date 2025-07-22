@@ -11,7 +11,8 @@ pub mod icons;
 use config::TargetServer;
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
-use egui::{Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
+use egui::containers::menu::{MenuButton, MenuConfig};
+use egui::{AtomExt, Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, PopupCloseBehavior, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
 use osm::OsmClient;
 use osmchange::{OsmChange, Tag};
 use providers::{providers, Provider};
@@ -133,14 +134,16 @@ impl eframe::App for MyApp {
 							}
 						},
 						|ui| {
-							ui.menu_image_button(prepare_icon(ctx, icons::LAYOUT, TOP_BAR_ICON_SIZE), |ui| {
-								for window in Window::ITER {
-									let mut state = self.editor.window_flags & window as u8 == 0;
-									if ui.toggle_value(&mut state, window.to_string()).changed() {
-										self.editor.window_flags ^= window as u8;
+							MenuButton::new(icons::LAYOUT.atom_size(Vec2::splat(TOP_BAR_ICON_SIZE)))
+								.config(MenuConfig::default().close_behavior(PopupCloseBehavior::CloseOnClickOutside))
+								.ui(ui, |ui| {
+									for window in Window::ITER {
+										let mut state = self.editor.window_flags & window as u8 == 0;
+										if ui.toggle_value(&mut state, window.to_string()).changed() {
+											self.editor.window_flags ^= window as u8;
+										}
 									}
-								}
-							});
+								});
 						}
 					);
 				});
