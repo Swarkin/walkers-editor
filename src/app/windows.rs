@@ -267,7 +267,7 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 		}).unwrap().inner.unwrap()
 }
 
-use crate::app::editor::cache::{EditorOsmData, ElementRef};
+use crate::app::editor::cache::ElementRef;
 #[cfg(feature = "debug")]
 use crate::app::editor::states::CacheFlag;
 

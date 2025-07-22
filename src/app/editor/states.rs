@@ -96,6 +96,10 @@ pub enum CacheFlag {
 	AreaSizeOrdered = 1 << 6,
 }
 
+impl CacheFlag {
+	pub const ALL: CacheBitflag = 0b11111111;
+}
+
 #[cfg(feature = "debug")]
 impl CacheFlag {
 	pub const SIZE: usize = 7;
@@ -108,7 +112,6 @@ impl CacheFlag {
 		CacheFlag::WayMeshAndAreaSize,
 		CacheFlag::AreaSizeOrdered,
 	];
-	pub const ALL: CacheBitflag = 0b11111111;
 }
 
 pub enum MapDownloadState {
