@@ -415,6 +415,30 @@ impl Plugin for EditorPlugin<'_> {
 			}
 		}
 
+		/* draw direction of way */ {
+			if let Some(element) = self.editor_state.selected.as_ref().or(self.editor_state.hovered.first()) {
+				let element = self.osm.get(element.id_ref()).expect("id not found in data");
+				if let ElementRef::Way(w) = element {
+					for section in self.osm.get_projected_positions_in_way(&w.id).windows(2) {
+						let arrow_length = 7.0 * self.map_state.scale_factor;
+						let arrow_width = 3.5 * self.map_state.scale_factor;
+						let (p1, p2) = (section[0], section[1]);
+						let length = (p2 - p1).length_sq().abs();
+						if length < arrow_length * 1.2 { continue; }
+
+						let direction = (p2 - p1).normalized();
+						let center = (p1 + p2.to_vec2()) / 2.0;
+
+						let tip = center + direction * arrow_length;
+						let side = center + direction.rot90() * arrow_width;
+						let side2 = center + direction.rot90().rot90().rot90() * arrow_width;
+
+						shapes.push(PathShape::convex_polygon(vec![side, tip, side2], Color32::WHITE, PathStroke::new(0.5 * self.map_state.scale_factor, Color32::DARK_GRAY)).into());
+					}
+				}
+			}
+		}
+
 		shapes.extend(shapes_hover_tooltip);
 
 		// we want to preallocate as much memory as possible without overallocating
