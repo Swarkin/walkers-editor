@@ -380,58 +380,68 @@ impl Plugin for EditorPlugin<'_> {
 			}
 		}
 
-		/* draw selected element */ {
+		/* draw selected element */
+		let is_selected_element_visible = {
 			if let Some(element_id) = &self.editor_state.selected {
 				let element = self.osm.get(element_id.id_ref()).expect("id not found in data");
-
 				match element {
-					ElementRef::Node(node) => shapes.push(self.draw_node_selected(&node.id).into()),
+					ElementRef::Node(node) => {
+						if self.osm.nodes_in_view.contains(&node.id) {
+							shapes.push(self.draw_node_selected(&node.id).into());
+							true
+						} else { false }
+					},
 					ElementRef::Way(way) => {
-						let points = self.osm.get_projected_positions_in_way(&way.id);
-						let width = self.way_width(way);
+						if self.osm.ways_in_view.contains(&way.id) {
+							let points = self.osm.get_projected_positions_in_way(&way.id);
+							let width = self.way_width(way);
 
-						if is_way_closed(way) {
-							shapes.push(self.draw_way_closed_selected_from(points.iter().skip(1).copied().collect(), width).into());
-							shapes.extend(
-								way.nodes.iter().skip(1)
-									.map(|id| self.draw_node_dynamic(id).into())
-							);
-						} else {
-							shapes.push(self.draw_way_selected_from(points, width).into());
-							shapes.extend(
-								way.nodes.iter()
-									.map(|id| self.draw_node_dynamic(id).into())
-							);
-						}
-
-						// draw editing ui
-						if self.is_way_relevant(&way.tags) {
-							if let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.editor_state.last_click_coords).to_pos2()) {
-								self.osm.apply_change(change);
+							if is_way_closed(way) {
+								shapes.push(self.draw_way_closed_selected_from(points.iter().skip(1).copied().collect(), width).into());
+								shapes.extend(
+									way.nodes.iter().skip(1)
+										.map(|id| self.draw_node_dynamic(id).into())
+								);
+							} else {
+								shapes.push(self.draw_way_selected_from(points, width).into());
+								shapes.extend(
+									way.nodes.iter()
+										.map(|id| self.draw_node_dynamic(id).into())
+								);
 							}
-						}
+
+							// draw editing ui
+							if self.is_way_relevant(&way.tags) {
+								if let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.editor_state.last_click_coords).to_pos2()) {
+									self.osm.apply_change(change);
+								}
+							}
+							true
+						} else { false }
 					}
 				}
-			}
-		}
+			} else { false }
+		};
 
 		/* draw direction of way */ {
-			if let Some(element) = self.editor_state.selected.as_ref().or(self.editor_state.hovered.first()) {
+			if is_selected_element_visible && let Some(element) = self.editor_state.selected.as_ref().or(self.editor_state.hovered.first()) {
 				let element = self.osm.get(element.id_ref()).expect("id not found in data");
 				if let ElementRef::Way(w) = element {
 					for section in self.osm.get_projected_positions_in_way(&w.id).windows(2) {
-						let arrow_length = 7.0 * self.map_state.scale_factor;
-						let arrow_width = 3.5 * self.map_state.scale_factor;
+						let way_width = self.way_width(w);
+
+						let arrow_length = (6.5 + way_width * 0.75) * self.map_state.scale_factor;
+						let arrow_width = (5.0 + way_width * 0.75) * self.map_state.scale_factor;
 						let (p1, p2) = (section[0], section[1]);
 						let length = (p2 - p1).length_sq().abs();
-						if length < arrow_length * 1.2 { continue; }
+						if length < arrow_length * 2.5 { continue; }
 
 						let direction = (p2 - p1).normalized();
 						let center = (p1 + p2.to_vec2()) / 2.0;
 
 						let tip = center + direction * arrow_length;
-						let side = center + direction.rot90() * arrow_width;
-						let side2 = center + direction.rot90().rot90().rot90() * arrow_width;
+						let side = center + direction.rot90() * arrow_width / 2.0;
+						let side2 = center + direction.rot90().rot90().rot90() * arrow_width / 2.0;
 
 						shapes.push(PathShape::convex_polygon(vec![side, tip, side2], Color32::WHITE, PathStroke::new(0.5 * self.map_state.scale_factor, Color32::DARK_GRAY)).into());
 					}
