@@ -1,4 +1,5 @@
 pub mod osm;
+pub mod shortcuts;
 
 use eframe::egui::{Color32, Context, Image, ImageSource, Vec2};
 
