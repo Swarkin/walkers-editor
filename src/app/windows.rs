@@ -10,7 +10,7 @@ use eframe::egui;
 use eframe::egui::text::LayoutJob;
 use eframe::egui::{FontId, TextFormat};
 use egui::{
-	include_image, Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
+	Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
 	Grid, Image, ImageSource, InnerResponse, Key, KeyboardShortcut, Margin, Modifiers, Order, Pos2,
 	RichText, Shadow, Stroke, TextStyle, Ui, Vec2
 };
@@ -194,9 +194,8 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 			ui.horizontal(|ui| {
 				/* selection modes */ {
 					const ICONS: [ImageSource; 2] = [
-						include_image!("../../assets/ui/primitives/node24.svg"),
-						include_image!("../../assets/ui/primitives/way24.svg"),
-						//include_image!("../../assets/ui/primitives/area24.svg"),
+						PRIMITIVE_NODE_ICON,
+						PRIMITIVE_WAY_ICON,
 					];
 					static SHORTCUTS: [&KeyboardShortcut; 2] = [
 						&KeyboardShortcut::new(Modifiers::NONE, Key::Num1),
@@ -224,12 +223,11 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 				/* map download */ {
 					match &mut state.download {
 						MapDownloadState::Idle(status) => {
-							const ICON: ImageSource = include_image!("../../assets/ui/download.svg");
 							static SHORTCUT: &KeyboardShortcut =
 								&KeyboardShortcut::new(Modifiers::CTRL.plus(Modifiers::SHIFT), Key::ArrowDown);
 
 							let enabled = bbox.area() < MAX_DOWNLOAD_AREA;
-							let image = Image::new(ICON).fit_to_exact_size(Vec2::splat(24.0));
+							let image = Image::new(icons::DOWNLOAD).fit_to_exact_size(Vec2::splat(24.0));
 							let button_resp = ui.add_enabled(enabled,
 								Button::image(image).corner_radius(4)
 							);
@@ -270,6 +268,8 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 use crate::app::editor::cache::ElementRef;
 #[cfg(feature = "debug")]
 use crate::app::editor::states::CacheFlag;
+use crate::app::icons;
+use crate::app::icons::{PRIMITIVE_NODE_ICON, PRIMITIVE_WAY_ICON};
 
 #[cfg(feature = "debug")]
 pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {

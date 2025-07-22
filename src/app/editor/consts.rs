@@ -27,7 +27,7 @@ fn tint(dark: bool) -> u8 {
 	if dark { TINT_DARK } else { TINT_LIGHT }
 }
 
-pub fn load_icon<'a>(ctx: &Context, img: ImageSource<'a>, size: f32) -> Image<'a> {
+pub fn prepare_icon<'a>(ctx: &Context, img: ImageSource<'a>, size: f32) -> Image<'a> {
 	Image::new(img)
 		.tint(Color32::from_gray(tint(ctx.style().visuals.dark_mode)))
 		.fit_to_exact_size(Vec2::splat(size))

@@ -6,6 +6,7 @@ mod osm;
 mod osmchange;
 mod config;
 mod worker;
+pub mod icons;
 
 use config::TargetServer;
 use editor::{consts::*, states::*, visual::FillMode};
@@ -111,12 +112,12 @@ impl eframe::App for MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
-							let btn = title_bar_button("Editor", load_icon(ctx, egui::include_image!("../assets/ui/line.svg"), TOP_BAR_ICON_SIZE));
+							let btn = title_bar_button("Editor", prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Edit, btn).clicked() {
 								self.state.view = View::Edit;
 							}
 
-							let btn = title_bar_button("Upload", load_icon(ctx, egui::include_image!("../assets/ui/upload.svg"), TOP_BAR_ICON_SIZE));
+							let btn = title_bar_button("Upload", prepare_icon(ctx, icons::UPLOAD, TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Upload, btn).clicked() {
 								self.state.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
@@ -126,13 +127,13 @@ impl eframe::App for MyApp {
 								self.uploader.osmchange_text = self.uploader.osmchange.to_string_pretty().unwrap();
 							}
 
-							let btn = title_bar_button("Auth", load_icon(ctx, egui::include_image!("../assets/ui/user.svg"), TOP_BAR_ICON_SIZE));
+							let btn = title_bar_button("Auth", prepare_icon(ctx, icons::USER, TOP_BAR_ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Auth, btn).clicked() {
 								self.state.view = View::Auth;
 							}
 						},
 						|ui| {
-							ui.menu_image_button(load_icon(ctx, egui::include_image!("../assets/ui/layout.svg"), TOP_BAR_ICON_SIZE), |ui| {
+							ui.menu_image_button(prepare_icon(ctx, icons::LAYOUT, TOP_BAR_ICON_SIZE), |ui| {
 								for window in Window::ITER {
 									let mut state = self.editor.window_flags & window as u8 == 0;
 									if ui.toggle_value(&mut state, window.to_string()).changed() {
