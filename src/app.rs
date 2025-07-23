@@ -151,6 +151,14 @@ impl eframe::App for MyApp {
 
 		match self.state.view {
 			View::Edit => {
+				// regenerate cache on zoom or resize
+				let curr_size = ctx.screen_rect().size();
+
+				// todo: dont regenerate cache during zoom animation
+				if curr_size != self.editor.prev_size {
+					self.editor.osm_data.refresh_in_view_flag = true;
+				}
+
 				if ctx.input_mut(|i| i.consume_shortcut(shortcuts::WIREFRAME)) {
 					// todo: avoid refreshing the mesh cache if fill mode isnt partial
 					self.editor.map_state.selected_fill_mode = match self.editor.map_state.selected_fill_mode {
@@ -160,26 +168,6 @@ impl eframe::App for MyApp {
 				}
 
 				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
-					// determine whether regenerating a cache is necessary
-					let curr_zoom = self.editor.map_memory.zoom();
-					let curr_size = ctx.screen_rect().size();
-					let zoom_changed = self.editor.prev_zoom != curr_zoom;
-
-					if zoom_changed && self.editor.prev_zoom != 0.0 { // avoid running on first frame
-						self.editor.osm_data.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::WayMeshAndAreaSize as u8;
-					}
-
-					let size_diff = (curr_size - self.editor.prev_size) / 2.0;
-					if size_diff != Vec2::ZERO {
-						self.editor.osm_data.node_offset_resize += size_diff;
-						self.editor.osm_data.mesh_offset_resize += size_diff;
-					}
-
-					// todo: dont regenerate cache during zoom animation
-					if zoom_changed || curr_size != self.editor.prev_size {
-						self.editor.osm_data.refresh_in_view_flag = true;
-					}
-
 					let tiles = self.editor.map_state.selected_provider.map(|x| {
 						self.editor.tile_providers.get_mut(&x).unwrap().as_mut()
 					});
@@ -189,6 +177,7 @@ impl eframe::App for MyApp {
 						editor_state: &mut self.editor.plugin_state,
 						map_state: &mut self.editor.map_state,
 						osm: &mut self.editor.osm_data,
+						prev_zoom: self.editor.map_memory.zoom(),
 					};
 
 					if let Some(tiles) = tiles {
@@ -236,8 +225,7 @@ impl eframe::App for MyApp {
 						}
 					}
 
-					self.editor.prev_zoom = curr_zoom;
-					self.editor.prev_size = ctx.screen_rect().size();
+					self.editor.prev_size = curr_size;
 				});
 			}
 			View::Upload => {
