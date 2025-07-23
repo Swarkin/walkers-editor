@@ -1,4 +1,8 @@
 fn main() {
+	if std::env::var("PROFILE").unwrap() != "release" {
+		return;
+	}
+
 	/* generate licenses text */ {
 		let output = std::process::Command::new("cargo")
 			.args(["tree", "--format={p} - {l}"])

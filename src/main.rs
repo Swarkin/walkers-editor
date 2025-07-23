@@ -6,6 +6,8 @@ use app::MyApp;
 use eframe::{egui::ViewportBuilder, icon_data::from_png_bytes};
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
+
+#[cfg(not(debug_assertions))]
 const LICENSES_TEXT: &str = include_str!(concat!(env!("OUT_DIR"), "/deps.txt"));
 
 fn main() -> Result<(), eframe::Error> {
