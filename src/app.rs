@@ -80,6 +80,7 @@ impl eframe::App for MyApp {
 					let r = match result {
 						Ok(data) => {
 							self.editor.osm_data.append_new_nodes_ways(data);
+							self.editor.osm_data.refresh_in_view_flag = true;
 							Ok(())
 						}
 						Err(e) => Err(e),
