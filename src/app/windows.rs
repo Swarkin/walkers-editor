@@ -13,8 +13,8 @@ use eframe::egui;
 use egui::text::LayoutJob;
 use egui::{
 	Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
-	Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2,
-	RichText, Shadow, Stroke, TextStyle, Ui, Vec2
+	Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2
+	, Shadow, Stroke, Ui, Vec2
 };
 use egui::{FontId, TextFormat};
 use walkers::sources::Attribution;
@@ -329,8 +329,12 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 		egui::ScrollArea::vertical()
 			.max_height(height)
 			.show(ui, |ui| {
-				let text = RichText::new(crate::LICENSES_TEXT)
-					.text_style(TextStyle::Monospace);
+				#[cfg(not(debug_assertions))]
+				let text = egui::RichText::new(crate::LICENSES_TEXT)
+					.text_style(egui::TextStyle::Monospace);
+
+				#[cfg(debug_assertions)]
+				let text = "Licenses are not loaded in a debug build.";
 
 				ui.label(text);
 			});
