@@ -22,7 +22,6 @@ pub struct EditorState {
 	pub osm_data: EditorOsmData,
 	pub window_flags: WindowBitflag,
 	pub prev_size: Vec2,
-	pub prev_zoom: f64,
 }
 
 impl EditorState {
@@ -43,7 +42,6 @@ impl EditorState {
 			plugin_state: EditorPluginState::default(),
 			window_flags: WindowBitflag::default(),
 			prev_size: Vec2::ZERO,
-			prev_zoom: 0.0,
 		}
 	}
 }

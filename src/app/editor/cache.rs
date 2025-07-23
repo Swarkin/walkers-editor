@@ -387,7 +387,7 @@ impl EditorOsmData {
 	// This cache would greatly benefit from https://github.com/Swarkin/walkers-editor/issues/38
 	// Required caches:
 	// - WayArea
-	pub fn refresh_way_mesh_cache(&mut self, start_pos: Position) {
+	pub fn refresh_way_mesh_and_area_size_cache(&mut self, start_pos: Position) {
 		debug_assert_eq!(self.cache_flags & CacheFlag::WayArea as u8, 0);
 
 		#[cfg(feature = "debug")]

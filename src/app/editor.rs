@@ -25,6 +25,7 @@ pub struct EditorPlugin<'a> {
 	pub editor_state: &'a mut EditorPluginState,
 	pub map_state: &'a mut MapState,
 	pub osm: &'a mut EditorOsmData,
+	pub prev_zoom: f64,
 }
 
 /// Data that persists or is produced between frames
@@ -41,10 +42,16 @@ pub struct EditorPluginState {
 impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
 	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector, map_memory: &MapMemory) {
+		let curr_zoom = map_memory.zoom();
+
+		if self.prev_zoom != curr_zoom {
+			self.osm.refresh_in_view_flag = true;
+		}
+
 		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
 		let clicked = resp.clicked();
 
-		let should_draw_nodes = map_memory.zoom() > NODE_MIN_ZOOM;
+		let should_draw_nodes = curr_zoom > NODE_MIN_ZOOM;
 
 		let interact_nodes = self.should_detect_interactions(&mouse, SelectionFlag::Nodes);
 		let interact_ways = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
@@ -54,7 +61,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		// override fill mode
 		let mut target_fill = self.map_state.selected_fill_mode;
-		if target_fill == FillMode::Partial && map_memory.zoom() < PARTIAL_FILL_THRESHOLD {
+		if target_fill == FillMode::Partial && curr_zoom < PARTIAL_FILL_THRESHOLD {
 			target_fill = FillMode::Full;
 		}
 
@@ -121,7 +128,7 @@ impl Plugin for EditorPlugin<'_> {
 
 			if self.osm.cache_flags & CacheFlag::WayMeshAndAreaSize as u8 != 0 {
 				// it might be possible to use emath::TSTransform for more performance
-				self.osm.refresh_way_mesh_cache(current_pos);
+				self.osm.refresh_way_mesh_and_area_size_cache(current_pos);
 			} else if !self.osm.data.ways.is_empty() {
 				// update move offset
 				let p_start = projector.project(self.osm.mesh_start);
