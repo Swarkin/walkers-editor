@@ -143,8 +143,14 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		// minimum capacity to prevent most reallocations
-		let capacity = self.osm.area_size_ordered.len()
-			+ if should_draw_nodes { self.osm.node_dedup.way_nodes.len() + self.osm.node_dedup.orphan_nodes.len() } else { 0 };
+		let capacity =
+			if should_draw_nodes {
+				self.osm.node_dedup.way_nodes.len() + self.osm.node_dedup.orphan_nodes.len()
+			} else { 0 }
+			+ match target_fill {
+				FillMode::Wireframe => self.osm.area_size_ordered.len(),
+				FillMode::Partial | FillMode::Full => self.osm.area_size_ordered.len() * 2,
+			};
 
 		let mut skipped = 0;
 		// todo: https://github.com/Swarkin/walkers-editor/issues/20
@@ -224,10 +230,15 @@ impl Plugin for EditorPlugin<'_> {
 					}
 				}
 
-				shapes.extend(match &self.map_state.selected_visualization {
-					Visualization::Sidewalks => visual::sidewalks(&way.tags, &points, width),
-					_ => vec![],
-				});
+				#[allow(clippy::single_match)]
+				match &self.map_state.selected_visualization {
+					Visualization::Sidewalks => {
+						if visual::sidewalks_relevant(&way.tags) { // todo: this can be cached
+							shapes.extend(visual::sidewalks(&way.tags, &points, width, self.map_state.scale_factor));
+						}
+					},
+					_ => {},
+				};
 
 				shapes.push(self.draw_way_from(points, width, color).into());
 			}
@@ -459,7 +470,7 @@ impl Plugin for EditorPlugin<'_> {
 		shapes.extend(shapes_hover_tooltip);
 
 		// we want to preallocate as much memory as possible without overallocating
-		debug_assert!(shapes.len() >= capacity - skipped, "overallocated shape buffer: {} > ({capacity} - {skipped})", shapes.len());
+		debug_assert!(shapes.len() >= capacity - skipped, "overallocated shape buffer: {} < ({capacity} - {skipped})", shapes.len());
 		ui.painter().extend(shapes);
 	}
 }
