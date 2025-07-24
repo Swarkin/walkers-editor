@@ -2,7 +2,7 @@ use super::attribute2d::{Attribute2D, TagValue};
 use super::cache::Change;
 use super::consts::osm::*;
 use eframe::egui;
-use eframe::epaint::Stroke;
+use eframe::epaint::{PathShape, Stroke};
 use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
 use osm_parser::{Tags, Way};
@@ -75,31 +75,45 @@ pub fn color_default(w: &Way) -> Color32 {
 	} else { WAY_COLOR }
 }
 
-// todo: use PathShape
-pub fn sidewalks(tags: &Tags, points: &[Pos2], width: f32) -> Vec<Shape> {
-	if sidewalks_relevant(tags) {
-		let mut shapes = Vec::with_capacity((points.len() - 1) * 2 + 1);
-		let attr = Attribute2D::new(tags, "sidewalk");
+pub fn sidewalks(tags: &Tags, points: &[Pos2], width: f32, scale_factor: f32) -> [Shape; 2] {
+	let attr = Attribute2D::new(tags, "sidewalk");
+	let mut iter = points.windows(2).peekable();
+	let count = iter.len() + 1;
 
-		for points in points.windows(2) {
+	let mut path_left = PathShape::line(Vec::with_capacity(count), Stroke::new(SIDEWALK_WIDTH * scale_factor, attr.left));
+	let mut path_right = PathShape::line(Vec::with_capacity(count), Stroke::new(SIDEWALK_WIDTH + scale_factor, attr.right));
+
+	/* first point */ {
+		let from = points[0];
+		let to = points[1];
+		let orthogonal = (to - from).normalized().rot90();
+		let offset = orthogonal * width;
+
+		path_left.points.push(from + offset);
+		path_right.points.push(from - offset);
+	}
+
+	while let Some(points) = iter.next() {
+		let from = points[0];
+		let to = points[1];
+		let mut orthogonal = (to - from).rot90();
+
+		if let Some(points) = iter.peek() {
 			let from = points[0];
 			let to = points[1];
+			let orthogonal_next = (to - from).rot90();
 
-			let orthogonal = (to - from).normalized().rot90();
-			let offset = orthogonal * width;
-
-			shapes.push(Shape::LineSegment {
-				points: [from + offset, to + offset],
-				stroke: Stroke::new(SIDEWALK_WIDTH, attr.left),
-			});
-			shapes.push(Shape::LineSegment {
-				points: [from - offset, to - offset],
-				stroke: Stroke::new(SIDEWALK_WIDTH, attr.right),
-			});
+			orthogonal += orthogonal_next;
 		}
 
-		shapes
-	} else { vec![] }
+		orthogonal = orthogonal.normalized();
+
+		path_left.points.push(to + orthogonal * width);
+		path_right.points.push(to - orthogonal * width);
+	}
+
+	debug_assert!(path_left.points.len() == count && path_right.points.len() == count);
+	[path_left.into(), path_right.into()]
 }
 
 pub fn sidewalks_relevant(tags: &Tags) -> bool {
