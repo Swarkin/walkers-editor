@@ -1,6 +1,6 @@
 # walkers-editor
 
-<img width="100px" align="right" src="https://raw.githubusercontent.com/Swarkin/walkers-editor/50ce9df2b5cc258d950630ff968ad55c022c5f0a/assets/walkers.svg" alt="icon">
+<img width="100px" align="right" src="/assets/favicon.svg" alt="icon">
 
 **walkers-editor** is an [OpenStreetMap](https://www.openstreetmap.org/about) editor written in 🦀 **Rust** with a focus on performance. It is heavily inspired by the _Overlays_-feature of [StreetComplete](https://github.com/streetcomplete/StreetComplete) and aims to bring its user-friendliness to the desktop.
 
