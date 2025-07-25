@@ -1,22 +1,27 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+
 mod app;
 
 use app::MyApp;
-use eframe::{egui::ViewportBuilder, icon_data::from_png_bytes};
+use eframe::egui::ThemePreference;
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[cfg(not(debug_assertions))]
 const LICENSES_TEXT: &str = include_str!(concat!(env!("OUT_DIR"), "/deps.txt"));
 
+#[cfg(not(target_family = "wasm"))]
 fn main() -> Result<(), eframe::Error> {
+	use eframe::icon_data::from_png_bytes;
+	use eframe::egui::ViewportBuilder;
+
 	let options = eframe::NativeOptions {
 		viewport: ViewportBuilder::default()
 			.with_inner_size([980.0, 720.0])
 			.with_min_inner_size([300.0, 200.0])
 			.with_clamp_size_to_monitor_size(true)
-			.with_icon(from_png_bytes(include_bytes!("../assets/walkers64.png"))
+			.with_icon(from_png_bytes(include_bytes!("../assets/icon/64.png"))
 				.expect("failed to load icon")),
 		..Default::default()
 	};
@@ -24,6 +29,53 @@ fn main() -> Result<(), eframe::Error> {
 	eframe::run_native(
 		"walkers-editor",
 		options,
-		Box::new(|cc| Ok(Box::new(MyApp::new(&cc.egui_ctx)))),
+		Box::new(|cc| {
+			configure_cc(cc);
+			Ok(Box::new(MyApp::new(&cc.egui_ctx)))
+		}),
 	)
+}
+
+#[cfg(target_family = "wasm")]
+fn main() {
+	use eframe::wasm_bindgen::JsCast as _;
+
+	wasm_bindgen_futures::spawn_local(async {
+		let document = web_sys::window()
+			.expect("No window")
+			.document()
+			.expect("No document");
+
+		let canvas = document
+			.get_element_by_id("canvas")
+			.expect("Failed to find canvas")
+			.dyn_into::<web_sys::HtmlCanvasElement>()
+			.expect("Invalid canvas element");
+
+		let start_result = eframe::WebRunner::new()
+			.start(
+				canvas,
+				eframe::WebOptions::default(),
+				Box::new(|cc| {
+					configure_cc(cc);
+					Ok(Box::new(MyApp::new(&cc.egui_ctx)))
+				}),
+			)
+			.await;
+
+		// Remove the loading text and spinner:
+		if let Some(loading_p) = document.get_element_by_id("loading") {
+			match start_result {
+				Ok(_) => loading_p.remove(),
+				Err(e) => {
+					loading_p.set_inner_html("<p>App failed to start. See developer console for details.</p>", );
+					panic!("Failed to start eframe: {e:?}");
+				}
+			}
+		}
+	});
+}
+
+fn configure_cc(cc: &eframe::CreationContext) {
+	cc.egui_ctx.options_mut(|x| x.theme_preference = ThemePreference::Dark);
 }

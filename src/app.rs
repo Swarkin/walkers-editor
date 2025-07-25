@@ -4,17 +4,16 @@ mod editor;
 mod providers;
 mod osm;
 mod osmchange;
-mod config;
 mod worker;
 pub mod icons;
 
-use config::TargetServer;
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{AtomExt, Button, CentralPanel, Color32, ComboBox, Context, Frame, Grid, Image, Margin, PopupCloseBehavior, RichText, ScrollArea, TextEdit, TopBottomPanel, Ui, Vec2};
+use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Margin, PopupCloseBehavior, RichText, TopBottomPanel, Ui, Vec2};
 use osm::OsmClient;
-use osmchange::{OsmChange, Tag};
+use osm::TargetServer;
+use osmchange::OsmChange;
 use providers::{providers, Provider};
 use walkers::{Map, Tiles};
 use windows::Window;
@@ -23,6 +22,7 @@ use worker::{Request, Response, Worker, WorkerHandle};
 #[derive(Default)]
 pub struct AppState {
 	pub view: View,
+	#[cfg(not(target_family = "wasm"))]
 	pub target_server_ui: TargetServer,
 	pub show_licenses_modal: bool,
 }
@@ -47,17 +47,33 @@ impl MyApp {
 	pub fn new(egui_ctx: &Context) -> Self {
 		egui_extras::install_image_loaders(egui_ctx);
 
-		let (request_sender, request_receiver) = crossbeam_channel::unbounded::<Request>();
-		let (response_sender, response_receiver) = crossbeam_channel::unbounded::<Response>();
+		#[cfg(not(target_family = "wasm"))]
+		use crossbeam_channel as channel;
+		#[cfg(target_family = "wasm")]
+		use futures::channel::mpsc as channel;
+
+		let (request_sender, request_receiver) = channel::unbounded::<Request>();
+		let (response_sender, response_receiver) = channel::unbounded::<Response>();
 
 		let mut worker = Worker {
 			osm_client: OsmClient::new(TargetServer::default()),
 			sender: response_sender,
-			receiver: request_receiver,
 		};
 
+		#[cfg(not(target_family = "wasm"))]
 		let worker_handle = WorkerHandle {
-			thread: std::thread::spawn(move || worker.run()),
+			thread: std::thread::spawn(move || worker.run(request_receiver)),
+			sender: request_sender,
+			receiver: response_receiver,
+		};
+
+		#[cfg(target_family = "wasm")]
+		wasm_bindgen_futures::spawn_local(async move {
+			worker.run(request_receiver).await;
+		});
+
+		#[cfg(target_family = "wasm")]
+		let worker_handle = WorkerHandle {
 			sender: request_sender,
 			receiver: response_receiver,
 		};
@@ -70,36 +86,36 @@ impl MyApp {
 			authenticator: AuthenticatorState::default(),
 		}
 	}
+
+	fn handle_message(&mut self, msg: Response) {
+		match msg {
+			Response::Map(result) => {
+				let result = result.map(|data| {
+					self.editor.osm_data.append_new_nodes_ways(data);
+					self.editor.osm_data.refresh_in_view_flag = true;
+				});
+
+				self.editor.map_state.download = MapDownloadState::Idle(Some(result));
+			},
+			Response::Token(token, target_server) => {
+				self.authenticator.token.insert(target_server, token);
+				self.authenticator.request_pending = false;
+			}
+			Response::CreatedChangeset(result) => {
+				self.uploader.changeset_creation = Some(result);
+			}
+			Response::ClosedChangeset(_result) => {
+				todo!();
+			}
+		}
+	}
 }
 
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-		self.worker_handle.receiver.try_iter().for_each(|req| {
-			match req {
-				Response::Map(result) => {
-					let r = match result {
-						Ok(data) => {
-							self.editor.osm_data.append_new_nodes_ways(data);
-							self.editor.osm_data.refresh_in_view_flag = true;
-							Ok(())
-						}
-						Err(e) => Err(e),
-					};
-
-					self.editor.map_state.download = MapDownloadState::Idle(Some(r));
-				},
-				Response::Token(token, target_server) => {
-					self.authenticator.token.insert(target_server, token);
-					self.authenticator.request_pending = false;
-				}
-				Response::CreatedChangeset(result) => {
-					self.uploader.changeset_creation = Some(result);
-				}
-				Response::ClosedChangeset(_result) => {
-					todo!();
-				}
-			}
-		});
+		for msg in self.worker_handle.recv_messages() {
+		    self.handle_message(msg);
+		}
 
 		TopBottomPanel::top("bar")
 			.frame(Frame {
@@ -213,7 +229,9 @@ impl eframe::App for MyApp {
 					}
 
 					if self.editor.window_flags & Window::Toolbar as u8 == 0 && windows::toolbar(ui, &mut self.editor.map_state, &self.editor.plugin_state.map_bbox) {
-						self.worker_handle.sender.send(Request::GetMap(Box::new(self.editor.plugin_state.map_bbox.clone()))).unwrap();
+						let request = Request::GetMap(Box::new(self.editor.plugin_state.map_bbox.clone()));
+						self.worker_handle.send_message(request);
+
 						self.editor.map_state.download = MapDownloadState::Downloading;
 					}
 
@@ -230,7 +248,11 @@ impl eframe::App for MyApp {
 				});
 			}
 			View::Upload => {
+				#[cfg(not(target_family = "wasm"))]
 				CentralPanel::default().show(ctx, |ui| {
+					use egui::ScrollArea;
+					use osmchange::Tag;
+
 					ui.heading("Upload to OpenStreetMap");
 					ui.collapsing("View osmChange", |ui| {
 						ScrollArea::vertical().show(ui, |ui| {
@@ -246,7 +268,7 @@ impl eframe::App for MyApp {
 						if ui.button("Create Changeset").clicked() {
 							// todo: figure out why tags do not show up on OSM
 							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }]; // todo
-							self.worker_handle.sender.send(Request::CreateChangeset(tags)).unwrap();
+							self.worker_handle.send_message(Request::CreateChangeset(tags));
 						}
 
 						if let Some(result) = &self.uploader.changeset_creation {
@@ -264,16 +286,24 @@ impl eframe::App for MyApp {
 						}
 					}
 				});
+
+				#[cfg(target_family = "wasm")]
+				CentralPanel::default().show(ctx, |ui| {
+					ui.heading("This tab is currently disabled on web builds.")
+				});
 			}
 			View::Auth => {
+				#[cfg(not(target_family = "wasm"))]
 				CentralPanel::default().show(ctx, |ui| {
+					use egui::TextEdit;
+
 					ui.heading("Authenticate to OpenStreetMap");
 
 					let prev_server = self.state.target_server_ui;
 					server_selector(ui, &mut self.state.target_server_ui);
 					if prev_server != self.state.target_server_ui {
 						// update target server for OsmClient of worker
-						self.worker_handle.sender.send(Request::SetTargetServer(self.state.target_server_ui)).unwrap();
+						self.worker_handle.send_message(Request::SetTargetServer(self.state.target_server_ui));
 					}
 
 					ui.add_space(10.0);
@@ -288,13 +318,18 @@ impl eframe::App for MyApp {
 						ui.label("2. Paste the resulting code into the field below:");
 						let widget = TextEdit::singleline(&mut self.authenticator.authorization_code);
 						if ui.add_enabled(!self.authenticator.request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-							self.worker_handle.sender.send(Request::FetchToken(self.authenticator.authorization_code.clone())).unwrap();
+							self.worker_handle.send_message(Request::FetchToken(self.authenticator.authorization_code.clone()));
 							self.authenticator.request_pending = true;
 						}
 
 						// todo: ui should change based on the result of the authentication
 						// todo: logout button
 					}
+				});
+
+				#[cfg(target_family = "wasm")]
+				CentralPanel::default().show(ctx, |ui| {
+					ui.heading("This tab is currently disabled on web builds.")
 				});
 			}
 		}
@@ -326,7 +361,10 @@ fn title_bar_button<'a>(text: &str, img: Image<'a>) -> Button<'a> {
 		.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
 }
 
+#[cfg(not(target_family = "wasm"))]
 fn server_selector(ui: &mut Ui, value: &mut TargetServer) {
+	use egui::{ComboBox, Grid};
+
 	ui.horizontal(|ui| {
 		ui.label("Server");
 		ComboBox::from_id_salt(ui.id())

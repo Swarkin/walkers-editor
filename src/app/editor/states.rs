@@ -1,7 +1,7 @@
 use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState, FillMode};
+use crate::app::osm::TargetServer;
 use crate::app::{
-	config::TargetServer,
-	osm::{OsmToken, Result},
+	osm::{OsmResult, OsmToken},
 	osmchange::OsmChange,
 	providers::{Provider, ProviderMap, TilesKind},
 	windows::WindowBitflag,
@@ -113,7 +113,7 @@ impl CacheFlag {
 }
 
 pub enum MapDownloadState {
-	Idle(Option<Result<()>>),
+	Idle(Option<OsmResult<()>>),
 	Downloading,
 }
 
@@ -121,13 +121,13 @@ pub enum MapDownloadState {
 pub struct UploaderState {
 	pub osmchange: OsmChange,
 	pub osmchange_text: String,
-	pub changeset_creation: Option<Result<NonZeroU32>>,
+	pub changeset_creation: Option<OsmResult<NonZeroU32>>,
 }
 
 #[derive(Default)]
 pub struct AuthenticatorState {
 	// todo: currently no way to check which server this belongs to
-	pub token: HashMap<TargetServer, Result<OsmToken>>,
+	pub token: HashMap<TargetServer, OsmResult<OsmToken>>,
 	pub authorization_code: String,
 	pub request_pending: bool,
 }
