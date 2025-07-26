@@ -1,3 +1,8 @@
 [build]
 minify = "on_release"
 filehash = false
+
+[[hooks]]
+stage = "post_build"
+command = "powershell"
+command_arguments = ["-File", "assets/generate_sw.ps1"]

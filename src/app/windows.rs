@@ -347,6 +347,21 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 	}).inner
 }
 
+#[cfg(target_family = "wasm")]
+pub fn update_modal(ctx: &egui::Context) -> bool {
+	egui::Modal::new("update".into()).show(ctx, |ui| {
+		ui.heading("Update Available");
+		ui.label("Your browser has detected a new version of walkers-editor.");
+		ui.separator();
+		ui.strong("How to update:");
+		ui.label("1. Close all instances of the editor.");
+		ui.label("2. Open the latest version in a new tab.");
+		ui.label("The new version should be loaded automatically.");
+		ui.separator();
+		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
+	}).inner
+}
+
 pub enum OverlapSelectorResult<'a> {
 	None,
 	Hovered(ElementRef<'a>),

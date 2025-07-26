@@ -1,6 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-
 mod app;
 
 use app::MyApp;
@@ -37,16 +36,25 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 #[cfg(target_family = "wasm")]
+static UPDATE_FLAG: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+#[cfg(target_family = "wasm")]
+#[wasm_bindgen::prelude::wasm_bindgen]
+pub fn set_update_flag(value: bool) {
+	UPDATE_FLAG.store(value, std::sync::atomic::Ordering::Relaxed);
+}
+
+#[cfg(target_family = "wasm")]
 fn main() {
 	use eframe::wasm_bindgen::JsCast as _;
 
+	eframe::WebLogger::init(log::LevelFilter::Info).unwrap();
+
 	wasm_bindgen_futures::spawn_local(async {
-		let document = web_sys::window()
+		let canvas = web_sys::window()
 			.expect("No window")
 			.document()
-			.expect("No document");
-
-		let canvas = document
+			.expect("No document")
 			.get_element_by_id("canvas")
 			.expect("Failed to find canvas")
 			.dyn_into::<web_sys::HtmlCanvasElement>()
@@ -63,15 +71,9 @@ fn main() {
 			)
 			.await;
 
-		// Remove the loading text and spinner:
-		if let Some(loading_p) = document.get_element_by_id("loading") {
-			match start_result {
-				Ok(_) => loading_p.remove(),
-				Err(e) => {
-					loading_p.set_inner_html("<p>App failed to start. See developer console for details.</p>", );
-					panic!("Failed to start eframe: {e:?}");
-				}
-			}
+		match start_result {
+			Ok(_) => log::info!("App started successfully"),
+			Err(e) => log::error!("App failed to start: {e:?}"),
 		}
 	});
 }
