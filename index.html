@@ -138,11 +138,10 @@
 					console.debug("Service Worker registered for ", registration.scope);
 					registration.onupdatefound = () => {
 						console.debug("Update found");
+						localStorage.setItem(UPDATE_KEY, "true");
 
 						if (loaded) {
 							check_pending_update_flag();
-						} else {
-							localStorage.setItem(UPDATE_KEY, "true");
 						}
 
 						const newWorker = registration.installing;
@@ -155,7 +154,7 @@
 							console.debug("New Service Worker state changed: " + newWorker.state);
 							if (newWorker.state === "installed") {
 								if (navigator.serviceWorker.controller) {
-									console.info("New Service Worker installed");
+									console.log("New Service Worker installed");
 								} else {
 									console.debug("Service Worker installed for the first time");
 									localStorage.removeItem(UPDATE_KEY);
