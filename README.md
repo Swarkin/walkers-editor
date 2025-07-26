@@ -2,7 +2,7 @@
 
 <img width="100px" align="right" src="/assets/favicon.svg" alt="icon">
 
-**walkers-editor** is an [OpenStreetMap](https://www.openstreetmap.org/about) editor written in 🦀 **Rust** with a focus on performance. It is heavily inspired by the _Overlays_-feature of [StreetComplete](https://github.com/streetcomplete/StreetComplete) and aims to bring its user-friendliness to the desktop.
+**walkers-editor** is an [OpenStreetMap](https://www.openstreetmap.org/about) editor written in 🦀 **Rust** with a focus on performance. It is heavily inspired by the _Overlays_-feature of [StreetComplete](https://github.com/streetcomplete/StreetComplete) and aims to bring its user-friendliness to the desktop and web.
 
 > [!NOTE]
 > This editor can't actually upload anything yet - it is very early in development.
