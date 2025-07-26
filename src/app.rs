@@ -334,11 +334,17 @@ impl eframe::App for MyApp {
 			}
 		}
 
-		if self.state.show_licenses_modal {
-			let close_modal = windows::licenses_modal(ctx);
-			if close_modal {
-				self.state.show_licenses_modal = false;
-			}
+		#[cfg(target_family = "wasm")]
+		if crate::UPDATE_FLAG.load(std::sync::atomic::Ordering::Relaxed)
+			&& windows::update_modal(ctx)
+		{
+			crate::set_update_flag(false);
+		}
+
+		if self.state.show_licenses_modal
+			&& windows::licenses_modal(ctx)
+		{
+			self.state.show_licenses_modal = false;
 		}
 	}
 }
@@ -350,7 +356,6 @@ fn map(
 	editor_plugin: editor::EditorPlugin,
 ) -> egui::Response {
 	ui.add(Map::new(tiles, map_memory, places::school())
-		.double_click_to_zoom(true)
 		.zoom_with_ctrl(editor_plugin.map_state.zoom_with_ctrl)
 		.with_plugin(editor_plugin)
 	)

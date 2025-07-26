@@ -20,11 +20,17 @@
 
 	<link rel="preconnect" href="https://tile.openstreetmap.org" />
 
-	<link data-trunk rel="rust" data-wasm-opt="2" data-wasm-opt-params="--enable-bulk-memory --enable-sign-ext --enable-nontrapping-float-to-int" />
+	<link data-trunk rel="rust"
+		data-wasm-opt="2"
+		data-wasm-opt-params="--enable-bulk-memory --enable-sign-ext --enable-nontrapping-float-to-int"
+		data-initializer="assets/initializer.js"
+	/>
+
 	<link data-trunk rel="icon" href="assets/favicon.ico" />
 	<link data-trunk rel="copy-file" href="assets/favicon.svg" />
 	<link data-trunk rel="copy-file" href="assets/apple-touch-icon.png" />
 	<link data-trunk rel="copy-file" href="assets/sw.js" />
+	<link data-trunk rel="copy-file" href="assets/initializer.js" />
 	<link data-trunk rel="copy-file" href="assets/manifest.json" />
 	<link data-trunk rel="copy-dir" href="assets/icon" />
 
@@ -71,13 +77,13 @@
 		}
 
 		/* Loading animation from https://loading.io/css/ */
-		.lds-dual-ring {
+		.spinner {
 			display: inline-block;
 			width: 24px;
 			height: 24px;
 		}
 
-		.lds-dual-ring:after {
+		.spinner:after {
 			content: " ";
 			display: block;
 			width: 24px;
@@ -86,10 +92,10 @@
 			border: 3px solid;
 			border-color: #fff transparent #fff transparent;
 			border-radius: 50%;
-			animation: lds-dual-ring 1.2s linear infinite;
+			animation: spinner 1.2s linear infinite;
 		}
 
-		@keyframes lds-dual-ring {
+		@keyframes spinner {
 			0% { transform: rotate(0deg); }
 			100% { transform: rotate(360deg); }
 		}
@@ -99,14 +105,65 @@
 	<canvas id="canvas"></canvas>
 
 	<div class="centered" id="loading">
-		<p>Loading…</p>
-		<div class="lds-dual-ring"></div>
+		<p id="loading_text">Loading…</p>
+		<div class="spinner"></div>
 	</div>
 
-	<script>
-		if ('serviceWorker' in navigator && window.location.hash !== "#dev") {
-			window.addEventListener('load', () => {
-				navigator.serviceWorker.register('sw.js');
+	<script type="module">
+		const UPDATE_KEY = "update";
+		let loaded = false;
+
+		// noinspection JSFileReferences,NpmUsedModulesInstalled
+		import * as bindings from "./walkers-editor.js";
+
+		localStorage.removeItem(UPDATE_KEY);
+
+		function check_pending_update_flag() {
+			if (localStorage.getItem(UPDATE_KEY) === "true") {
+				// noinspection JSUnresolvedReference
+				bindings.set_update_flag(true);
+				localStorage.removeItem(UPDATE_KEY);
+			}
+		}
+
+		addEventListener("TrunkApplicationStarted", (event) => {
+			console.debug("TrunkApplicationStarted:", event);
+			loaded = true;
+			check_pending_update_flag();
+		});
+
+		if ("serviceWorker" in navigator) {
+			window.addEventListener("load", () => {
+				navigator.serviceWorker.register("sw.js").then(registration => {
+					console.debug("Service Worker registered for ", registration.scope);
+					registration.onupdatefound = () => {
+						console.debug("Update found");
+
+						if (loaded) {
+							check_pending_update_flag();
+						} else {
+							localStorage.setItem(UPDATE_KEY, "true");
+						}
+
+						const newWorker = registration.installing;
+
+						newWorker.onerror = (error) => {
+							console.error("Service Worker installation failed:", error);
+						};
+
+						newWorker.onstatechange = () => {
+							console.debug("New Service Worker state changed: " + newWorker.state);
+							if (newWorker.state === "installed") {
+								if (navigator.serviceWorker.controller) {
+									console.info("New Service Worker installed");
+								} else {
+									console.debug("Service Worker installed for the first time");
+									localStorage.removeItem(UPDATE_KEY);
+								}
+							}
+						};
+					};
+				});
 			});
 		}
 	</script>
