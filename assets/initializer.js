@@ -16,7 +16,7 @@ export default function myInitializer() {
 			console.debug("WASM initialized.");
 		},
 		onSuccess: (wasm) => {
-			console.info("WASM initialized successfully:", wasm);
+			console.log("WASM initialized successfully:", wasm);
 			document.getElementById(LOADING_ID).remove();
 		},
 		onFailure: (error) => {
