@@ -10,9 +10,8 @@ pub mod icons;
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Margin, PopupCloseBehavior, RichText, TopBottomPanel, Ui, Vec2};
-use osm::OsmClient;
-use osm::TargetServer;
+use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Margin, PopupCloseBehavior, RichText, ThemePreference, TopBottomPanel, Ui, Vec2};
+use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
 use providers::{providers, Provider};
 use walkers::{Map, Tiles};
@@ -25,6 +24,8 @@ pub struct AppState {
 	#[cfg(not(target_family = "wasm"))]
 	pub target_server_ui: TargetServer,
 	pub show_licenses_modal: bool,
+	#[cfg(target_family = "wasm")]
+	pub show_firefox_modal: bool,
 }
 
 #[derive(Default, PartialEq)]
@@ -44,8 +45,9 @@ pub struct MyApp {
 }
 
 impl MyApp {
-	pub fn new(egui_ctx: &Context) -> Self {
-		egui_extras::install_image_loaders(egui_ctx);
+	pub fn new(cc: &eframe::CreationContext) -> Self {
+		cc.egui_ctx.options_mut(|x| x.theme_preference = ThemePreference::Dark);
+		egui_extras::install_image_loaders(&cc.egui_ctx);
 
 		#[cfg(not(target_family = "wasm"))]
 		use crossbeam_channel as channel;
@@ -78,10 +80,18 @@ impl MyApp {
 			receiver: response_receiver,
 		};
 
+		#[cfg(target_family = "wasm")]
+		let state = AppState {
+			show_firefox_modal: cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox"),
+			..Default::default()
+		};
+
+		#[cfg(not(target_family = "wasm"))]
+		let state = AppState::default();
+
 		Self {
-			worker_handle,
-			state: AppState::default(),
-			editor: EditorState::new(providers(egui_ctx)),
+			worker_handle, state,
+			editor: EditorState::new(providers(&cc.egui_ctx)),
 			uploader: UploaderState::default(),
 			authenticator: AuthenticatorState::default(),
 		}
@@ -339,6 +349,13 @@ impl eframe::App for MyApp {
 			&& windows::update_modal(ctx)
 		{
 			crate::set_update_flag(false);
+		}
+
+		#[cfg(target_family = "wasm")]
+		if self.state.show_firefox_modal
+			&& windows::firefox_modal(ctx)
+		{
+			self.state.show_firefox_modal = false;
 		}
 
 		if self.state.show_licenses_modal

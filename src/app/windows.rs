@@ -362,6 +362,18 @@ pub fn update_modal(ctx: &egui::Context) -> bool {
 	}).inner
 }
 
+#[cfg(target_family = "wasm")]
+pub fn firefox_modal(ctx: &egui::Context) -> bool {
+	egui::Modal::new("firefox".into()).show(ctx, |ui| {
+		ui.heading("Firefox Warning");
+		ui.label("You are using Firefox.");
+		ui.separator();
+		ui.label("Please use a Chromium-based browser for a faster and less janky experience, or consider downloading the native application directly.");
+		ui.separator();
+		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
+	}).inner
+}
+
 pub enum OverlapSelectorResult<'a> {
 	None,
 	Hovered(ElementRef<'a>),

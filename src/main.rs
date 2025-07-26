@@ -3,7 +3,6 @@
 mod app;
 
 use app::MyApp;
-use eframe::egui::ThemePreference;
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
@@ -28,10 +27,7 @@ fn main() -> Result<(), eframe::Error> {
 	eframe::run_native(
 		"walkers-editor",
 		options,
-		Box::new(|cc| {
-			configure_cc(cc);
-			Ok(Box::new(MyApp::new(&cc.egui_ctx)))
-		}),
+		Box::new(|cc| Ok(Box::new(MyApp::new(cc)))),
 	)
 }
 
@@ -64,10 +60,7 @@ fn main() {
 			.start(
 				canvas,
 				eframe::WebOptions::default(),
-				Box::new(|cc| {
-					configure_cc(cc);
-					Ok(Box::new(MyApp::new(&cc.egui_ctx)))
-				}),
+				Box::new(|cc| Ok(Box::new(MyApp::new(cc)))),
 			)
 			.await;
 
@@ -76,8 +69,4 @@ fn main() {
 			Err(e) => log::error!("App failed to start: {e:?}"),
 		}
 	});
-}
-
-fn configure_cc(cc: &eframe::CreationContext) {
-	cc.egui_ctx.options_mut(|x| x.theme_preference = ThemePreference::Dark);
 }
