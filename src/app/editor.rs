@@ -11,7 +11,7 @@ use crate::app::editor::r_star::WebMercatorPoint;
 use crate::app::windows::OverlapSelectorResult;
 use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
-use eframe::egui::{Color32, FontId, PointerButton, Pos2, Response, Stroke, Ui};
+use eframe::egui::{Color32, FontId, Pos2, Response, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use osm_parser::*;
 use rstar::AABB;
@@ -50,7 +50,7 @@ impl Plugin for EditorPlugin<'_> {
 			self.osm.refresh_in_view_flag = true;
 		}
 
-		let mouse = ui.ctx().pointer_hover_pos(); // todo: touchscreen
+		let mouse = resp.hover_pos();
 		let clicked = resp.clicked();
 
 		let should_draw_nodes = curr_zoom > NODE_MIN_ZOOM;
@@ -247,7 +247,7 @@ impl Plugin for EditorPlugin<'_> {
 
 			// 3. draw nodes
 			if should_draw_nodes {
-				if self.should_detect_interactions(mouse, SelectionFlag::Nodes) {
+				if interact_nodes {
 					let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
 						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
 						let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
@@ -294,7 +294,7 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		/* draw overlap selector */ {
-			if ui.ctx().input(|i| i.pointer.button_clicked(PointerButton::Middle)) {
+			if resp.middle_clicked() {
 				self.editor_state.overlap_selector_elements.clone_from(&self.editor_state.hovered);
 				self.editor_state.overlap_selector_pos = mouse.unwrap();
 			}
@@ -316,10 +316,7 @@ impl Plugin for EditorPlugin<'_> {
 					OverlapSelectorResult::Selected(e) => self.editor_state.selected = Some(e.element_id()),
 				}
 
-				if let Some(mouse) = mouse
-					&& ui.ctx().input(|i| i.pointer.any_pressed())
-					&& !resp.response.rect.contains(mouse)
-				{
+				if clicked	&& !resp.response.contains_pointer() {
 					self.editor_state.overlap_selector_elements.clear();
 				}
 			}
@@ -333,17 +330,19 @@ impl Plugin for EditorPlugin<'_> {
 					.expect("id not found in data");
 
 				// draw hovered element name tooltip
-				if let Some(name) = element.tags().get("name") && self.editor_state.overlap_selector_elements.is_empty() {
-					let hover = mouse.unwrap();
+				if self.editor_state.overlap_selector_elements.is_empty()
+					&& let Some(mouse) = mouse
+					&& let Some(name) = element.tags().get("name")
+				{
 					let galley = ui.fonts(|f| {
 						f.layout_no_wrap(name.to_owned(), FontId::proportional(HOVER_TOOLTIP_FONT_SIZE), Color32::LIGHT_GRAY)
 					});
 					let rect = galley.rect
-						.translate(hover.to_vec2() + HOVER_TOOLTIP_OFFSET)
+						.translate(mouse.to_vec2() + HOVER_TOOLTIP_OFFSET)
 						.expand(4.0);
 
 					shapes_hover_tooltip.push(RectShape::filled(rect, 4.0, HOVER_TOOLTIP_COLOR).into());
-					shapes_hover_tooltip.push(TextShape::new(hover + HOVER_TOOLTIP_OFFSET, galley, Color32::PLACEHOLDER).into());
+					shapes_hover_tooltip.push(TextShape::new(mouse + HOVER_TOOLTIP_OFFSET, galley, Color32::PLACEHOLDER).into());
 				}
 
 				match element {
