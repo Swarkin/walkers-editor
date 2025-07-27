@@ -309,7 +309,7 @@ impl MyApp {
 		}
 	}
 
-	fn handle_message(&mut self, msg: Response) {
+	fn handle_message(&mut self, msg: Response, ctx: &Context) {
 		match msg {
 			Response::Map(result) => {
 				let result = result.map(|data| {
@@ -317,7 +317,8 @@ impl MyApp {
 					self.editor.osm_data.refresh_in_view_flag = true;
 				});
 
-				self.editor.map_state.download = MapDownloadState::Idle(Some(result));
+				let time = ctx.input(|i| i.time);
+				self.editor.map_state.download = MapDownloadState::Idle(Some((result, time)));
 			},
 			Response::Token(token, target_server) => {
 				self.authenticator.token.insert(target_server, token);
@@ -336,7 +337,7 @@ impl MyApp {
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
 		for msg in self.worker_handle.recv_messages() {
-		    self.handle_message(msg);
+		    self.handle_message(msg, ctx);
 		}
 
 		self.top_bar(ctx);

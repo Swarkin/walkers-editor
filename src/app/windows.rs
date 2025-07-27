@@ -1,22 +1,15 @@
 use super::editor::{
-	cache::Change,
-	consts::{osm::ATTRIBUTION_URL, MAX_DOWNLOAD_AREA, TOP_BAR_HEIGHT, WINDOW_MARGIN},
+	cache::{Change, ElementRef},
+	consts::{osm::*, *},
 	states::{MapDownloadState, MapState, SelectionFlag},
 	visual::{FillMode, Visualization},
 };
+use super::icons;
 use super::osm::Bbox;
 use super::providers::Provider;
-use crate::app::editor::cache::ElementRef;
-use crate::app::editor::consts::shortcuts;
-use crate::app::icons;
 use eframe::egui;
 use egui::text::LayoutJob;
-use egui::{
-	Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, Frame,
-	Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2
-	, Shadow, Stroke, Ui, Vec2
-};
-use egui::{FontId, TextFormat};
+use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2, Shadow, Stroke, TextFormat, Ui, Vec2};
 use walkers::sources::Attribution;
 
 const TRANSPARENT_FRAME: Frame = Frame {
@@ -217,26 +210,18 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 				ui.separator();
 
 				/* map download */ {
-					match &mut state.download {
+					match &state.download {
 						MapDownloadState::Idle(status) => {
 							let enabled = bbox.area() < MAX_DOWNLOAD_AREA;
-							let image = Image::new(icons::DOWNLOAD).fit_to_exact_size(Vec2::splat(24.0));
-							let button_resp = ui.add_enabled(enabled,
-								Button::image(image).corner_radius(4)
-							);
+							let time = ui.ctx().input(|i| i.time);
 
-							let status_resp = status.as_mut().map(|status| match status {
-								Ok(()) => ui.strong("✔"),
-								Err(_) => ui.strong("✘"), // todo: global error modal / success toast
-							});
-
-							if let Some(resp) = status_resp {
-								if resp.clicked() {
-									*status = None;
-								} else if resp.hovered() {
-									ui.ctx().set_cursor_icon(CursorIcon::PointingHand);
-								}
-							}
+							let button_resp = if let Some((status, prev_time)) = status && time - prev_time < DOWNLOAD_FEEDBACK_SECONDS {
+								let text = egui::RichText::new(if status.is_ok() { "✔" } else { "✘" }).strong();
+								ui.add_enabled(enabled, Button::new(text).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE)).corner_radius(4))
+							} else { // todo: global error modal / success toast
+								let image = Image::new(icons::DOWNLOAD).fit_to_exact_size(Vec2::splat(TOP_BAR_BUTTON_SIZE - 4.0));
+								ui.add_enabled(enabled, Button::image(image).corner_radius(4))
+							};
 
 							// Return whether a download was triggered
 							enabled && !ui.ctx().wants_keyboard_input() && (button_resp.clicked() || ui.input_mut(|i| {
@@ -247,7 +232,7 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 							}))
 						}
 						MapDownloadState::Downloading => {
-							let resp = ui.add_enabled(false, Button::new("").min_size(Vec2::splat(28.0)));
+							let resp = ui.add_enabled(false, Button::new(()).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE)));
 							ui.put(resp.rect, egui::Spinner::new());
 
 							false
