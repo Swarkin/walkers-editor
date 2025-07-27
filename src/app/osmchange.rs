@@ -36,7 +36,7 @@ pub struct Modify {
 }
 
 impl Modify {
-	pub fn is_empty(&self) -> bool {
+	pub const fn is_empty(&self) -> bool {
 		self.node.is_empty() && self.way.is_empty()
 	}
 }
@@ -80,10 +80,10 @@ pub struct Way {
 impl From<&osm_parser::Way> for Way {
 	fn from(value: &osm_parser::Way) -> Self {
 		Self {
-			id: value.id as Id,
+			id: value.id.try_into().expect("way id should fit into i64"),
 			changeset: value.changeset,
 			version: value.version,
-			tags: value.tags.iter().map(|tag| tag.into()).collect(),
+			tags: value.tags.iter().map(Into::into).collect(),
 		}
 	}
 }
@@ -134,7 +134,7 @@ impl OsmChange {
 			//delete: if delete.is_empty() { None } else { Some(delete) },
 		}
 	}
-	
+
 	pub fn to_string_pretty(&self) -> Result<String, SeError> {
 		let mut buffer = String::new();
 		let mut ser = Serializer::with_root(&mut buffer, Some("osmChange"))?;

@@ -7,7 +7,7 @@ use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
 use osm_parser::{Tags, Way};
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum Visualization {
 	#[default] Default,
 	Sidewalks,
@@ -17,7 +17,7 @@ impl Visualization {
 	pub const ITER: [Self; 2] = [Self::Default, Self::Sidewalks];
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum FillMode {
 	Wireframe,
 	#[default] Partial,
@@ -41,38 +41,38 @@ pub const SIDEWALK_SEPARATE_COLOR: Color32 = Color32::LIGHT_BLUE;
 pub const SIDEWALK_UNKNOWN_COLOR: Color32 = Color32::LIGHT_RED;
 
 pub fn width_default(w: &Way) -> f32 {
-	if let Some(building) = w.tags.get("building") {
-		match building.as_str() {
+	w.tags.get("building").map_or_else(
+		|| w.tags.get("highway")
+			.map_or(WAY_WIDTH, |highway| match highway.as_str() {
+				"path" | "footway" | "steps" => PATH_WIDTH,
+				"service" | "track" => SERVICE_ROAD_WIDTH,
+				"residential" => MINOR_ROAD_WIDTH,
+				"tertiary" | "secondary" | "primary" | "trunk" | "motorway" | "tertiary_link"
+				| "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => MAJOR_ROAD_WIDTH,
+				_ => WAY_WIDTH,
+			}),
+		|building| match building.as_str() {
 			"no" => WAY_WIDTH,
 			_ => BUILDING_WIDTH,
 		}
-	} else if let Some(highway) = w.tags.get("highway") {
-		match highway.as_str() {
-			"path" | "footway" | "steps" => PATH_WIDTH,
-			"service" | "track" => SERVICE_ROAD_WIDTH,
-			"residential" => MINOR_ROAD_WIDTH,
-			"tertiary" | "secondary" | "primary" | "trunk" | "motorway" | "tertiary_link"
-			| "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => MAJOR_ROAD_WIDTH,
-			_ => WAY_WIDTH,
-		}
-	} else { WAY_WIDTH }
+	)
 }
 
 pub fn color_default(w: &Way) -> Color32 {
-	if let Some(building) = w.tags.get("building") {
-		match building.as_str() {
+	w.tags.get("building").map_or_else(
+		|| w.tags.get("highway")
+			.map_or(WAY_COLOR, |highway| match highway.as_str() {
+				"path" => PATH_COLOR,
+				"footway" => FOOTWAY_COLOR,
+				"steps" => STEPS_COLOR,
+				"track" => TRACK_COLOR,
+				_ => Color32::WHITE,
+			}),
+		|building| match building.as_str() {
 			"no" => WAY_COLOR,
 			_ => BUILDING_COLOR,
 		}
-	} else if let Some(highway) = w.tags.get("highway") {
-		match highway.as_str() {
-			"path" => PATH_COLOR,
-			"footway" => FOOTWAY_COLOR,
-			"steps" => STEPS_COLOR,
-			"track" => TRACK_COLOR,
-			_ => Color32::WHITE,
-		}
-	} else { WAY_COLOR }
+	)
 }
 
 pub fn sidewalks(tags: &Tags, points: &[Pos2], width: f32, scale_factor: f32) -> [Shape; 2] {
@@ -117,12 +117,11 @@ pub fn sidewalks(tags: &Tags, points: &[Pos2], width: f32, scale_factor: f32) ->
 }
 
 pub fn sidewalks_relevant(tags: &Tags) -> bool {
-	if let Some(highway) = tags.get("highway") {
-		HIGHWAYS_WITH_SIDEWALK.contains(&highway.as_str())
-	} else { false }
+	tags.get("highway")
+		.is_some_and(|highway| HIGHWAYS_WITH_SIDEWALK.contains(&highway.as_str()))
 }
 
-pub fn sidewalks_ui(ui: &mut Ui, way: &Way, pos: Pos2) -> Option<Change> {
+pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 	const TAG: &str = "sidewalk";
 	const TAG_LEFT: &str = "sidewalk:left";
 	const TAG_RIGHT: &str = "sidewalk:right";

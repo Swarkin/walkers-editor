@@ -1,4 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![allow(clippy::multiple_crate_versions, clippy::wildcard_imports)]
 
 mod app;
 
@@ -65,7 +66,7 @@ fn main() {
 			.await;
 
 		match start_result {
-			Ok(_) => log::info!("App started successfully"),
+			Ok(()) => log::info!("App started successfully"),
 			Err(e) => log::error!("App failed to start: {e:?}"),
 		}
 	});

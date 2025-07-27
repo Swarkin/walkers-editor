@@ -20,41 +20,41 @@ pub enum TargetServer {
 }
 
 impl TargetServer {
-	pub const ITER: [TargetServer; 2] = [TargetServer::OpenStreetMap, TargetServer::OpenStreetMapDev];
+	pub const ITER: [Self; 2] = [Self::OpenStreetMap, Self::OpenStreetMapDev];
 	pub const SIZE: usize = Self::ITER.len();
 
-	pub fn description(&self) -> &'static str {
+	pub const fn description(self) -> &'static str {
 		match self {
-			TargetServer::OpenStreetMap => "OpenStreetMap main instance",
-			TargetServer::OpenStreetMapDev => "OpenStreetMap test instance",
+			Self::OpenStreetMap => "OpenStreetMap main instance",
+			Self::OpenStreetMapDev => "OpenStreetMap test instance",
 		}
 	}
 
-	pub fn base_url(&self) -> &'static str {
+	pub const fn base_url(self) -> &'static str {
 		match self {
-			TargetServer::OpenStreetMap => "www.openstreetmap.org",
-			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org",
+			Self::OpenStreetMap => "www.openstreetmap.org",
+			Self::OpenStreetMapDev => "master.apis.dev.openstreetmap.org",
 		}
 	}
 
-	pub fn base_token_url(&self) -> &'static str {
+	pub const fn base_token_url(self) -> &'static str {
 		match self {
-			TargetServer::OpenStreetMap => "www.openstreetmap.org/oauth2/token",
-			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/token",
+			Self::OpenStreetMap => "www.openstreetmap.org/oauth2/token",
+			Self::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/token",
 		}
 	}
 
-	pub fn base_auth_url(&self) -> &'static str {
+	pub const fn base_auth_url(self) -> &'static str {
 		match self {
-			TargetServer::OpenStreetMap => "www.openstreetmap.org/oauth2/authorize",
-			TargetServer::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/authorize",
+			Self::OpenStreetMap => "www.openstreetmap.org/oauth2/authorize",
+			Self::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/oauth2/authorize",
 		}
 	}
 
-	pub fn client_id(&self) -> &'static str {
+	pub const fn client_id(self) -> &'static str {
 		match self {
-			TargetServer::OpenStreetMap => "",
-			TargetServer::OpenStreetMapDev => "55c2UqVCKGU_KEhQj4B5wGZHL6fR2dVS5zkwBfkiGd0",
+			Self::OpenStreetMap => "",
+			Self::OpenStreetMapDev => "55c2UqVCKGU_KEhQj4B5wGZHL6fR2dVS5zkwBfkiGd0",
 		}
 	}
 }
@@ -175,9 +175,9 @@ mod native {
 		}
 
 		// todo: error type
-		pub fn fetch_token(&self, auth_code: String) -> OsmResult<OsmToken> {
+		pub fn fetch_token(&self, auth_code: impl AsRef<str>) -> OsmResult<OsmToken> {
 			let url = format!("https://{}", self.target_server.base_token_url());
-			let body = format!("grant_type=authorization_code&code={auth_code}&redirect_uri={REDIRECT_URI}&client_id={}", self.target_server.client_id());
+			let body = format!("grant_type=authorization_code&code={}&redirect_uri={REDIRECT_URI}&client_id={}", auth_code.as_ref(), self.target_server.client_id());
 			let resp = self.http_client.post(url).header("content-type", "application/x-www-form-urlencoded").send(body)?;
 			resp.into_body().read_json::<OsmToken>()
 				.map_err(Box::from)
@@ -199,6 +199,7 @@ mod web {
 		pub auth_token: [Option<OsmToken>; TargetServer::SIZE],
 	}
 
+	#[allow(clippy::future_not_send)]
 	impl OsmClient {
 		pub fn new(target_server: TargetServer) -> Self {
 			Self {
@@ -209,13 +210,59 @@ mod web {
 
 		pub async fn get_map(&self, bbox: &Bbox) -> OsmResult<OsmData> {
 			let url = api_url_override(format!("/map.json?bbox={},{},{},{}", bbox.left, bbox.bottom, bbox.right, bbox.top), TargetServer::OpenStreetMap);
-			let resp = ehttp::fetch_async(Request::get(url)).await?;
+			let resp = ehttp::fetch_async(Request::get(url)).await
+				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
+
 			let raw = resp.json::<raw::RawOsmData>()?;
 			raw.try_into()
 		}
 
-		pub async fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<NonZeroU32> { todo!() }
-		pub async fn close_changeset(&self, id: NonZeroU32) -> OsmResult<NonZeroU32> { todo!() }
-		pub async fn fetch_token(&self, auth_code: String) -> OsmResult<OsmToken> { todo!() }
+		pub async fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<NonZeroU32> {
+			let url = api_url("/changeset/create", self.target_server);
+			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
+			let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
+			let body = quick_xml::se::to_string(&data)?;
+			let resp = ehttp::fetch_async(Request {
+				method: "PUT".into(),
+				url,
+				body: body.into_bytes(),
+				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
+				mode: ehttp::Mode::default(),
+			}).await
+				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
+
+			String::from_utf8(resp.bytes)?
+				.parse().map_err(Box::from)
+		}
+
+		pub async fn close_changeset(&self, id: NonZeroU32) -> OsmResult<NonZeroU32> {
+			let url = api_url(format!("/changeset/{id}/close"), self.target_server);
+			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
+			ehttp::fetch_async(Request {
+				method: "PUT".into(),
+				url,
+				body: vec![],
+				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
+				mode: ehttp::Mode::default(),
+			}).await
+				.map(|x| if x.ok { Ok(id) } else { Err(format!("request failed with status code {}", x.status)) })?
+				.map_err(Box::from)
+		}
+
+		pub async fn fetch_token(&self, auth_code: impl AsRef<str>) -> OsmResult<OsmToken> {
+			let url = format!("https://{}", self.target_server.base_token_url());
+			let body = format!("grant_type=authorization_code&code={}&redirect_uri={REDIRECT_URI}&client_id={}", auth_code.as_ref(), self.target_server.client_id());
+			let resp = ehttp::fetch_async(Request {
+				method: "POST".into(),
+				url,
+				body: body.into_bytes(),
+				headers: ehttp::Headers::new(&[("content-type", "application/x-www-form-urlencoded")]),
+				mode: ehttp::Mode::default(),
+			}).await
+				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
+
+			resp.json::<OsmToken>()
+				.map_err(Box::from)
+		}
 	}
 }

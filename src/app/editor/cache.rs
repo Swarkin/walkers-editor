@@ -54,7 +54,7 @@ pub struct CacheDebug(pub [(u32, u32); CacheFlag::SIZE + 1]);
 
 #[cfg(feature = "debug")]
 impl CacheDebug {
-	pub fn update(&mut self, flag: CacheFlag, time: u32) {
+	pub const fn update(&mut self, flag: CacheFlag, time: u32) {
 		let entry = &mut self.0[(flag as u8).trailing_zeros() as usize];
 		entry.0 = time;
 		entry.1 += 1;
@@ -74,7 +74,7 @@ pub enum Change {
 impl Display for Change {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Change::UpdateWay(id, way) => {
+			Self::UpdateWay(id, way) => {
 				if let Some(name) = way.tags.get("name") {
 					write!(f, "Updated {name}")
 				} else {
@@ -127,28 +127,28 @@ pub enum ElementRef<'a> {
 }
 
 impl ElementRef<'_> {
-	pub fn element_id(&self) -> ElementId {
+	pub const fn element_id(&self) -> ElementId {
 		match self {
 			ElementRef::Node(n) => ElementId::Node(n.id),
 			ElementRef::Way(w) => ElementId::Way(w.id),
 		}
 	}
 
-	pub fn element_icon(&self) -> ImageSource {
+	pub const fn element_icon(&self) -> ImageSource {
 		match self {
 			ElementRef::Node(_) => PRIMITIVE_NODE_ICON,
 			ElementRef::Way(_) => PRIMITIVE_WAY_ICON,
 		}
 	}
 
-	pub fn id_ref(&self) -> &Id {
+	pub const fn id_ref(&self) -> &Id {
 		match self {
 			ElementRef::Node(n) => &n.id,
 			ElementRef::Way(w) => &w.id,
 		}
 	}
 
-	pub fn tags(&self) -> &Tags {
+	pub const fn tags(&self) -> &Tags {
 		match self {
 			ElementRef::Node(n) => &n.tags,
 			ElementRef::Way(w) => &w.tags,
@@ -162,7 +162,7 @@ impl ElementRef<'_> {
 		}
 	}
 
-	pub fn type_str(&self) -> &'static str {
+	pub const fn type_str(&self) -> &'static str {
 		match self {
 			ElementRef::Node(_) => "Node",
 			ElementRef::Way(_) => "Way",
@@ -170,21 +170,21 @@ impl ElementRef<'_> {
 	}
 }
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ElementId {
 	Node(Id),
 	Way(Id),
 }
 
 impl ElementId {
-	pub fn id_ref(&self) -> &Id {
+	pub const fn id_ref(&self) -> &Id {
 		match self {
-			ElementId::Node(id) => id,
-			ElementId::Way(id) => id,
+			Self::Node(id) | Self::Way(id) => id,
 		}
 	}
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref, clippy::cast_possible_truncation)]
 impl EditorOsmData {
 	pub fn apply_change(&mut self, change: Change) {
 		match change {
@@ -227,14 +227,14 @@ impl EditorOsmData {
 	}
 
 	pub fn get_projected_origin_pos(&self, node_id: &Id) -> Option<Pos2> {
-		self.projected_nodes.get(node_id).map(|pos| pos.to_owned())
+		self.projected_nodes.get(node_id).map(ToOwned::to_owned)
 	}
 
 	pub fn get_way_mesh(&self, way_id: &Id, color: Color32) -> Mesh {
 		let data = self.way_mesh.get(way_id).expect("id not found in cache");
 		Mesh {
 			indices: data.indices.clone(),
-			vertices: data.vertices.iter().cloned().map(|mut x| {
+			vertices: data.vertices.iter().copied().map(|mut x| {
 				x.color = color;
 				x.pos += self.mesh_offset_move + self.mesh_offset_resize;
 				x
@@ -320,12 +320,13 @@ impl EditorOsmData {
 	// - NodeOrphan
 	// - WayArea
 	pub fn refresh_node_dedup_cache(&mut self) {
-		debug_assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8), 0);
-
-		fn quantize_and_insert(positions: &mut HashSet<(u64, u64)>, pos: &Coordinate, amount: f64) -> bool {
-			let pos_quantized = coordinate_quantized(pos, amount);
+		#[allow(clippy::cast_possible_truncation)]
+		fn quantize_and_insert(positions: &mut HashSet<(i64, i64)>, pos: &Coordinate, amount: f64) -> bool {
+			let pos_quantized = ((pos.lat * amount) as i64, (pos.lon * amount) as i64);
 			positions.insert(pos_quantized)
 		}
+
+		debug_assert_eq!(self.cache_flags & (CacheFlag::NodeOrphan as u8 | CacheFlag::WayArea as u8), 0);
 
 		#[cfg(feature = "debug")]
 		let t = std::time::Instant::now();
@@ -348,12 +349,12 @@ impl EditorOsmData {
 					}
 				}
 			})
-			.filter(|id| quantize_and_insert(&mut positions, &self.data.nodes.get(id).expect("id not found in data").pos, 10000000.0))
+			.filter(|id| quantize_and_insert(&mut positions, &self.data.nodes.get(id).expect("id not found in data").pos, 10_000_000.0))
 			.collect();
 
 		positions.clear();
 		self.node_dedup.orphan_nodes = self.orphan_nodes.iter()
-			.filter(|id| quantize_and_insert(&mut positions, &self.data.nodes.get(id).expect("id not found in data").pos, 10000000.0))
+			.filter(|id| quantize_and_insert(&mut positions, &self.data.nodes.get(id).expect("id not found in data").pos, 10_000_000.0))
 			.copied()
 			.collect();
 
@@ -376,7 +377,7 @@ impl EditorOsmData {
 				self.node_usage
 					.entry(*node_id)
 					.or_default()
-					.push(way.id)
+					.push(way.id);
 			}
 		}
 
@@ -401,43 +402,41 @@ impl EditorOsmData {
 			// next 15 lines take ~10% of the total time
 			// todo: separate cache to eliminate doing this twice
 			let mut points = self.get_projected_positions_in_way(id).into_iter();
-			let mut builder = Path::builder();
 
-			if let Some(first) = points.next() {
+			if let Some(first) = points.next() { // skip empty ways
+				let mut builder = Path::builder();
 				builder.begin(Point::new(first.x, first.y));
-			} else {
-				continue; // skip empty ways
+
+				for p in points {
+					builder.line_to(Point::new(p.x, p.y));
+				}
+
+				builder.close();
+				let path = builder.build();
+
+				// next 15 lines take ~70% of the total time
+				// todo: re-use vertexbuffers allocation
+				let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
+				let mut tessellator = FillTessellator::new();
+
+				// todo: intersection handling
+				tessellator.tessellate_path(
+					&path,
+					&FillOptions::default().with_intersections(false),
+					&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
+						Vertex {
+							pos: Pos2::from(vertex.position().to_array()),
+							uv: WHITE_UV,
+							color: Color32::WHITE,
+						}
+					}),
+				).expect("path tesselation failed");
+
+				self.way_mesh.insert(*id, MeshData {
+					indices: geometry.indices,
+					vertices: geometry.vertices,
+				});
 			}
-
-			for p in points {
-				builder.line_to(Point::new(p.x, p.y));
-			}
-
-			builder.close();
-			let path = builder.build();
-
-			// next 15 lines take ~70% of the total time
-			// todo: re-use vertexbuffers allocation
-			let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
-			let mut tessellator = FillTessellator::new();
-
-			// todo: intersection handling
-			tessellator.tessellate_path(
-				&path,
-				&FillOptions::default().with_intersections(false),
-				&mut BuffersBuilder::new(&mut geometry, |vertex: FillVertex| {
-					Vertex {
-						pos: Pos2::from(vertex.position().to_array()),
-						uv: WHITE_UV,
-						color: Color32::WHITE,
-					}
-				}),
-			).expect("path tesselation failed");
-
-			self.way_mesh.insert(*id, MeshData {
-				indices: geometry.indices,
-				vertices: geometry.vertices,
-			});
 		}
 
 		#[cfg(feature = "debug")]
@@ -449,11 +448,6 @@ impl EditorOsmData {
 	// - NodeProjection
 	// - WayArea
 	pub fn refresh_area_size_ordered_cache(&mut self) {
-		debug_assert_eq!(self.cache_flags & (CacheFlag::NodeProjection as u8 | CacheFlag::WayArea as u8), 0);
-
-		#[cfg(feature = "debug")]
-		let t = std::time::Instant::now();
-
 		// Shoelace formula for area calculation, returns twice the area.
 		fn area_size(points: &[Pos2]) -> f32 {
 			let n = points.len();
@@ -464,12 +458,17 @@ impl EditorOsmData {
 				for i in 0..n {
 					let p1 = points[i];
 					let p2 = points[(i + 1) % n];
-					area += (p1.x * p2.y) - (p2.x * p1.y);
+					area += p1.x.mul_add(p2.y, -(p2.x * p1.y));
 				}
 
 				area
 			}
 		}
+
+		debug_assert_eq!(self.cache_flags & (CacheFlag::NodeProjection as u8 | CacheFlag::WayArea as u8), 0);
+
+		#[cfg(feature = "debug")]
+		let t = std::time::Instant::now();
 
 		self.area_size_ordered.clear();
 		self.cache_flags &= !(CacheFlag::AreaSizeOrdered as u8);
@@ -513,7 +512,7 @@ impl EditorOsmData {
 			self.data.ways.insert(id, way);
 		}
 
-		for (id, node) in from.nodes.into_iter() {
+		for (id, node) in from.nodes {
 			// todo: handle new versions
 			if self.data.nodes.contains_key(&id) {
 				continue;
@@ -542,13 +541,13 @@ impl EditorOsmData {
 		}
 	}
 
-	fn reset_node_offsets(&mut self, start: Position) {
+	const fn reset_node_offsets(&mut self, start: Position) {
 		self.node_offset_move = Vec2::ZERO;
 		self.node_offset_resize = Vec2::ZERO;
 		self.node_start = start;
 	}
 
-	fn reset_mesh_offsets(&mut self, start: Position) {
+	const fn reset_mesh_offsets(&mut self, start: Position) {
 		self.mesh_offset_move = Vec2::ZERO;
 		self.mesh_offset_resize = Vec2::ZERO;
 		self.mesh_start = start;
@@ -558,9 +557,6 @@ impl EditorOsmData {
 pub fn coordinate_to_pos(c: &Coordinate) -> Position {
 	Position::new(c.lon, c.lat)
 }
-
-// Workaround to use Eq and Hash for Coordinates
-pub fn coordinate_quantized(c: &Coordinate, scale: f64) -> (u64, u64) { ((c.lat * scale) as u64, (c.lon * scale) as u64) }
 
 // Primitive area detection
 fn is_way_area(way: &Way) -> bool {

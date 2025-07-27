@@ -38,7 +38,7 @@ pub struct Worker {
 }
 
 impl Worker {
-	pub fn send_message(&mut self, msg: Response) {
+	pub fn send_message(&self, msg: Response) {
 		#[cfg(not(target_family = "wasm"))]
 		self.sender.send(msg).unwrap();
 		#[cfg(target_family = "wasm")]
@@ -55,7 +55,7 @@ pub struct WorkerHandle {
 }
 
 impl WorkerHandle {
-	pub fn send_message(&mut self, msg: Request) {
+	pub fn send_message(&self, msg: Request) {
 		#[cfg(not(target_family = "wasm"))]
 		self.sender.send(msg).unwrap();
 		#[cfg(target_family = "wasm")]
@@ -63,24 +63,26 @@ impl WorkerHandle {
 	}
 
 	/// Returns all received messages without blocking.
-	pub fn recv_messages(&mut self) -> Vec<Response> {
-		#[cfg(not(target_family = "wasm"))]
-		return self.receiver.try_iter().collect::<Vec<_>>();
+	#[cfg(not(target_family = "wasm"))]
+	pub fn recv_messages(&self) -> Vec<Response> {
+		self.receiver.try_iter().collect::<Vec<_>>()
+	}
 
-		#[cfg(target_family = "wasm")] {
-			let mut messages = vec![];
-			while let Ok(msg) = self.receiver.try_next() {
-				if let Some(msg) = msg {
-					messages.push(msg);
-				} else { panic!("receiver was closed unexpectedly"); }
-			}
-			messages
+	#[cfg(target_family = "wasm")]
+	pub fn recv_messages(&mut self) -> Vec<Response> {
+		let mut messages = vec![];
+		while let Ok(msg) = self.receiver.try_next() {
+			if let Some(msg) = msg {
+				messages.push(msg);
+			} else { panic!("receiver was closed unexpectedly"); }
 		}
+		messages
 	}
 }
 
 impl Worker {
 	#[cfg(target_family = "wasm")]
+	#[allow(clippy::future_not_send)]
 	async fn handle_message(&mut self, request: Request) {
 		match request {
 			Request::GetMap(bbox) => {
@@ -151,6 +153,7 @@ impl Worker {
 	}
 
 	#[cfg(target_family = "wasm")]
+	#[allow(clippy::future_not_send)]
 	pub async fn run(&mut self, mut receiver: Receiver<Request>) {
 		while let Some(msg) = receiver.next().await {
 			self.handle_message(msg).await;
@@ -159,7 +162,7 @@ impl Worker {
 
 	#[cfg(not(target_family = "wasm"))]
 	pub fn run(&mut self, receiver: Receiver<Request>) {
-		for msg in receiver.iter() {
+		for msg in receiver {
 			self.handle_message(msg);
 		}
 	}

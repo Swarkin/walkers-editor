@@ -41,9 +41,11 @@ pub struct EditorPluginState {
 
 impl Plugin for EditorPlugin<'_> {
 	// todo(optimization): cache results of way_width and way_color
-	fn run(mut self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector, map_memory: &MapMemory) {
+	#[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
+	fn run(self: Box<Self>, ui: &mut Ui, resp: &Response, projector: &Projector, map_memory: &MapMemory) {
 		let curr_zoom = map_memory.zoom();
 
+		#[allow(clippy::float_cmp)]
 		if self.prev_zoom != curr_zoom {
 			self.osm.refresh_in_view_flag = true;
 		}
@@ -53,8 +55,8 @@ impl Plugin for EditorPlugin<'_> {
 
 		let should_draw_nodes = curr_zoom > NODE_MIN_ZOOM;
 
-		let interact_nodes = self.should_detect_interactions(&mouse, SelectionFlag::Nodes);
-		let interact_ways = self.should_detect_interactions(&mouse, SelectionFlag::Ways);
+		let interact_nodes = self.should_detect_interactions(mouse, SelectionFlag::Nodes);
+		let interact_ways = self.should_detect_interactions(mouse, SelectionFlag::Ways);
 
 		let current_pos = map_memory.detached().unwrap_or_else(school);
 		let current_pos_projected = projector.project(current_pos);
@@ -86,6 +88,7 @@ impl Plugin for EditorPlugin<'_> {
 				let diff = p_start - current_pos_projected;
 
 				if diff.x.abs() > MAX_VIEW_OFFSET || diff.y.abs() > MAX_VIEW_OFFSET || self.osm.refresh_in_view_flag {
+					#[allow(clippy::cast_possible_truncation)]
 					let aabb = &AABB::from_corners(
 						WebMercatorPoint::from((self.editor_state.map_bbox.top as f32, self.editor_state.map_bbox.left as f32)),
 						WebMercatorPoint::from((self.editor_state.map_bbox.bottom as f32, self.editor_state.map_bbox.right as f32))
@@ -165,15 +168,15 @@ impl Plugin for EditorPlugin<'_> {
 				let width = self.way_width(way);
 				let color = self.way_color(way);
 
-				if interact_ways && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
+				if interact_ways && distance_to_way(&points, mouse.unwrap()) < width.powi(2) {
 					self.editor_state.hovered.push(ElementId::Way(*area_id));
 				}
 
 				match target_fill {
-					FillMode::Wireframe => shapes.push(self.draw_way_closed_from(points, width, color).into()),
+					FillMode::Wireframe => shapes.push(Self::draw_way_closed_from(points, width, color).into()),
 					FillMode::Partial => {
 						// outline
-						shapes.push(self.draw_way_closed_from(points.clone(), width, color).into());
+						shapes.push(Self::draw_way_closed_from(points.clone(), width, color).into());
 
 						// partial fill
 						// todo: https://github.com/Swarkin/walkers-editor/issues/9
@@ -187,7 +190,7 @@ impl Plugin for EditorPlugin<'_> {
 							continue;
 						};
 
-						shapes.push(self.draw_fill_partial_from(
+						shapes.push(Self::draw_fill_partial_from(
 							points,
 							PARTIAL_FILL_WIDTH,
 							color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY),
@@ -216,7 +219,7 @@ impl Plugin for EditorPlugin<'_> {
 				let width = self.way_width(way);
 				let color = self.way_color(way);
 
-				if interact_ways && distance_to_way(&points, mouse.as_ref().unwrap()) < width.powi(2) {
+				if interact_ways && distance_to_way(&points, mouse.unwrap()) < width.powi(2) {
 					self.editor_state.hovered.push(ElementId::Way(*way_id));
 
 					if interact_nodes {
@@ -230,22 +233,21 @@ impl Plugin for EditorPlugin<'_> {
 					}
 				}
 
-				#[allow(clippy::single_match)]
 				match &self.map_state.selected_visualization {
 					Visualization::Sidewalks => {
 						if visual::sidewalks_relevant(&way.tags) { // todo: this can be cached
 							shapes.extend(visual::sidewalks(&way.tags, &points, width, self.map_state.scale_factor));
 						}
 					},
-					_ => {},
-				};
+					Visualization::Default => {},
+				}
 
-				shapes.push(self.draw_way_from(points, width, color).into());
+				shapes.push(Self::draw_way_from(points, width, color).into());
 			}
 
 			// 3. draw nodes
 			if should_draw_nodes {
-				if self.should_detect_interactions(&mouse, SelectionFlag::Nodes) {
+				if self.should_detect_interactions(mouse, SelectionFlag::Nodes) {
 					let way_nodes = self.osm.node_dedup.way_nodes.iter().map(|id| {
 						let pos = self.osm.get_projected_pos(id).expect("id not found in cache");
 						let shape = if self.osm.node_usage.get(id).expect("id not found in cache").len() > 1 {
@@ -285,7 +287,7 @@ impl Plugin for EditorPlugin<'_> {
 					}
 
 					for id in &self.osm.node_dedup.orphan_nodes {
-						shapes.push(self.draw_node_orphan(id).into())
+						shapes.push(self.draw_node_orphan(id).into());
 					}
 				}
 			}
@@ -293,7 +295,7 @@ impl Plugin for EditorPlugin<'_> {
 
 		/* draw overlap selector */ {
 			if ui.ctx().input(|i| i.pointer.button_clicked(PointerButton::Middle)) {
-				self.editor_state.overlap_selector_elements = self.editor_state.hovered.clone();
+				self.editor_state.overlap_selector_elements.clone_from(&self.editor_state.hovered);
 				self.editor_state.overlap_selector_pos = mouse.unwrap();
 			}
 
@@ -368,7 +370,7 @@ impl Plugin for EditorPlugin<'_> {
 									let range_sq = (NODE_SIZE * self.map_state.scale_factor).powi(2);
 
 									let points = way.nodes.iter()
-										.skip(if closed { 1 } else { 0 })
+										.skip(closed.into())
 										.map(|id| (id, self.osm.get_projected_pos(id).expect("id not found in cache")))
 										.collect::<Vec<_>>();
 
@@ -386,7 +388,7 @@ impl Plugin for EditorPlugin<'_> {
 							} else {
 								shapes.push(if closed { self.draw_way_closed_hovered(&way.id) } else { self.draw_way_hovered(&way.id) }.into());
 								shapes.extend( // draw nodes again above the selection
-									way.nodes.iter().skip(if closed { 1 } else { 0 })
+									way.nodes.iter().skip(closed.into())
 										.map(|id| self.draw_node_dynamic(id).into())
 								);
 							}
@@ -415,13 +417,13 @@ impl Plugin for EditorPlugin<'_> {
 							let width = self.way_width(way);
 
 							if is_way_closed(way) {
-								shapes.push(self.draw_way_closed_selected_from(points.iter().skip(1).copied().collect(), width).into());
+								shapes.push(Self::draw_way_closed_selected_from(points.iter().skip(1).copied().collect(), width).into());
 								shapes.extend(
 									way.nodes.iter().skip(1)
 										.map(|id| self.draw_node_dynamic(id).into())
 								);
 							} else {
-								shapes.push(self.draw_way_selected_from(points, width).into());
+								shapes.push(Self::draw_way_selected_from(points, width).into());
 								shapes.extend(
 									way.nodes.iter()
 										.map(|id| self.draw_node_dynamic(id).into())
@@ -442,14 +444,14 @@ impl Plugin for EditorPlugin<'_> {
 		};
 
 		/* draw direction of way */ {
-			if is_selected_element_visible && let Some(element) = self.editor_state.selected.as_ref().or(self.editor_state.hovered.first()) {
+			if is_selected_element_visible && let Some(element) = self.editor_state.selected.as_ref().or_else(|| self.editor_state.hovered.first()) {
 				let element = self.osm.get(element.id_ref()).expect("id not found in data");
 				if let ElementRef::Way(w) = element {
 					for section in self.osm.get_projected_positions_in_way(&w.id).windows(2) {
 						let way_width = self.way_width(w);
 
-						let arrow_length = (6.5 + way_width * 0.75) * self.map_state.scale_factor;
-						let arrow_width = (5.0 + way_width * 0.75) * self.map_state.scale_factor;
+						let arrow_length = way_width.mul_add(0.75, 6.5) * self.map_state.scale_factor;
+						let arrow_width = way_width.mul_add(0.75, 5.0) * self.map_state.scale_factor;
 						let (p1, p2) = (section[0], section[1]);
 						let length = (p2 - p1).length_sq().abs();
 						if length < arrow_length * 2.5 { continue; }
@@ -476,22 +478,23 @@ impl Plugin for EditorPlugin<'_> {
 }
 
 // drawing nodes
+#[allow(clippy::trivially_copy_pass_by_ref)]
 impl EditorPlugin<'_> {
 	fn draw_node(&self, id: &Id) -> CircleShape {
 		CircleShape {
 			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
 			radius: NODE_SIZE * self.map_state.scale_factor,
 			fill: NODE_COLOR,
-			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+			stroke: Stroke { width: NODE_STROKE_WIDTH, color: NODE_STROKE_COLOR },
 		}
 	}
 
-	fn draw_node_at(&self, center: Pos2) -> CircleShape {
+	const fn draw_node_at(&self, center: Pos2) -> CircleShape {
 		CircleShape {
 			center,
 			radius: NODE_SIZE * self.map_state.scale_factor,
 			fill: NODE_COLOR,
-			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+			stroke: Stroke { width: NODE_STROKE_WIDTH, color: NODE_STROKE_COLOR },
 		}
 	}
 
@@ -500,16 +503,16 @@ impl EditorPlugin<'_> {
 			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
 			radius: NODE_SIZE * self.map_state.scale_factor,
 			fill: NODE_CONNECTED_COLOR,
-			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+			stroke: Stroke { width: NODE_STROKE_WIDTH, color: NODE_STROKE_COLOR },
 		}
 	}
 
-	fn draw_node_connected_at(&self, center: Pos2) -> CircleShape {
+	const fn draw_node_connected_at(&self, center: Pos2) -> CircleShape {
 		CircleShape {
 			center,
 			radius: NODE_SIZE * self.map_state.scale_factor,
 			fill: NODE_CONNECTED_COLOR,
-			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+			stroke: Stroke { width: NODE_STROKE_WIDTH, color: NODE_STROKE_COLOR },
 		}
 	}
 
@@ -518,16 +521,16 @@ impl EditorPlugin<'_> {
 			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
 			radius: NODE_SIZE_ORPHAN * self.map_state.scale_factor,
 			fill: NODE_COLOR,
-			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+			stroke: Stroke { width: NODE_STROKE_WIDTH, color: NODE_STROKE_COLOR },
 		}
 	}
 
-	fn draw_node_orphan_at(&self, center: Pos2) -> CircleShape {
+	const fn draw_node_orphan_at(&self, center: Pos2) -> CircleShape {
 		CircleShape {
 			center,
 			radius: NODE_SIZE_ORPHAN * self.map_state.scale_factor,
 			fill: NODE_COLOR,
-			stroke: Stroke::new(NODE_STROKE_WIDTH, NODE_STROKE_COLOR),
+			stroke: Stroke { width: NODE_STROKE_WIDTH, color: NODE_STROKE_COLOR },
 		}
 	}
 
@@ -536,7 +539,7 @@ impl EditorPlugin<'_> {
 			center: self.osm.get_projected_pos(id).expect("id not found in cache"),
 			radius: NODE_SIZE * self.map_state.scale_factor,
 			fill: NODE_COLOR,
-			stroke: Stroke::new(NODE_STROKE_WIDTH + HOVER_SIZE_INCREASE, HOVER_COLOR),
+			stroke: Stroke { width: NODE_STROKE_WIDTH + HOVER_SIZE_INCREASE, color: HOVER_COLOR },
 		}
 	}
 
@@ -559,12 +562,13 @@ impl EditorPlugin<'_> {
 }
 
 // drawing ways
+#[allow(clippy::trivially_copy_pass_by_ref)]
 impl EditorPlugin<'_> {
-	fn draw_way_from(&self, points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
+	const fn draw_way_from(points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
 		PathShape {
 			points,
 			closed: false,
-			fill: Color32::default(),
+			fill: Color32::TRANSPARENT,
 			stroke: PathStroke {
 				width,
 				color: ColorMode::Solid(color),
@@ -573,12 +577,11 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	//noinspection DuplicatedCode
-	fn draw_way_closed_from(&self, points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
+	const fn draw_way_closed_from(points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
 		PathShape {
 			points,
 			closed: true,
-			fill: Color32::default(),
+			fill: Color32::TRANSPARENT,
 			stroke: PathStroke {
 				width,
 				color: ColorMode::Solid(color),
@@ -587,13 +590,12 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	//noinspection DuplicatedCode
 	fn draw_way_hovered(&self, id: &Id) -> PathShape {
 		let way = self.osm.data.ways.get(id).expect("id not found in cache");
 		PathShape {
 			points: self.osm.get_projected_positions_in_way(id),
 			closed: false,
-			fill: Color32::default(),
+			fill: Color32::TRANSPARENT,
 			stroke: PathStroke {
 				width: self.way_width(way) + HOVER_SIZE_INCREASE,
 				color: ColorMode::Solid(HOVER_COLOR),
@@ -602,13 +604,12 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	//noinspection DuplicatedCode
 	fn draw_way_closed_hovered(&self, id: &Id) -> PathShape {
 		let way = self.osm.data.ways.get(id).expect("id not found in cache");
 		PathShape {
 			points: self.osm.get_projected_positions_in_way(id).into_iter().skip(1).collect(),
 			closed: true,
-			fill: Color32::default(),
+			fill: Color32::TRANSPARENT,
 			stroke: PathStroke {
 				width: self.way_width(way) + HOVER_SIZE_INCREASE,
 				color: ColorMode::Solid(HOVER_COLOR),
@@ -617,12 +618,11 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	//noinspection DuplicatedCode
-	fn draw_way_selected_from(&self, points: Vec<Pos2>, width: f32) -> PathShape {
+	const fn draw_way_selected_from(points: Vec<Pos2>, width: f32) -> PathShape {
 		PathShape {
 			points,
 			closed: false,
-			fill: Color32::default(),
+			fill: Color32::TRANSPARENT,
 			stroke: PathStroke {
 				width: width + SELECTION_SIZE_INCREASE,
 				color: ColorMode::Solid(SELECTION_COLOR),
@@ -631,12 +631,11 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	//noinspection DuplicatedCode
-	fn draw_way_closed_selected_from(&self, points: Vec<Pos2>, width: f32) -> PathShape {
+	fn draw_way_closed_selected_from(points: Vec<Pos2>, width: f32) -> PathShape {
 		PathShape {
 			points,
 			closed: true,
-			fill: Color32::default(),
+			fill: Color32::TRANSPARENT,
 			stroke: PathStroke {
 				width: width + SELECTION_SIZE_INCREASE,
 				color: ColorMode::Solid(SELECTION_COLOR),
@@ -645,8 +644,7 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	//noinspection DuplicatedCode
-	fn draw_fill_partial_from(&self, points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
+	const fn draw_fill_partial_from(points: Vec<Pos2>, width: f32, color: Color32) -> PathShape {
 		PathShape {
 			points,
 			closed: true,
@@ -682,21 +680,22 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	fn way_editing_ui(&mut self, ui: &mut Ui, id: Id, pos: Pos2) -> Option<Change> {
+	fn way_editing_ui(&self, ui: &Ui, id: Id, pos: Pos2) -> Option<Change> {
 		match self.map_state.selected_visualization {
 			Visualization::Default => None,
 			Visualization::Sidewalks => visual::sidewalks_ui(ui, self.osm.data.ways.get(&id).unwrap(), pos),
 		}
 	}
 
-	fn should_detect_interactions(&self, mouse: &Option<Pos2>, selection_flag: SelectionFlag) -> bool {
+	const fn should_detect_interactions(&self, mouse: Option<Pos2>, selection_flag: SelectionFlag) -> bool {
 		mouse.is_some()
 			&& self.map_state.selection_mode & selection_flag as u8 != 0
 			&& self.editor_state.overlap_selector_elements.is_empty()
 	}
 }
 
-fn distance_to_segment_sq(p: &Pos2, points: &[Pos2; 2]) -> f32 {
+#[allow(clippy::many_single_char_names)]
+fn distance_to_segment_sq(p: Pos2, points: &[Pos2; 2]) -> f32 {
 	let x = points[0];
 	let y = points[1];
 
@@ -705,12 +704,9 @@ fn distance_to_segment_sq(p: &Pos2, points: &[Pos2; 2]) -> f32 {
 	let c = y.x - x.x;
 	let d = y.y - x.y;
 
-	let dot = a * c + b * d;
-	let len_sq = c * c + d * d;
-	let mut param = -1f32;
-	if len_sq != 0f32 {
-		param = dot / len_sq;
-	}
+	let dot = a.mul_add(c, b * d);
+	let len_sq = c.mul_add(c, d * d);
+	let param = if len_sq == 0f32 { -1f32 } else { dot / len_sq };
 
 	let xx;
 	let yy;
@@ -722,16 +718,16 @@ fn distance_to_segment_sq(p: &Pos2, points: &[Pos2; 2]) -> f32 {
 		xx = y.x;
 		yy = y.y;
 	} else {
-		xx = x.x + param * c;
-		yy = x.y + param * d;
+		xx = param.mul_add(c, x.x);
+		yy = param.mul_add(d, x.y);
 	}
 
 	let dx = p.x - xx;
 	let dy = p.y - yy;
-	dx * dx + dy * dy
+	dx.mul_add(dx, dy * dy)
 }
 
-fn distance_to_way(points: &[Pos2], mouse: &Pos2) -> f32 {
+fn distance_to_way(points: &[Pos2], mouse: Pos2) -> f32 {
 	points
 		.windows(2)
 		.map(|p| distance_to_segment_sq(mouse, &[p[0], p[1]]))

@@ -24,7 +24,7 @@ pub const PARTIAL_FILL_WIDTH: f32 = 12.0;
 pub const PARTIAL_FILL_GAMMA_MULTIPLY: f32 = 0.5;
 pub const PARTIAL_FILL_THRESHOLD: f64 = 18.0;
 
-fn tint(dark: bool) -> u8 {
+const fn tint(dark: bool) -> u8 {
 	if dark { TINT_DARK } else { TINT_LIGHT }
 }
 
