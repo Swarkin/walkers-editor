@@ -38,33 +38,7 @@ self.addEventListener('install', (e) => {
 self.addEventListener('fetch', (e) => {
 	e.respondWith(
 		caches.match(e.request).then((response) => {
-			if (response) {
-				return response;
-			}
-
-			if (navigator.userAgent.toLowerCase().includes('firefox')) {
-				let headers = new Headers();
-				e.request.headers.forEach((value, key) => {
-					if (key.toLowerCase() !== 'user-agent') {
-						headers.append(key, value);
-					}
-				});
-
-				const modifiedRequest = new Request(e.request.url, {
-					method: e.request.method,
-					headers: headers,
-					body: e.request.body,
-					mode: e.request.mode,
-					credentials: e.request.credentials,
-					cache: e.request.cache,
-					redirect: e.request.redirect,
-					referrer: e.request.referrer
-				});
-
-				return fetch(modifiedRequest);
-			} else {
-				return fetch(e.request);
-			}
-		})
-	);
+			return response || fetch(e.request);
+		}
+	));
 });

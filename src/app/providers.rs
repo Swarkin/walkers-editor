@@ -91,9 +91,17 @@ impl TileSource for Bavaria20cm {
 }
 
 pub fn http_options() -> HttpOptions {
-	HttpOptions {
-		cache: if cfg!(target_family = "wasm") { None } else { Some(".cache".into()) },
+	#[cfg(not(target_family = "wasm"))]
+	return HttpOptions {
+		cache: Some(".cache".into()),
 		user_agent: Some(walkers::HeaderValue::from_static(crate::USER_AGENT)),
+		max_parallel_downloads: MaxParallelDownloads(6),
+	};
+
+	#[cfg(target_family = "wasm")]
+	HttpOptions {
+		cache: None,
+		user_agent: None,
 		max_parallel_downloads: MaxParallelDownloads(6),
 	}
 }
