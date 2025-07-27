@@ -2,10 +2,14 @@
 name = "walkers-editor"
 version = "0.1.0"
 authors = ["Swarkin"]
-repository = "https://github.com/Swarkin/walkers-editor"
-readme = "README.md"
 edition = "2024"
+description = "Editor for OpenStreetMap data"
+readme = "README.md"
+homepage = "https://swarkin.dev/walkers-editor"
+repository = "https://github.com/Swarkin/walkers-editor"
 license = "MIT"
+keywords = ["openstreetmap", "osm", "egui", "wasm"]
+categories = ["gui", "graphics", "wasm"]
 build = "build.rs"
 
 [features]

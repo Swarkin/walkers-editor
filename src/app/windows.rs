@@ -44,21 +44,21 @@ pub enum Window {
 impl std::fmt::Display for Window {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", match self {
-			Window::Tags => "Tags",
-			Window::Map => "Controls",
-			Window::History => "History",
-			Window::Toolbar => "Toolbar",
+			Self::Tags => "Tags",
+			Self::Map => "Controls",
+			Self::History => "History",
+			Self::Toolbar => "Toolbar",
 			#[cfg(feature = "debug")]
-			Window::Debug => "Debug",
+			Self::Debug => "Debug",
 		})
 	}
 }
 
 impl Window {
 	#[cfg(not(feature = "debug"))]
-	pub const ITER: [Window; 4] = [Window::Tags, Window::Map, Window::History, Window::Toolbar];
+	pub const ITER: [Self; 4] = [Self::Tags, Self::Map, Self::History, Self::Toolbar];
 	#[cfg(feature = "debug")]
-	pub const ITER: [Window; 5] = [Window::Tags, Window::Map, Window::History, Window::Toolbar, Window::Debug];
+	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Debug];
 }
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
@@ -126,11 +126,8 @@ pub fn map<'a>(
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
 			ui.collapsing("Map", |ui| {
-				let text = if let Some(selected_provider) = map_state.selected_provider {
-					format!("{selected_provider:?}")
-				} else {
-					"None".into()
-				};
+				let text = map_state.selected_provider
+					.map_or_else(|| "None".into(), |provider| format!("{provider:?}"));
 
 				egui::ComboBox::from_label("Tile Provider")
 					.selected_text(text)
@@ -229,7 +226,7 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 							);
 
 							let status_resp = status.as_mut().map(|status| match status {
-								Ok(_) => ui.strong("✔"),
+								Ok(()) => ui.strong("✔"),
 								Err(_) => ui.strong("✘"), // todo: global error modal / success toast
 							});
 
@@ -296,6 +293,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 						header.col(|ui| { ui.label("Refresh"); });
 					})
 					.body(|body| {
+						#[allow(clippy::cast_precision_loss)]
 						body.rows(18.0, CacheFlag::SIZE, |mut row| {
 							let i = row.index();
 							let (time, refresh) = editor_osm_data.cache_debug.0[i];
@@ -380,7 +378,7 @@ pub enum OverlapSelectorResult<'a> {
 	Selected(ElementRef<'a>),
 }
 
-pub fn overlap_selector<'a>(ui: &mut Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) -> InnerResponse<Option<OverlapSelectorResult<'a>>> {
+pub fn overlap_selector<'a>(ui: &Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) -> InnerResponse<Option<OverlapSelectorResult<'a>>> {
 	egui::Window::new("On Top Selector")
 		.title_bar(false)
 		.auto_sized()
@@ -394,8 +392,7 @@ pub fn overlap_selector<'a>(ui: &mut Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>
 					.atom_max_height(24.0);
 
 				let name = element.name()
-					.map(|x| format!("{x}\n"))
-					.unwrap_or_else(|| format!("Unnamed {}\n", element.type_str()));
+					.map_or_else(|| format!("Unnamed {}\n", element.type_str()), |x| format!("{x}\n"));
 
 				let mut text = LayoutJob::default();
 				text.append(&name, 0.0, TextFormat::simple(FontId::proportional(14.0), Color32::LIGHT_GRAY));

@@ -18,12 +18,11 @@ pub struct RStarOsmData {
 
 impl From<&OsmData> for RStarOsmData {
 	fn from(data: &OsmData) -> Self {
-		let mut positions = FxHashMap::<Id, WebMercatorPoint>::from_iter(
-			data.nodes.iter()
-				.map(|(id, node)| {
-					(*id, WebMercatorPoint::from([node.pos.lat as f32, node.pos.lon as f32]))
-				})
-		);
+		#[allow(clippy::cast_possible_truncation)]
+		let mut positions = data.nodes.iter()
+			.map(|(id, node)| {
+				(*id, WebMercatorPoint::from([node.pos.lat as f32, node.pos.lon as f32]))
+			}).collect::<FxHashMap<Id, WebMercatorPoint>>();
 
 		let ways = RTreeWays::bulk_load(
 			data.ways.iter().map(|(id, way)| {

@@ -3,7 +3,7 @@ use eframe::egui::Color32;
 use osm_parser::Tags;
 use std::fmt::{Display, Formatter};
 
-#[derive(Debug, Default, Clone, PartialEq)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Attribute2D {
 	pub left: TagValue,
 	pub right: TagValue,
@@ -11,10 +11,10 @@ pub struct Attribute2D {
 
 impl Attribute2D {
 	pub fn new(tags: &Tags, tag: &str) -> Self {
-		let mut attr = Attribute2D::default();
+		let mut attr = Self::default();
 
 		if let Some(v) = tags.get("sidewalk") {
-			attr = Attribute2D::from(TagSuffix::from(v.as_str()));
+			attr = Self::from(TagSuffix::from(v.as_str()));
 		}
 		if let Some(v) = tags.get(&format!("{tag}:left")) {
 			attr.left = TagValue::from(v.as_str());
@@ -39,18 +39,17 @@ impl Attribute2D {
 				if self.left == self.right {
 					tags.insert(format!("{tag}:both"), self.left.to_string());
 					return tags;
-				} else {
-					tags.insert(format!("{tag}:left"), self.left.to_string());
 				}
+				tags.insert(format!("{tag}:left"), self.left.to_string());
 			},
-			_ => {},
+			TagValue::Unknown => {},
 		}
 
 		match self.right {
 			TagValue::Yes | TagValue::No | TagValue::Separate => {
 				tags.insert(format!("{tag}:right"), self.right.to_string());
 			},
-			_ => {},
+			TagValue::Unknown => {},
 		}
 
 		tags
@@ -94,7 +93,7 @@ impl From<TagSuffix> for Attribute2D {
 }
 
 // tag value: sidewalk:left=*
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub enum TagValue {
 	Yes,
 	No,
@@ -105,10 +104,10 @@ pub enum TagValue {
 impl From<&str> for TagValue {
 	fn from(value: &str) -> Self {
 		match value {
-			"yes" => TagValue::Yes,
-			"no" | "none" => TagValue::No,
-			"separate" => TagValue::Separate,
-			_ => TagValue::Unknown,
+			"yes" => Self::Yes,
+			"no" | "none" => Self::No,
+			"separate" => Self::Separate,
+			_ => Self::Unknown,
 		}
 	}
 }
@@ -116,10 +115,10 @@ impl From<&str> for TagValue {
 impl Display for TagValue {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", match self {
-			TagValue::Yes => "yes",
-			TagValue::No => "no",
-			TagValue::Separate => "separate",
-			TagValue::Unknown => "unknown",
+			Self::Yes => "yes",
+			Self::No => "no",
+			Self::Separate => "separate",
+			Self::Unknown => "unknown",
 		})
 	}
 }
@@ -128,17 +127,17 @@ impl Display for TagValue {
 impl Into<Color32> for TagValue {
 	fn into(self) -> Color32 {
 		match self {
-			TagValue::Yes => SIDEWALK_YES_COLOR,
-			TagValue::No => SIDEWALK_NO_COLOR,
-			TagValue::Separate => SIDEWALK_SEPARATE_COLOR,
-			TagValue::Unknown => SIDEWALK_UNKNOWN_COLOR,
+			Self::Yes => SIDEWALK_YES_COLOR,
+			Self::No => SIDEWALK_NO_COLOR,
+			Self::Separate => SIDEWALK_SEPARATE_COLOR,
+			Self::Unknown => SIDEWALK_UNKNOWN_COLOR,
 		}
 	}
 }
 
 
 // tag suffix, sidewalk:*=yes
-#[derive(Debug, Default, Copy, Clone, PartialEq)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]
 pub enum TagSuffix {
 	Left,
 	Right,
@@ -151,12 +150,12 @@ pub enum TagSuffix {
 impl From<&str> for TagSuffix {
 	fn from(value: &str) -> Self {
 		match value {
-			"left" => TagSuffix::Left,
-			"right" => TagSuffix::Right,
-			"both" => TagSuffix::Both,
-			"separate" => TagSuffix::Separate,
-			"no" | "none" => TagSuffix::No,
-			_ => TagSuffix::Unknown,
+			"left" => Self::Left,
+			"right" => Self::Right,
+			"both" => Self::Both,
+			"separate" => Self::Separate,
+			"no" | "none" => Self::No,
+			_ => Self::Unknown,
 		}
 	}
 }

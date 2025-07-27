@@ -23,7 +23,7 @@ pub enum TilesKind {
 impl AsMut<dyn Tiles> for TilesKind {
 	fn as_mut(&mut self) -> &mut (dyn Tiles + 'static) {
 		match self {
-			TilesKind::Http(tiles) => tiles,
+			Self::Http(tiles) => tiles,
 		}
 	}
 }
@@ -31,7 +31,7 @@ impl AsMut<dyn Tiles> for TilesKind {
 impl AsRef<dyn Tiles> for TilesKind {
 	fn as_ref(&self) -> &(dyn Tiles + 'static) {
 		match self {
-			TilesKind::Http(tiles) => tiles,
+			Self::Http(tiles) => tiles,
 		}
 	}
 }
@@ -90,21 +90,24 @@ impl TileSource for Bavaria20cm {
 	fn max_zoom(&self) -> u8 { 20 }
 }
 
+#[cfg(not(target_family = "wasm"))]
 pub fn http_options() -> HttpOptions {
-	#[cfg(not(target_family = "wasm"))]
-	return HttpOptions {
+	HttpOptions {
 		cache: Some(".cache".into()),
 		user_agent: Some(walkers::HeaderValue::from_static(crate::USER_AGENT)),
 		max_parallel_downloads: MaxParallelDownloads(6),
-	};
+	}
+}
 
-	#[cfg(target_family = "wasm")]
+#[cfg(target_family = "wasm")]
+pub const fn http_options() -> HttpOptions {
 	HttpOptions {
 		cache: None,
 		user_agent: None,
 		max_parallel_downloads: MaxParallelDownloads(6),
 	}
 }
+
 
 pub fn providers(egui_ctx: &Context) -> ProviderMap {
 	let mut providers = ProviderMap::default();

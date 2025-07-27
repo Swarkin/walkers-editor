@@ -58,7 +58,7 @@ pub struct MapState {
 
 pub type SelectionBitflag = u8;
 
-#[derive(Copy, Clone, PartialEq)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum SelectionFlag {
 	Nodes = 1 << 0,
@@ -69,20 +69,20 @@ pub enum SelectionFlag {
 impl Display for SelectionFlag {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		write!(f, "{}", match self {
-			SelectionFlag::Nodes => "Nodes",
-			SelectionFlag::Ways => "Ways",
-			SelectionFlag::Areas => "Areas",
+			Self::Nodes => "Nodes",
+			Self::Ways => "Ways",
+			Self::Areas => "Areas",
 		})
 	}
 }
 
 impl SelectionFlag {
-	pub const ITER: [SelectionFlag; 3] = [SelectionFlag::Nodes, SelectionFlag::Ways, SelectionFlag::Areas];
+	pub const ITER: [Self; 3] = [Self::Nodes, Self::Ways, Self::Areas];
 }
 
 pub type CacheBitflag = u8;
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum CacheFlag {
 	NodeProjection = 1 << 0,
@@ -95,20 +95,20 @@ pub enum CacheFlag {
 }
 
 impl CacheFlag {
-	pub const ALL: CacheBitflag = 0b11111111;
+	pub const ALL: CacheBitflag = CacheBitflag::MAX;
 }
 
 #[cfg(feature = "debug")]
 impl CacheFlag {
 	pub const SIZE: usize = 7;
-	pub const ITER: [CacheFlag; Self::SIZE] = [
-		CacheFlag::NodeProjection,
-		CacheFlag::NodeOrphan,
-		CacheFlag::NodeDedup,
-		CacheFlag::NodeUsage,
-		CacheFlag::WayArea,
-		CacheFlag::WayMeshAndAreaSize,
-		CacheFlag::AreaSizeOrdered,
+	pub const ITER: [Self; Self::SIZE] = [
+		Self::NodeProjection,
+		Self::NodeOrphan,
+		Self::NodeDedup,
+		Self::NodeUsage,
+		Self::WayArea,
+		Self::WayMeshAndAreaSize,
+		Self::AreaSizeOrdered,
 	];
 }
 
