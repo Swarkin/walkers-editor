@@ -113,7 +113,7 @@ impl CacheFlag {
 }
 
 pub enum MapDownloadState {
-	Idle(Option<OsmResult<()>>),
+	Idle(Option<(OsmResult<()>, f64)>),
 	Downloading,
 }
 
