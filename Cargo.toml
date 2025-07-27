@@ -5,6 +5,7 @@ authors = ["Swarkin"]
 repository = "https://github.com/Swarkin/walkers-editor"
 readme = "README.md"
 edition = "2024"
+license = "MIT"
 build = "build.rs"
 
 [features]
