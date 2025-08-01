@@ -163,6 +163,7 @@ jobs:
             ~/.cargo/git
           key: wasm-release-cargo-${{ hashFiles('Cargo.toml') }}
           fail-on-cache-miss: true
+          enableCrossOsArchive: true
 
       - name: Download trunk
         run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
