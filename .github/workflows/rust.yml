@@ -161,7 +161,7 @@ jobs:
             target
             ~/.cargo/registry
             ~/.cargo/git
-          key: wasm-${{ hashFiles('Cargo.toml') }}
+          key: wasm-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}
           fail-on-cache-miss: true
 
       - name: Download trunk
