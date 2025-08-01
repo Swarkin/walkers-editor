@@ -35,7 +35,7 @@ fn main() {
 
 		if target_os == "windows" {
 			winresource::WindowsResource::new()
-				.set_icon("assets/icon.ico")
+				.set_icon("assets/favicon.ico")
 				.compile()
 				.expect("failed to register windows app icon");
 		}
