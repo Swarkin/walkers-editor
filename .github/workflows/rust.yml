@@ -166,10 +166,27 @@ jobs:
           enableCrossOsArchive: true
 
       - name: Download trunk
-        run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+        shell: pwsh
+        run: |
+          if ($env:RUNNER_OS -eq "Windows") {
+            Invoke-WebRequest -Uri https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-pc-windows-msvc.zip -OutFile trunk.zip
+            Expand-Archive trunk.zip -DestinationPath .
+            Remove-Item trunk.zip
+          } elseif ($env:RUNNER_OS -eq "Linux") {
+            wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+          } else {
+            exit 1
+          }
 
       - name: Build
-        run: ./trunk build --release --public-url $PUBLIC_URL
+        run: |
+          if ($env:RUNNER_OS -eq "Windows") {
+            ./trunk.exe build --release --public-url $PUBLIC_URL
+          } elseif ($env:RUNNER_OS -eq "Linux") {
+            ./trunk build --release --public-url $PUBLIC_URL
+          } else {
+            exit 1
+          }
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
