@@ -15,15 +15,21 @@ fn main() -> Result<(), eframe::Error> {
 	use eframe::icon_data::from_png_bytes;
 	use eframe::egui::ViewportBuilder;
 
-	let options = eframe::NativeOptions {
-		viewport: ViewportBuilder::default()
-			.with_inner_size([980.0, 720.0])
-			.with_min_inner_size([300.0, 200.0])
-			.with_clamp_size_to_monitor_size(true)
-			.with_icon(from_png_bytes(include_bytes!("../assets/icon/64.png"))
-				.expect("failed to load icon")),
-		..Default::default()
-	};
+	#[cfg(not(feature = "kiosk"))]
+	let viewport = ViewportBuilder::default()
+		.with_inner_size([980.0, 720.0])
+		.with_min_inner_size([300.0, 200.0])
+		.with_clamp_size_to_monitor_size(true)
+		.with_icon(from_png_bytes(include_bytes!("../assets/icon/64.png"))
+			.expect("failed to load icon"));
+
+	#[cfg(feature = "kiosk")]
+	let viewport = ViewportBuilder::default()
+		.with_fullscreen(true)
+		.with_icon(from_png_bytes(include_bytes!("../assets/icon/64.png"))
+			.expect("failed to load icon"));
+
+	let options = eframe::NativeOptions { viewport, ..Default::default() };
 
 	eframe::run_native(
 		"walkers-editor",
