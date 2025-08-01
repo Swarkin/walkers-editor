@@ -2,65 +2,191 @@ name: Rust
 
 on:
   push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
 env:
-  CARGO_TERM_COLOR: always
+  CARGO_TERM_COLOR: "always"
   RUSTFLAGS: "-Dwarnings"
+  CLIPPY_FLAGS: "-W clippy::all -W clippy::pedantic -W clippy::nursery -W clippy::cargo"
+  BUILD_FLAGS: "--all-targets --all-features"
+  TRUNK_ARTIFACT_NAME: "trunk-output"
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-native:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build-type: [debug, release]
+
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Cache
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: |
             target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+          key: ${{ runner.os }}-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}
 
-      - name: Build (debug)
-        run: cargo build --verbose --all-targets --all-features
+      - name: Build (${{ runner.os }}, ${{ matrix.build-type }})
+        run: |
+          if [ "${{ matrix.build-type }}" = "release" ]; then
+            cargo build --release --verbose $BUILD_FLAGS
+          else
+            cargo build --verbose $BUILD_FLAGS
+          fi
+        shell: bash
 
-      - name: Build (release)
-        run: cargo build --release --verbose --all-targets --all-features
-
-      - name: Upload release artifact
+      - name: Upload artifact (${{ matrix.build-type }})
         uses: actions/upload-artifact@v4
         with:
-          name: walkers-editor
-          path: target/release/walkers-editor
+          name: ${{ github.event.repository.name }}-${{ matrix.os }}-${{ matrix.build-type }}
+          path: target/${{ matrix.build-type }}/${{ github.event.repository.name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
-  check:
-    needs: build
+  build-wasm:
+    strategy:
+      fail-fast: false
+      matrix:
+        build-type: [debug, release]
+
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Cache
-        uses: actions/cache@v4
-        with:
-          path: |
-            target
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Clippy (debug, native)
-        run: cargo clippy --all-targets --all-features -- -W clippy::all -W clippy::pedantic -W clippy::nursery -W clippy::cargo
-
       - name: Install wasm target
         run: rustup target add wasm32-unknown-unknown
 
-      - name: Clippy (debug, wasm)
-        run: cargo clippy --target wasm32-unknown-unknown --all-targets --all-features
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: wasm-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}
+
+      - name: Build (wasm, ${{ matrix.build-type }})
+        run: |
+          if [ "${{ matrix.build-type }}" = "release" ]; then
+            cargo build --target wasm32-unknown-unknown --release --verbose $BUILD_FLAGS
+          else
+            cargo build --target wasm32-unknown-unknown --verbose $BUILD_FLAGS
+          fi
+        shell: bash
+
+  check-native:
+    needs: build-native
+    if: success()
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        build-type: [debug, release]
+
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}
+          fail-on-cache-miss: true
+
+      - name: Clippy (${{ runner.os }}, ${{ matrix.build-type }})
+        run: |
+          if [ "${{ matrix.build-type }}" = "release" ]; then
+            cargo clippy --release $BUILD_FLAGS -- $CLIPPY_FLAGS
+          else
+            cargo clippy $BUILD_FLAGS -- $CLIPPY_FLAGS
+          fi
+        shell: bash
+
+  check-wasm:
+    needs: build-wasm
+    if: success()
+
+    strategy:
+      fail-fast: false
+      matrix:
+        build-type: [debug, release]
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: wasm-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}
+          fail-on-cache-miss: true
+
+      - name: Clippy (wasm, ${{ matrix.build-type }})
+        run: |
+          if [ "${{ matrix.build-type }}" = "release" ]; then
+            cargo clippy --target wasm32-unknown-unknown --release $BUILD_FLAGS -- $CLIPPY_FLAGS
+          else
+            cargo clippy --target wasm32-unknown-unknown $BUILD_FLAGS -- $CLIPPY_FLAGS
+          fi
+        shell: bash
+
+  compile-wasm:
+    needs: check-wasm
+    if: success()
+
+    env:
+      PUBLIC_URL: "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}"
+
+    permissions:
+      contents: write
+
+    runs-on: windows-latest
+    steps:
+      - name: Install wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - uses: actions/checkout@v4
+      - uses: actions/cache@v4
+        with:
+          path: |
+            target
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: wasm-release-cargo-${{ hashFiles('Cargo.toml') }}
+          fail-on-cache-miss: true
+
+      - name: Download trunk
+        run: wget -qO- https://github.com/thedodd/trunk/releases/latest/download/trunk-x86_64-unknown-linux-gnu.tar.gz | tar -xzf-
+
+      - name: Build
+        run: ./trunk build --release --public-url $PUBLIC_URL
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          name: ${{ env.TRUNK_ARTIFACT_NAME }}
+          path: dist
+
+  deploy-pages:
+    needs: compile-wasm
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    permissions:
+      pages: write
+      id-token: write
+
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Pages
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: ${{ env.TRUNK_ARTIFACT_NAME }}
