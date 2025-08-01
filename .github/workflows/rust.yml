@@ -162,9 +162,7 @@ jobs:
             target
             ~/.cargo/registry
             ~/.cargo/git
-          key: wasm-release-cargo-${{ hashFiles('Cargo.toml') }}
-          fail-on-cache-miss: true
-          enableCrossOsArchive: true
+          key: wasm-release-trunk-${{ hashFiles('Cargo.toml') }}
 
       - name: Download trunk
         shell: pwsh
