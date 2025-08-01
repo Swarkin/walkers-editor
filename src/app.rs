@@ -9,6 +9,7 @@ pub mod icons;
 
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
+use eframe::egui::ViewportCommand;
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Margin, PopupCloseBehavior, RichText, ThemePreference, TopBottomPanel, Ui, Vec2};
 use osm::{OsmClient, TargetServer};
@@ -361,6 +362,12 @@ impl eframe::App for MyApp {
 			&& windows::licenses_modal(ctx)
 		{
 			self.state.show_licenses_modal = false;
+		}
+
+		#[cfg(not(feature = "kiosk"))]
+		if ctx.input_mut(|i| i.consume_shortcut(shortcuts::FULLSCREEN)) {
+			let state = ctx.input(|i| i.viewport().fullscreen.unwrap_or(true));
+			ctx.send_viewport_cmd(ViewportCommand::Fullscreen(!state));
 		}
 	}
 }
