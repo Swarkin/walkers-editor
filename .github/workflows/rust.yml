@@ -179,11 +179,12 @@ jobs:
           }
 
       - name: Build
+        shell: pwsh
         run: |
           if ($env:RUNNER_OS -eq "Windows") {
-            ./trunk.exe build --release --public-url $PUBLIC_URL
+            ./trunk.exe build --release --public-url $env:PUBLIC_URL
           } elseif ($env:RUNNER_OS -eq "Linux") {
-            ./trunk build --release --public-url $PUBLIC_URL
+            ./trunk build --release --public-url $env:PUBLIC_URL
           } else {
             exit 1
           }
