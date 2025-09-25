@@ -136,11 +136,11 @@ impl MyApp {
 						map(ui, None, &mut self.editor.map_memory, editor_plugin);
 					}
 
-					if self.editor.window_flags & Window::Tags as u8 == 0 {
-						if let Some(element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first()) {
-							let element = self.editor.osm_data.get(element.id_ref()).expect("id not found");
-							windows::tags(ui, element.tags());
-						}
+					if self.editor.window_flags & Window::Tags as u8 == 0
+						&& let Some(element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first())
+					{
+						let element = self.editor.osm_data.get(element.id_ref()).expect("id not found");
+						windows::tags(ui, element.tags());
 					}
 
 					if self.editor.window_flags & Window::History as u8 == 0 {

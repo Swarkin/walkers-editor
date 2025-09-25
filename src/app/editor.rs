@@ -430,10 +430,10 @@ impl Plugin for EditorPlugin<'_> {
 							}
 
 							// draw editing ui
-							if self.is_way_relevant(&way.tags) {
-								if let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.editor_state.last_click_coords).to_pos2()) {
-									self.osm.apply_change(change);
-								}
+							if self.is_way_relevant(&way.tags)
+								&& let Some(change) = self.way_editing_ui(ui, way.id, projector.project(self.editor_state.last_click_coords).to_pos2())
+							{
+								self.osm.apply_change(change);
 							}
 							true
 						} else { false }
