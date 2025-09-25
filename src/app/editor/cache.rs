@@ -134,7 +134,7 @@ impl ElementRef<'_> {
 		}
 	}
 
-	pub const fn element_icon(&self) -> ImageSource {
+	pub const fn element_icon(&self) -> ImageSource<'_> {
 		match self {
 			ElementRef::Node(_) => PRIMITIVE_NODE_ICON,
 			ElementRef::Way(_) => PRIMITIVE_WAY_ICON,
@@ -203,7 +203,7 @@ impl EditorOsmData {
 		}
 	}
 
-	pub fn get(&self, id: &Id) -> Option<ElementRef> {
+	pub fn get(&self, id: &Id) -> Option<ElementRef<'_>> {
 		self.data.nodes.get(id).map(ElementRef::Node)
 			.or_else(|| self.data.ways.get(id).map(ElementRef::Way))
 	}
