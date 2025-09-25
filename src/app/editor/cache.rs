@@ -191,11 +191,11 @@ impl EditorOsmData {
 			Change::UpdateWay(id, way) => {
 				self.data.ways.insert(id, way.clone());
 
-				if let Some(Change::UpdateWay(prev_id, prev_way)) = self.changes.last_mut() {
-					if *prev_id == id {
-						*prev_way = way;
-						return; // do not record a new change
-					}
+				if let Some(Change::UpdateWay(prev_id, prev_way)) = self.changes.last_mut()
+					&& *prev_id == id
+				{
+					*prev_way = way;
+					return; // do not record a new change
 				}
 
 				self.changes.push(Change::UpdateWay(id, way));

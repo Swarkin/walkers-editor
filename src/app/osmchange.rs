@@ -102,6 +102,7 @@ impl From<(&String, &String)> for Tag {
 	}
 }
 
+#[allow(unused)]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Nd {
 	r#ref: Id,

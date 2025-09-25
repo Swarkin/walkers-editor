@@ -10,6 +10,7 @@ pub struct Attribute2D {
 }
 
 impl Attribute2D {
+	#[allow(clippy::useless_let_if_seq)]
 	pub fn new(tags: &Tags, tag: &str) -> Self {
 		let mut attr = Self::default();
 
