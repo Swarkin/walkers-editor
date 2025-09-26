@@ -167,6 +167,13 @@ impl MyApp {
 						self.editor.map_state.download = MapDownloadState::Downloading;
 					}
 
+					if self.editor.window_flags & Window::Location as u8 == 0 && let Some(pos) = self.editor.map_memory.detached() {
+						let pos = windows::location(ui, pos, self.editor.map_memory.zoom());
+						if let Some(pos) = pos {
+							self.editor.map_memory.center_at(pos);
+						}
+					}
+
 					#[cfg(feature = "debug")] {
 						if (self.editor.window_flags & (Window::Debug as u8)) == 0 {
 							let tiles = self.editor.map_state.selected_provider.as_ref()
