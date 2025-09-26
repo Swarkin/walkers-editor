@@ -280,7 +280,7 @@ pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 				ui.separator();
 
 				if ui.button("Copy").clicked() {
-					ui.ctx().copy_text(format!("{:.6}, {:.6}", pos.x(), pos.y()));
+					ui.ctx().copy_text(format!("{:.6}, {:.6}", pos.y(), pos.x()));
 				}
 			});
 
