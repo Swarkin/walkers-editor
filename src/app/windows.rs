@@ -9,8 +9,9 @@ use super::osm::Bbox;
 use super::providers::Provider;
 use eframe::egui;
 use egui::text::LayoutJob;
-use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2, Shadow, Stroke, TextFormat, Ui, Vec2};
+use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2, Shadow, Stroke, TextFormat, Ui, Vec2};
 use walkers::sources::Attribution;
+use walkers::Position;
 
 const TRANSPARENT_FRAME: Frame = Frame {
 	inner_margin: Margin::same(6),
@@ -30,6 +31,7 @@ pub enum Window {
 	Map = 1 << 1,
 	History = 1 << 2,
 	Toolbar = 1 << 3,
+	Location = 1 << 4,
 	#[cfg(feature = "debug")]
 	Debug = 1 << 7,
 }
@@ -41,6 +43,7 @@ impl std::fmt::Display for Window {
 			Self::Map => "Controls",
 			Self::History => "History",
 			Self::Toolbar => "Toolbar",
+			Self::Location => "Location",
 			#[cfg(feature = "debug")]
 			Self::Debug => "Debug",
 		})
@@ -49,9 +52,9 @@ impl std::fmt::Display for Window {
 
 impl Window {
 	#[cfg(not(feature = "debug"))]
-	pub const ITER: [Self; 4] = [Self::Tags, Self::Map, Self::History, Self::Toolbar];
+	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Location];
 	#[cfg(feature = "debug")]
-	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Debug];
+	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Location, Self::Debug];
 }
 
 pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
@@ -241,6 +244,48 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 				}
 			}).inner
 		}).unwrap().inner.unwrap()
+}
+
+pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
+	egui::Window::new("Location")
+		.default_pos(Pos2::new(ui.available_width() / 2.0, TOP_BAR_HEIGHT + WINDOW_MARGIN))
+		.frame(TRANSPARENT_FRAME)
+		.resizable(false)
+		.show(ui.ctx(), |ui| {
+			ui.style_mut().spacing.item_spacing = Vec2::splat(4.0);
+
+			let base_deg_per_tile = 360.0;
+			let deg_per_pixel = base_deg_per_tile / (256.0 * zoom.exp2());
+			let cos_lat = pos.0.y.to_radians().cos();
+			let vertical_speed = deg_per_pixel * cos_lat;
+
+			let mut edit_pos = pos;
+
+			ui.horizontal(|ui| {
+				let dragger = egui::DragValue::new(&mut edit_pos.0.y)
+					.fixed_decimals(6)
+					.range(-89.9..=89.9)
+					.speed(vertical_speed);
+
+				if ui.add(dragger).hovered() {
+					ui.ctx().set_cursor_icon(CursorIcon::ResizeVertical);
+				}
+
+				let dragger = egui::DragValue::new(&mut edit_pos.0.x)
+					.fixed_decimals(6)
+					.range(-179.9..=179.9)
+					.speed(deg_per_pixel);
+				ui.add(dragger);
+
+				ui.separator();
+
+				if ui.button("Copy").clicked() {
+					ui.ctx().copy_text(format!("{:.6}, {:.6}", pos.x(), pos.y()));
+				}
+			});
+
+			if edit_pos == pos { None } else { Some(edit_pos) }
+		})?.inner?
 }
 
 #[cfg(feature = "debug")]
