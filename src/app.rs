@@ -116,7 +116,11 @@ impl MyApp {
 					}
 				}
 
-				CentralPanel::default().frame(Frame::NONE).show(ctx, |ui| {
+				let fill = if self.editor.map_state.selected_provider == Some(Provider::OpenStreetMap) {
+					Color32::from_rgb(242, 239, 233)
+				} else { Color32::from_gray(32) };
+
+				CentralPanel::default().frame(Frame::default().fill(fill)).show(ctx, |ui| {
 					let tiles = self.editor.map_state.selected_provider.map(|x| {
 						self.editor.tile_providers.get_mut(&x).unwrap().as_mut()
 					});
