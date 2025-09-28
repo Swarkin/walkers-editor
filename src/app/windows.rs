@@ -1,13 +1,8 @@
-use super::editor::{
-	cache::{Change, ElementRef},
-	consts::{osm::*, *},
-	states::{MapDownloadState, MapState, SelectionFlag},
-	visual::{FillMode, Visualization},
-};
+use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, states::{MapDownloadState, MapState, SelectionFlag}, visual::{FillMode, Visualization}, EditMode, EditOperation, EditorPluginState};
 use super::icons;
-use super::osm::Bbox;
 use super::providers::Provider;
 use eframe::egui;
+use eframe::egui::{Modifiers, Rect, Sense};
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2, Shadow, Stroke, TextFormat, Ui, Vec2};
 use walkers::sources::Attribution;
@@ -179,16 +174,27 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 }
 
 // Returns whether a download was triggered
-pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
+pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPluginState) -> bool {
+	const MODE_INDICATOR_WIDTH: f32 = 8.0;
+
+	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
+	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, TRANSPARENT_FRAME.total_margin().top.mul_add(2., 24. + 4.)));
+	let color = match editor_state.mode { EditMode::View => Color32::from_rgb(60, 160, 255), EditMode::Edit => Color32::LIGHT_RED };
+
+	// Draw mode indicator
+	ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode", editor_state.mode));
+	ui.painter().rect_filled(rect, CornerRadius::ZERO, color);
+
+	// Draw toolbar
 	egui::Window::new("Toolbar")
 		.title_bar(false)
 		.resizable(false)
-		.anchor(Align2::LEFT_TOP, [WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN])
-		.frame(TRANSPARENT_FRAME)
+		.anchor(Align2::LEFT_TOP, top_left.to_vec2() + Vec2::new(MODE_INDICATOR_WIDTH, 0.0))
+		.frame(TRANSPARENT_FRAME.corner_radius(CornerRadius { ne: 6, nw: 0, se: 6, sw: 0 }))
 		.show(ui.ctx(), |ui| {
 			ui.spacing_mut().button_padding = Vec2::splat(2.0);
 			ui.horizontal(|ui| {
-				/* selection modes */ {
+				/* primitives buttons */ {
 					const ICONS: [ImageSource; 2] = [
 						icons::PRIMITIVE_NODE_ICON,
 						icons::PRIMITIVE_WAY_ICON,
@@ -198,14 +204,20 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 					for ((flag, icon), key) in SelectionFlag::ITER.into_iter()
 						.zip(ICONS).zip(KEYS)
 					{
-						let selected = state.selection_mode & flag as u8 != 0;
+						let selected = if editor_state.mode == EditMode::View {
+							state.selection_mode & flag as u8 != 0
+						} else { false };
 						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(24.0));
 
 						let resp = ui.add(Button::image(image).selected(selected).corner_radius(4));
 						if !ui.ctx().wants_keyboard_input()
-							&& (resp.clicked() || ui.input_mut(|i| i.key_pressed(key)))
+							&& (resp.clicked() || ui.input_mut(|i| i.consume_key(Modifiers::NONE, key)))
 						{
-							state.selection_mode ^= flag as u8;
+							if editor_state.mode == EditMode::View {
+								state.selection_mode ^= flag as u8;
+							} else {
+								editor_state.operation = EditOperation::AddNode;
+							}
 						}
 					}
 				}
@@ -215,7 +227,7 @@ pub fn toolbar(ui: &Ui, state: &mut MapState, bbox: &Bbox) -> bool {
 				/* map download */ {
 					match &state.download {
 						MapDownloadState::Idle(status) => {
-							let enabled = bbox.area() < MAX_DOWNLOAD_AREA;
+							let enabled = editor_state.map_bbox.area() < MAX_DOWNLOAD_AREA;
 							let time = ui.ctx().input(|i| i.time);
 
 							let button_resp = if let Some((status, prev_time)) = status && time - prev_time < DOWNLOAD_FEEDBACK_SECONDS {
@@ -297,7 +309,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 		.resizable(false)
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
-			ui.heading(format!("Δt: {} ms", ui.input(|i| i.unstable_dt) * 1000.0));
+			ui.heading(format!("Δt: {:.4} ms", ui.input(|i| i.unstable_dt) * 1000.0));
 			if let Some(p) = provider {
 				let super::providers::TilesKind::Http(http_tiles) = p;
 				let stats = http_tiles.stats();

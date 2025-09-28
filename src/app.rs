@@ -7,10 +7,11 @@ mod osmchange;
 mod worker;
 pub mod icons;
 
+use crate::app::editor::{EditMode, EditOperation};
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Margin, PopupCloseBehavior, RichText, ThemePreference, TopBottomPanel, Ui, Vec2};
+use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ThemePreference, TopBottomPanel, Ui, Vec2};
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
 use providers::{providers, Provider};
@@ -69,7 +70,6 @@ impl MyApp {
 								self.state.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
 								self.uploader.osmchange = OsmChange::from(&self.editor.osm_data.changes);
-								self.uploader.osmchange.prepare_upload(0); // temporary
 								// todo: handle Err case
 								self.uploader.osmchange_text = self.uploader.osmchange.to_string_pretty().unwrap();
 							}
@@ -164,11 +164,14 @@ impl MyApp {
 						}
 					}
 
-					if self.editor.window_flags & Window::Toolbar as u8 == 0 && windows::toolbar(ui, &mut self.editor.map_state, &self.editor.plugin_state.map_bbox) {
-						let request = Request::GetMap(Box::new(self.editor.plugin_state.map_bbox.clone()));
-						self.worker_handle.send_message(request);
+					if self.editor.window_flags & Window::Toolbar as u8 == 0 {
+						#[allow(clippy::collapsible_if)]
+						if windows::toolbar(ui, &mut self.editor.map_state, &mut self.editor.plugin_state) {
+							let request = Request::GetMap(Box::new(self.editor.plugin_state.map_bbox.clone()));
+							self.worker_handle.send_message(request);
 
-						self.editor.map_state.download = MapDownloadState::Downloading;
+							self.editor.map_state.download = MapDownloadState::Downloading;
+						}
 					}
 
 					if self.editor.window_flags & Window::Location as u8 == 0 && let Some(pos) = self.editor.map_memory.detached() {
@@ -253,7 +256,10 @@ impl MyApp {
 						ui.add_space(10.0);
 						ui.label("2. Paste the resulting code into the field below:");
 						let widget = TextEdit::singleline(&mut self.authenticator.authorization_code);
-						if ui.add_enabled(!self.authenticator.request_pending, widget).lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
+						if ui.add_enabled(!self.authenticator.request_pending, widget).lost_focus()
+							&& ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter))
+							&& !self.authenticator.authorization_code.is_empty()
+						{
 							self.worker_handle.send_message(Request::FetchToken(self.authenticator.authorization_code.clone()));
 							self.authenticator.request_pending = true;
 						}
@@ -263,6 +269,16 @@ impl MyApp {
 					}
 				});
 			}
+		}
+
+		if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Space)) {
+			self.editor.plugin_state.mode = match self.editor.plugin_state.mode {
+				EditMode::View => EditMode::Edit,
+				EditMode::Edit => {
+					self.editor.plugin_state.operation = EditOperation::Idle;
+					EditMode::View
+				},
+			};
 		}
 	}
 }

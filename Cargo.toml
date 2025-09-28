@@ -17,13 +17,13 @@ debug = []
 kiosk = []
 
 [dependencies]
-walkers = "0.43.0"
+walkers = "0.45.0"
 eframe = { version = "0.32", default-features = false, features = ["glow", "default_fonts"] }
 egui_extras = { version = "0.32", default-features = false, features = ["svg", "syntect"] }
 serde = { version = "1", features = ["derive"] }
 quick-xml = { version = "0.38", features = ["serialize"] }
 crossbeam-channel = "0.5"
-osm-parser = { version = "4.1", features = ["rustc_hash"], git = "https://github.com/Swarkin/osm-parser.git" }
+osm-parser = { version = "=5.0", features = ["rustc_hash"], git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"
 lyon_tessellation = "1.0"
 rustc-hash = "2.1.1"
