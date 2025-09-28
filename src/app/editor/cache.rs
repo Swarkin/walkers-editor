@@ -68,13 +68,21 @@ pub struct MeshData {
 
 #[derive(Debug)]
 pub enum Change {
-	UpdateWay(Id, Way),
+	CreateNode(Id, Node),
+	ModifyWay(Id, Way),
 }
 
 impl Display for Change {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::UpdateWay(id, way) => {
+			Self::CreateNode(id, node) => {
+				if let Some(name) = node.tags.get("name") {
+					write!(f, "Added {name}")
+				} else {
+					write!(f, "Added Node {id}")
+				}
+			}
+			Self::ModifyWay(id, way) => {
 				if let Some(name) = way.tags.get("name") {
 					write!(f, "Updated {name}")
 				} else {
@@ -188,17 +196,21 @@ impl ElementId {
 impl EditorOsmData {
 	pub fn apply_change(&mut self, change: Change) {
 		match change {
-			Change::UpdateWay(id, way) => {
+			Change::CreateNode(id, node) => {
+				self.data.nodes.insert(id, node.clone());
+				self.changes.push(Change::CreateNode(id, node));
+			}
+			Change::ModifyWay(id, way) => {
 				self.data.ways.insert(id, way.clone());
 
-				if let Some(Change::UpdateWay(prev_id, prev_way)) = self.changes.last_mut()
+				if let Some(Change::ModifyWay(prev_id, prev_way)) = self.changes.last_mut()
 					&& *prev_id == id
 				{
 					*prev_way = way;
 					return; // do not record a new change
 				}
 
-				self.changes.push(Change::UpdateWay(id, way));
+				self.changes.push(Change::ModifyWay(id, way));
 			}
 		}
 	}

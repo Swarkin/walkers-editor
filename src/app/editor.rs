@@ -7,15 +7,17 @@ pub mod r_star;
 
 use super::osm::Bbox;
 use super::places::school;
-use crate::app::editor::r_star::WebMercatorPoint;
-use crate::app::windows::OverlapSelectorResult;
+use super::windows::OverlapSelectorResult;
+use crate::app::editor::r_star::NodeEntry;
 use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
-use eframe::egui::{Color32, FontId, Pos2, Response, Stroke, Ui};
+use eframe::egui::{Color32, CursorIcon, FontId, Pos2, Response, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use osm_parser::*;
+use r_star::WebMercatorPoint;
 use rstar::AABB;
 use states::{CacheFlag, MapState, SelectionFlag};
+use std::fmt::Display;
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
 use walkers::{MapMemory, Plugin, Position, Projector};
@@ -31,12 +33,36 @@ pub struct EditorPlugin<'a> {
 /// Data that persists or is produced between frames
 #[derive(Default)]
 pub struct EditorPluginState {
+	pub mode: EditMode,
+	pub operation: EditOperation,
 	pub hovered: Vec<ElementId>,
 	pub selected: Option<ElementId>,
 	pub map_bbox: Bbox,
 	pub last_click_coords: Position,
 	pub overlap_selector_elements: Vec<ElementId>,
 	pub overlap_selector_pos: Pos2,
+	pub placeholder_id: Id,
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Eq)]
+pub enum EditMode {
+	#[default] View,
+	Edit,
+}
+
+#[derive(Default, Copy, Clone, PartialEq, Eq)]
+pub enum EditOperation {
+	#[default] Idle,
+	AddNode,
+}
+
+impl Display for EditMode {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", match self {
+			Self::View => "View",
+			Self::Edit => "Edit",
+		})
+	}
 }
 
 impl Plugin for EditorPlugin<'_> {
@@ -80,6 +106,33 @@ impl Plugin for EditorPlugin<'_> {
 			self.editor_state.map_bbox.bottom = br.y();
 			self.editor_state.map_bbox.right = br.x();
 			self.editor_state.map_bbox.top = tl.y();
+		}
+
+		#[allow(clippy::single_match)]
+		match self.editor_state.operation {
+			EditOperation::Idle => {}
+			EditOperation::AddNode => {
+				ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
+
+				if clicked {
+					#[allow(clippy::collapsible_if)]
+					if let Some(mouse) = mouse {
+						self.editor_state.placeholder_id -= 1;
+						let id = self.editor_state.placeholder_id;
+						let pos = projector.unproject(mouse.to_vec2());
+						let coord = Coordinate::new(pos.0.y, pos.0.x);
+
+						#[allow(clippy::cast_possible_truncation)]
+						self.osm.rtree_data.nodes.insert(NodeEntry::new([coord.lat as f32, coord.lon as f32], id));
+						let change = Change::CreateNode(id, Node { id, pos: coord, ..Default::default() });
+						self.osm.apply_change(change);
+
+						self.editor_state.operation = EditOperation::Idle;
+						self.editor_state.selected = Some(ElementId::Node(id));
+						self.osm.refresh_in_view_flag = true;
+					}
+				}
+			}
 		}
 
 		/* update elements in view */ {
@@ -686,8 +739,9 @@ impl EditorPlugin<'_> {
 		}
 	}
 
-	const fn should_detect_interactions(&self, mouse: Option<Pos2>, selection_flag: SelectionFlag) -> bool {
-		mouse.is_some()
+	fn should_detect_interactions(&self, mouse: Option<Pos2>, selection_flag: SelectionFlag) -> bool {
+		self.editor_state.operation == EditOperation::Idle
+			&& mouse.is_some()
 			&& self.map_state.selection_mode & selection_flag as u8 != 0
 			&& self.editor_state.overlap_selector_elements.is_empty()
 	}

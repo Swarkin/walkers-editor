@@ -157,7 +157,7 @@ pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 				new_way.tags.remove(TAG_BOTH);
 
 				merge_tags(&mut new_way.tags, sidewalk_tags);
-				Some(Change::UpdateWay(new_way.id, new_way))
+				Some(Change::ModifyWay(new_way.id, new_way))
 			} else { None }
 		})?.inner?
 }
