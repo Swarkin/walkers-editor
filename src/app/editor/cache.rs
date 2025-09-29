@@ -66,9 +66,11 @@ pub struct MeshData {
 	pub vertices: Vec<Vertex>,
 }
 
+// todo: use more precise changes to save memory
 #[derive(Debug)]
 pub enum Change {
 	CreateNode(Id, Node),
+	ModifyNode(Id, Node),
 	ModifyWay(Id, Way),
 }
 
@@ -82,6 +84,13 @@ impl Display for Change {
 					write!(f, "Added Node {id}")
 				}
 			}
+			Self::ModifyNode(id, node) => {
+				if let Some(name) = node.tags.get("name") {
+					write!(f, "Updated {name}")
+				} else {
+					write!(f, "Updated Node {id}")
+				}
+			},
 			Self::ModifyWay(id, way) => {
 				if let Some(name) = way.tags.get("name") {
 					write!(f, "Updated {name}")
@@ -200,6 +209,17 @@ impl EditorOsmData {
 				self.data.nodes.insert(id, node.clone());
 				self.changes.push(Change::CreateNode(id, node));
 			}
+			Change::ModifyNode(id, node ) => {
+				self.data.nodes.insert(id, node.clone());
+
+				if let Some(Change::ModifyNode(prev_id, prev_node)) = self.changes.last_mut()
+					&& *prev_id == id
+				{
+					*prev_node = node;
+				} else {
+					self.changes.push(Change::ModifyNode(id, node));
+				}
+			}
 			Change::ModifyWay(id, way) => {
 				self.data.ways.insert(id, way.clone());
 
@@ -207,10 +227,9 @@ impl EditorOsmData {
 					&& *prev_id == id
 				{
 					*prev_way = way;
-					return; // do not record a new change
+				} else {
+					self.changes.push(Change::ModifyWay(id, way));
 				}
-
-				self.changes.push(Change::ModifyWay(id, way));
 			}
 		}
 	}

@@ -130,6 +130,7 @@ pub struct Nd {
 impl OsmChange {
 	pub fn from(changes: &Vec<Change>) -> Self {
 		let mut created_nodes = HashMap::new();
+		let mut modified_nodes = HashMap::new();
 		let mut modified_ways = HashMap::new();
 
 		let mut create = Create::default();
@@ -141,6 +142,9 @@ impl OsmChange {
 				Change::CreateNode(_, node) => {
 					created_nodes.insert(node.id, node);
 				}
+				Change::ModifyNode(_, node) => {
+					modified_nodes.insert(node.id, node);
+				}
 				Change::ModifyWay(_, way) => {
 					modified_ways.insert(way.id, way);
 				}
@@ -149,6 +153,12 @@ impl OsmChange {
 
 		for node in created_nodes.into_values() {
 			create.node.push(node.into());
+		}
+
+		for node in modified_nodes.into_values() {
+			let mut n: Node = node.into();
+			n.version += 1;
+			modify.node.push(n);
 		}
 
 		for way in modified_ways.into_values() {

@@ -2,7 +2,8 @@ use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, states::{M
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
-use eframe::egui::{Modifiers, Rect, Sense};
+use eframe::egui::ahash::HashMapExt;
+use eframe::egui::{Modifiers, Rect, Sense, TextEdit};
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2, Shadow, Stroke, TextFormat, Ui, Vec2};
 use walkers::sources::Attribution;
@@ -85,21 +86,45 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
 		});
 }
 
-pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
+pub fn tags(ui: &Ui, tags: &osm_parser::Tags) -> Option<osm_parser::Tags> {
 	egui::Window::new("Tags")
 		.collapsible(true)
-		.resizable(false)
-		.anchor(Align2::LEFT_TOP, [WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN + 54.]) // todo: extract magic number
+		.default_size([200., 300.])
+		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
-			Grid::new("tags").show(ui, |ui| {
-				for (k, v) in tags {
-					ui.label(k);
-					ui.label(v);
+			let inner = Grid::new("tags").show(ui, |ui| {
+				let mut changed = false;
+				let mut tags = tags.clone().into_iter().collect::<Vec<_>>(); // not the most efficient
+
+				for (k, v) in &mut tags {
+					if ui.text_edit_singleline(k).changed() { changed = true; }
+					if ui.text_edit_singleline(v).changed() { changed = true; }
 					ui.end_row();
 				}
-			});
-		});
+
+				let mut new_key = String::new();
+				let text_edit = TextEdit::singleline(&mut new_key)
+					.hint_text("+ New key");
+
+				if ui.add(text_edit).changed() {
+					tags.push((new_key, String::new()));
+					changed = true;
+				}
+				ui.end_row();
+
+				ui.allocate_space(ui.available_size());
+
+				if changed {
+					let mut new_tags = osm_parser::Tags::with_capacity(tags.len());
+					for (k, v) in tags { new_tags.insert(k, v); }
+					return Some(new_tags);
+				}
+				None
+			}).inner;
+			ui.allocate_space(ui.available_size()); // make window resizable
+			inner
+		})?.inner?
 }
 
 // Returns whether the licenses button was pressed
