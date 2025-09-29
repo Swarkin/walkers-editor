@@ -7,6 +7,7 @@ mod osmchange;
 mod worker;
 pub mod icons;
 
+use crate::app::editor::cache::{Change, ElementRef};
 use crate::app::editor::{EditMode, EditOperation};
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
@@ -140,11 +141,30 @@ impl MyApp {
 						map(ui, None, &mut self.editor.map_memory, editor_plugin);
 					}
 
+					// todo: dont offer edit functionality in view mode
+					// todo: textbox mode like in iD
 					if self.editor.window_flags & Window::Tags as u8 == 0
 						&& let Some(element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first())
 					{
 						let element = self.editor.osm_data.get(element.id_ref()).expect("id not found");
-						windows::tags(ui, element.tags());
+						if let Some(new_tags) = windows::tags(ui, element.tags()) {
+							match element {
+								ElementRef::Node(node) => {
+									let mut new_node = node.clone();
+									new_node.tags = new_tags;
+
+									let change = Change::ModifyNode(node.id, new_node);
+									self.editor.osm_data.apply_change(change);
+								}
+								ElementRef::Way(way) => {
+									let mut new_way = way.clone();
+									new_way.tags = new_tags;
+
+									let change = Change::ModifyWay(way.id, new_way);
+									self.editor.osm_data.apply_change(change);
+								}
+							}
+						}
 					}
 
 					if self.editor.window_flags & Window::History as u8 == 0 {
