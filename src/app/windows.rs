@@ -2,10 +2,9 @@ use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, states::{M
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
-use eframe::egui::ahash::HashMapExt;
-use eframe::egui::{Modifiers, Rect, Sense, TextEdit};
+use egui::ahash::HashMapExt;
 use egui::text::LayoutJob;
-use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2, Shadow, Stroke, TextFormat, Ui, Vec2};
+use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, Ui, Vec2};
 use walkers::sources::Attribution;
 use walkers::Position;
 
