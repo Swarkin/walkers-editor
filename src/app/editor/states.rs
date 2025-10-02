@@ -7,6 +7,7 @@ use crate::app::{
 	windows::WindowBitflag,
 };
 use eframe::egui::Vec2;
+use indexmap::IndexMap;
 use std::{
 	collections::HashMap,
 	fmt::{Display, Formatter},
@@ -22,6 +23,7 @@ pub struct EditorState {
 	pub osm_data: EditorOsmData,
 	pub window_flags: WindowBitflag,
 	pub prev_size: Vec2,
+	pub editing_tags: Option<IndexMap<String, String>>,
 }
 
 impl EditorState {
@@ -42,6 +44,7 @@ impl EditorState {
 			plugin_state: EditorPluginState::default(),
 			window_flags: WindowBitflag::default(),
 			prev_size: Vec2::ZERO,
+			editing_tags: None,
 		}
 	}
 }

@@ -2,9 +2,9 @@ use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, states::{M
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
-use egui::ahash::HashMapExt;
 use egui::text::LayoutJob;
-use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, Ui, Vec2};
+use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextFormat, Ui, Vec2};
+use egui_extras::{Column, TableBuilder};
 use walkers::sources::Attribution;
 use walkers::Position;
 
@@ -85,16 +85,58 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
 		});
 }
 
-pub fn tags(ui: &Ui, tags: &osm_parser::Tags) -> Option<osm_parser::Tags> {
-	egui::Window::new("Tags")
+#[derive(Debug)]
+pub enum TagsEditKind {
+	Key(usize, String),
+	Value(usize, String),
+	End,
+}
+
+pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>) -> Option<TagsEditKind> {
+	let resp = egui::Window::new("Tags")
 		.collapsible(true)
 		.default_size([200., 300.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
-			let inner = Grid::new("tags").show(ui, |ui| {
+			let mut change: Option<TagsEditKind> = None;
+
+			TableBuilder::new(ui)
+				.striped(true)
+				.resizable(true)
+				.columns(Column::auto(), 2)
+				.header(16.0, |mut header| {
+					header.col(|ui| { ui.strong("Key"); });
+					header.col(|ui| { ui.strong("Value"); });
+				})
+				.body(|body| {
+					body.rows(16.0, editing_tags.len(), |mut row| {
+						let i = row.index();
+						let pair = editing_tags.get_index(row.index()).unwrap();
+						let (mut new_k, mut new_v) = (pair.0.to_owned(), pair.1.to_owned());
+
+						row.col(|ui| {
+							let resp = ui.text_edit_singleline(&mut new_k);
+							if resp.changed() {
+								change = Some(TagsEditKind::Key(i, new_k));
+							} else if resp.lost_focus() {
+								change = Some(TagsEditKind::End);
+							}
+						});
+						row.col(|ui| {
+							let resp = ui.text_edit_singleline(&mut new_v);
+							if resp.changed() {
+								change = Some(TagsEditKind::Value(i, new_v));
+							} else if resp.lost_focus() {
+								change = Some(TagsEditKind::End);
+							};
+						});
+					});
+				});
+
+			/*
+			let inner = Grid::new("tags").num_columns(tags.len()).show(ui, |ui| {
 				let mut changed = false;
-				let mut tags = tags.clone().into_iter().collect::<Vec<_>>(); // not the most efficient
 
 				for (k, v) in &mut tags {
 					if ui.text_edit_singleline(k).changed() { changed = true; }
@@ -121,9 +163,16 @@ pub fn tags(ui: &Ui, tags: &osm_parser::Tags) -> Option<osm_parser::Tags> {
 				}
 				None
 			}).inner;
+			*/
 			ui.allocate_space(ui.available_size()); // make window resizable
-			inner
-		})?.inner?
+			change
+		}).unwrap();
+
+	if !resp.response.has_focus() {
+		todo!();
+	}
+
+	resp.inner?
 }
 
 // Returns whether the licenses button was pressed
