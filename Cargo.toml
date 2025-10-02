@@ -27,7 +27,7 @@ osm-parser = { version = "=5.0", features = ["rustc_hash"], git = "https://githu
 webmercator_tiles = "1.0"
 lyon_tessellation = "1.0"
 rustc-hash = "2.1.1"
-indexmap = "2.10"
+indexmap = "2.11"
 rstar = "0.12"
 
 [target.'cfg(target_family = "unix")'.dependencies]
