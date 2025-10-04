@@ -102,6 +102,15 @@ impl Display for Change {
 	}
 }
 
+impl Change {
+	pub const fn element_id(&self) -> ElementId {
+		match self {
+			Self::CreateNode(id, _) | Self::ModifyNode(id, _) => ElementId::Node(*id),
+			Self::ModifyWay(id, _) => ElementId::Way(*id),
+		}
+	}
+}
+
 // stores the source data, changes, and caches.
 #[derive(Default)]
 pub struct EditorOsmData {
@@ -187,7 +196,7 @@ impl ElementRef<'_> {
 	}
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ElementId {
 	Node(Id),
 	Way(Id),
