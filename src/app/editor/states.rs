@@ -14,6 +14,7 @@ use std::{
 	num::NonZeroU32
 };
 use walkers::MapMemory;
+use crate::app::editor::cache::ElementId;
 
 pub struct EditorState {
 	pub tile_providers: HashMap<Provider, TilesKind>,
@@ -23,7 +24,7 @@ pub struct EditorState {
 	pub osm_data: EditorOsmData,
 	pub window_flags: WindowBitflag,
 	pub prev_size: Vec2,
-	pub editing_tags: Option<IndexMap<String, String>>,
+	pub edit_window: Option<(ElementId, IndexMap<String, String>)>,
 }
 
 impl EditorState {
@@ -44,7 +45,7 @@ impl EditorState {
 			plugin_state: EditorPluginState::default(),
 			window_flags: WindowBitflag::default(),
 			prev_size: Vec2::ZERO,
-			editing_tags: None,
+			edit_window: None,
 		}
 	}
 }
