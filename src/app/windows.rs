@@ -97,17 +97,18 @@ pub enum TagsEditKind {
 pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_enabled: bool) -> Option<TagsEditKind> {
 	let resp = egui::Window::new("Tags")
 		.collapsible(true)
-		.auto_sized()
-		.default_size([200., 300.])
+		.vscroll(true)
+		.default_size([300., 200.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
-			let mut change: Option<TagsEditKind> = None;
+			let mut change = None;
 
 			TableBuilder::new(ui)
 				.striped(true)
 				.resizable(true)
-				.columns(Column::initial(150.0), 2)
+				.column(Column::initial(100.0).clip(true))
+				.column(Column::remainder().clip(true))
 				.header(16.0, |mut header| {
 					header.col(|ui| { ui.strong("Key"); });
 					header.col(|ui| { ui.strong("Value"); });
@@ -115,10 +116,19 @@ pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_ena
 				.body(|body| {
 					if edit_enabled {
 						// todo: add ability to add new tag
-						body.rows(22.0, editing_tags.len() + 1, |mut row| {
+						body.rows(20.0, editing_tags.len() + 1, |mut row| {
 							let i = row.index();
 
-							if i != editing_tags.len() {
+							if i == editing_tags.len() {
+								let mut new_key = String::new();
+
+								row.col(|ui| {
+									let resp = ui.add(TextEdit::singleline(&mut new_key).hint_text("+ New Key"));
+									if resp.changed() {
+										change = Some(TagsEditKind::NewKey(new_key));
+									}
+								});
+							} else {
 								let pair = editing_tags.get_index(row.index()).unwrap();
 								let (mut new_k, mut new_v) = (pair.0.to_owned(), pair.1.to_owned());
 
@@ -136,23 +146,12 @@ pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_ena
 										change = Some(TagsEditKind::Value(i, new_v));
 									} else if resp.lost_focus() {
 										change = Some(TagsEditKind::End);
-									};
-								});
-							} else {
-								let mut new_key = String::new();
-
-								row.col(|ui| {
-									let resp = ui.add(TextEdit::singleline(&mut new_key).hint_text("+ New Key"));
-									if resp.changed() {
-										change = Some(TagsEditKind::NewKey(new_key));
-									} else if resp.lost_focus() {
-										change = Some(TagsEditKind::End);
 									}
 								});
 							}
 						});
 					} else {
-						body.rows(22.0, editing_tags.len(), |mut row| {
+						body.rows(20.0, editing_tags.len(), |mut row| {
 							let (k, v) = editing_tags.get_index(row.index()).unwrap();
 							row.col(|ui| {
 								ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
@@ -167,6 +166,7 @@ pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_ena
 						});
 					}
 				});
+			ui.allocate_space(Vec2::new(0., ui.available_height()));
 			change
 		}).unwrap();
 
@@ -177,7 +177,7 @@ pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_ena
 pub fn map<'a>(
 	ui: &Ui,
 	map_state: &mut MapState,
-	providers: &mut impl Iterator<Item = &'a Provider>,
+	providers: &mut impl Iterator<Item=&'a Provider>,
 ) -> bool {
 	egui::Window::new("Map")
 		.collapsible(false)
@@ -250,7 +250,10 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 
 	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
 	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, TRANSPARENT_FRAME.total_margin().top.mul_add(2., 24. + 4.)));
-	let color = match editor_state.mode { EditMode::View => Color32::from_rgb(60, 160, 255), EditMode::Edit => Color32::LIGHT_RED };
+	let color = match editor_state.mode {
+		EditMode::View => Color32::from_rgb(60, 160, 255),
+		EditMode::Edit => Color32::LIGHT_RED
+	};
 
 	// Draw mode indicator
 	ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode", editor_state.mode));
@@ -397,9 +400,9 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 			});
 
 			ui.collapsing("Cache Timings", |ui| {
-				egui_extras::TableBuilder::new(ui)
+				TableBuilder::new(ui)
 					.striped(true)
-					.columns(egui_extras::Column::auto(), 3)
+					.columns(Column::auto(), 3)
 					.header(18.0, |mut header| {
 						header.col(|ui| { ui.label("Cache"); });
 						header.col(|ui| { ui.label("Time (ms)"); });
