@@ -7,7 +7,7 @@ mod osmchange;
 mod worker;
 pub mod icons;
 
-use crate::app::editor::cache::{Change, ElementRef};
+use crate::app::editor::cache::{Change, ElementId, ElementRef};
 use crate::app::editor::{EditMode, EditOperation};
 use editor::{consts::*, states::*, visual::FillMode};
 use eframe::egui;
@@ -17,6 +17,7 @@ use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
 use providers::{providers, Provider};
+use rustc_hash::FxHashSet;
 use walkers::{Map, Tiles};
 use windows::Window;
 use worker::{Request, Response, Worker, WorkerHandle};
@@ -387,7 +388,19 @@ impl MyApp {
 	fn handle_message(&mut self, msg: Response, ctx: &Context) {
 		match msg {
 			Response::Map(result) => {
-				let result = result.map(|data| {
+				let result = result.map(|mut data| {
+					let mut local_changes = FxHashSet::default();
+					for change in &self.editor.osm_data.changes {
+						local_changes.insert(change.element_id());
+					}
+
+					data.nodes.retain(|id, _| {
+						// todo: handle conflicts
+						// if let Some(node) = self.editor.osm_data.data.nodes.get(id) && node.version != n.version {}
+						!local_changes.contains(&ElementId::Node(*id))
+					});
+					data.ways.retain(|id, _| !local_changes.contains(&ElementId::Way(*id)));
+
 					self.editor.osm_data.append_new_nodes_ways(data);
 					self.editor.osm_data.refresh_in_view_flag = true;
 				});
