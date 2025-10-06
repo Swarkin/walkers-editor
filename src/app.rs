@@ -7,9 +7,8 @@ mod osmchange;
 mod worker;
 pub mod icons;
 
-use crate::app::editor::cache::{Change, ElementId, ElementRef};
-use crate::app::editor::{EditMode, EditOperation};
-use editor::{consts::*, states::*, visual::FillMode};
+use editor::cache::{Change, ElementId, ElementRef};
+use editor::{consts::*, states::*, visual::FillMode, EditMode, EditOperation};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ThemePreference, TopBottomPanel, Ui, Vec2};
@@ -19,9 +18,8 @@ use osmchange::OsmChange;
 use providers::{providers, Provider};
 use rustc_hash::FxHashSet;
 use walkers::{Map, Tiles};
-use windows::Window;
+use windows::{TagsEditKind, Window};
 use worker::{Request, Response, Worker, WorkerHandle};
-use crate::app::windows::TagsEditKind;
 
 #[derive(Default)]
 pub struct AppState {
@@ -145,58 +143,61 @@ impl MyApp {
 					}
 
 					// todo: textbox mode like in iD
-					if self.editor.window_flags & Window::Tags as u8 == 0
-						&& let Some(focused_element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first())
-					{
-						let element = self.editor.osm_data.get(focused_element.id_ref()).expect("id not found");
-						if let Some((editing_id, editing_tags)) = &mut self.editor.edit_window {
-							if editing_id != focused_element {
-								// todo: update tags on selection change
-								*editing_tags = IndexMap::from_iter(element.tags().to_owned());
-								*editing_id = focused_element.to_owned();
+					if self.editor.window_flags & Window::Tags as u8 == 0	{
+						if let Some(focused_element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first()) {
+							let element = self.editor.osm_data.get(focused_element.id_ref()).expect("id not found");
+							if let Some((editing_id, editing_tags)) = &mut self.editor.edit_window {
+								if editing_id != focused_element {
+									*editing_tags = IndexMap::from_iter(element.tags().to_owned());
+									focused_element.clone_into(editing_id);
+								}
+							} else {
+								// todo: avoid allocation when window never focused
+								let mut map = IndexMap::from_iter(element.tags().to_owned());
+								map.sort_unstable_keys();
+								self.editor.edit_window = Some((focused_element.to_owned(), map));
+							}
+
+							let (_, editing_tags) = self.editor.edit_window.as_mut().unwrap();
+							let edit_enabled = self.editor.plugin_state.mode == EditMode::Edit;
+
+							if let Some(edit_kind) = windows::tags(ui, editing_tags, edit_enabled) {
+								match edit_kind {
+									TagsEditKind::Key(i, k) => {
+										if let Some((_, value)) = editing_tags.get_index(i).map(|(k, v)| (k.clone(), v.clone())) {
+											editing_tags.shift_remove_index(i);
+											editing_tags.insert_before(i, k, value);
+										}
+									}
+									TagsEditKind::Value(i, v) => {
+										*editing_tags.get_index_mut(i).unwrap().1 = v;
+									}
+									TagsEditKind::NewKey(new_key) => {
+										editing_tags.insert(new_key, String::new());
+									}
+									TagsEditKind::End => {
+										let new_tags = editing_tags.clone().into_iter().collect::<osm_parser::Tags>();
+										match element {
+											ElementRef::Node(node) => {
+												let mut new_node = node.clone();
+												new_node.tags = new_tags;
+
+												let change = Change::ModifyNode(node.id, new_node);
+												self.editor.osm_data.apply_change(change);
+											}
+											ElementRef::Way(way) => {
+												let mut new_way = way.clone();
+												new_way.tags = new_tags;
+
+												let change = Change::ModifyWay(way.id, new_way);
+												self.editor.osm_data.apply_change(change);
+											}
+										}
+									}
+								}
 							}
 						} else {
-							// todo: avoid allocation when window never focused
-							self.editor.edit_window = Some((focused_element.to_owned(), IndexMap::from_iter(element.tags().to_owned())));
-						}
-
-						let (_, editing_tags) = self.editor.edit_window.as_mut().unwrap();
-						let edit_enabled = self.editor.plugin_state.mode == EditMode::Edit;
-
-						if let Some(edit_kind) = windows::tags(ui, editing_tags, edit_enabled) {
-							match edit_kind {
-								TagsEditKind::Key(i, k) => {
-									if let Some((_, value)) = editing_tags.get_index(i).map(|(k, v)| (k.clone(), v.clone())) {
-										editing_tags.shift_remove_index(i);
-										editing_tags.insert_before(i, k, value);
-									}
-								}
-								TagsEditKind::Value(i, v) => {
-									*editing_tags.get_index_mut(i).unwrap().1 = v;
-								}
-								TagsEditKind::NewKey(new_key) => {
-									editing_tags.insert(new_key, String::new());
-								}
-								TagsEditKind::End => {
-									let new_tags = osm_parser::Tags::from_iter(editing_tags.drain(..));
-									match element {
-										ElementRef::Node(node) => {
-											let mut new_node = node.clone();
-											new_node.tags = new_tags;
-
-											let change = Change::ModifyNode(node.id, new_node);
-											self.editor.osm_data.apply_change(change);
-										}
-										ElementRef::Way(way) => {
-											let mut new_way = way.clone();
-											new_way.tags = new_tags;
-
-											let change = Change::ModifyWay(way.id, new_way);
-											self.editor.osm_data.apply_change(change);
-										}
-									}
-								}
-							}
+							self.editor.edit_window = None;
 						}
 					}
 
