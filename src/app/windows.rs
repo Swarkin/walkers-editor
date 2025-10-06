@@ -2,6 +2,7 @@ use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, states::{M
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
+use eframe::egui::{TextEdit, TextWrapMode};
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextFormat, Ui, Vec2};
 use egui_extras::{Column, TableBuilder};
@@ -89,12 +90,14 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
 pub enum TagsEditKind {
 	Key(usize, String),
 	Value(usize, String),
+	NewKey(String),
 	End,
 }
 
-pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>) -> Option<TagsEditKind> {
+pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_enabled: bool) -> Option<TagsEditKind> {
 	let resp = egui::Window::new("Tags")
 		.collapsible(true)
+		.auto_sized()
 		.default_size([200., 300.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
 		.frame(TRANSPARENT_FRAME)
@@ -104,73 +107,68 @@ pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>) -> Optio
 			TableBuilder::new(ui)
 				.striped(true)
 				.resizable(true)
-				.columns(Column::auto(), 2)
+				.columns(Column::initial(150.0), 2)
 				.header(16.0, |mut header| {
 					header.col(|ui| { ui.strong("Key"); });
 					header.col(|ui| { ui.strong("Value"); });
 				})
 				.body(|body| {
-					body.rows(16.0, editing_tags.len(), |mut row| {
-						let i = row.index();
-						let pair = editing_tags.get_index(row.index()).unwrap();
-						let (mut new_k, mut new_v) = (pair.0.to_owned(), pair.1.to_owned());
+					if edit_enabled {
+						// todo: add ability to add new tag
+						body.rows(22.0, editing_tags.len() + 1, |mut row| {
+							let i = row.index();
 
-						row.col(|ui| {
-							let resp = ui.text_edit_singleline(&mut new_k);
-							if resp.changed() {
-								change = Some(TagsEditKind::Key(i, new_k));
-							} else if resp.lost_focus() {
-								change = Some(TagsEditKind::End);
+							if i != editing_tags.len() {
+								let pair = editing_tags.get_index(row.index()).unwrap();
+								let (mut new_k, mut new_v) = (pair.0.to_owned(), pair.1.to_owned());
+
+								row.col(|ui| {
+									let resp = ui.text_edit_singleline(&mut new_k);
+									if resp.changed() {
+										change = Some(TagsEditKind::Key(i, new_k));
+									} else if resp.lost_focus() {
+										change = Some(TagsEditKind::End);
+									}
+								});
+								row.col(|ui| {
+									let resp = ui.text_edit_singleline(&mut new_v);
+									if resp.changed() {
+										change = Some(TagsEditKind::Value(i, new_v));
+									} else if resp.lost_focus() {
+										change = Some(TagsEditKind::End);
+									};
+								});
+							} else {
+								let mut new_key = String::new();
+
+								row.col(|ui| {
+									let resp = ui.add(TextEdit::singleline(&mut new_key).hint_text("+ New Key"));
+									if resp.changed() {
+										change = Some(TagsEditKind::NewKey(new_key));
+									} else if resp.lost_focus() {
+										change = Some(TagsEditKind::End);
+									}
+								});
 							}
 						});
-						row.col(|ui| {
-							let resp = ui.text_edit_singleline(&mut new_v);
-							if resp.changed() {
-								change = Some(TagsEditKind::Value(i, new_v));
-							} else if resp.lost_focus() {
-								change = Some(TagsEditKind::End);
-							};
+					} else {
+						body.rows(22.0, editing_tags.len(), |mut row| {
+							let (k, v) = editing_tags.get_index(row.index()).unwrap();
+							row.col(|ui| {
+								ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+								ui.add_space(2.0);
+								ui.label(k);
+							});
+							row.col(|ui| {
+								ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+								ui.add_space(2.0);
+								ui.label(v);
+							});
 						});
-					});
+					}
 				});
-
-			/*
-			let inner = Grid::new("tags").num_columns(tags.len()).show(ui, |ui| {
-				let mut changed = false;
-
-				for (k, v) in &mut tags {
-					if ui.text_edit_singleline(k).changed() { changed = true; }
-					if ui.text_edit_singleline(v).changed() { changed = true; }
-					ui.end_row();
-				}
-
-				let mut new_key = String::new();
-				let text_edit = TextEdit::singleline(&mut new_key)
-					.hint_text("+ New key");
-
-				if ui.add(text_edit).changed() {
-					tags.push((new_key, String::new()));
-					changed = true;
-				}
-				ui.end_row();
-
-				ui.allocate_space(ui.available_size());
-
-				if changed {
-					let mut new_tags = osm_parser::Tags::with_capacity(tags.len());
-					for (k, v) in tags { new_tags.insert(k, v); }
-					return Some(new_tags);
-				}
-				None
-			}).inner;
-			*/
-			ui.allocate_space(ui.available_size()); // make window resizable
 			change
 		}).unwrap();
-
-	if !resp.response.has_focus() {
-		todo!();
-	}
 
 	resp.inner?
 }

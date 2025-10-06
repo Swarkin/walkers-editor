@@ -144,37 +144,41 @@ impl MyApp {
 						map(ui, None, &mut self.editor.map_memory, editor_plugin);
 					}
 
-					// todo: dont offer edit functionality in view mode
 					// todo: textbox mode like in iD
 					if self.editor.window_flags & Window::Tags as u8 == 0
-						&& let Some(element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first())
+						&& let Some(focused_element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first())
 					{
-						let element = self.editor.osm_data.get(element.id_ref()).expect("id not found");
-						if self.editor.editing_tags.is_none() {
-							self.editor.editing_tags = Some(IndexMap::from_iter(element.tags().to_owned()))
+						let element = self.editor.osm_data.get(focused_element.id_ref()).expect("id not found");
+						if let Some((editing_id, editing_tags)) = &mut self.editor.edit_window {
+							if editing_id != focused_element {
+								// todo: update tags on selection change
+								*editing_tags = IndexMap::from_iter(element.tags().to_owned());
+								*editing_id = focused_element.to_owned();
+							}
+						} else {
 							// todo: avoid allocation when window never focused
-							// todo: dealloc tags when tags window out of focus
+							self.editor.edit_window = Some((focused_element.to_owned(), IndexMap::from_iter(element.tags().to_owned())));
 						}
 
-						if let Some(edit_kind) = windows::tags(ui, self.editor.editing_tags.as_ref().unwrap()) {
-							dbg!(&edit_kind);
+						let (_, editing_tags) = self.editor.edit_window.as_mut().unwrap();
+						let edit_enabled = self.editor.plugin_state.mode == EditMode::Edit;
+
+						if let Some(edit_kind) = windows::tags(ui, editing_tags, edit_enabled) {
 							match edit_kind {
 								TagsEditKind::Key(i, k) => {
-									let tags_mut = self.editor.editing_tags.as_mut().unwrap();
-									if let Some((_, value)) = tags_mut.get_index(i).map(|(k, v)| (k.clone(), v.clone())) {
-										tags_mut.shift_remove_index(i);
-										tags_mut.insert_before(i, k, value);
+									if let Some((_, value)) = editing_tags.get_index(i).map(|(k, v)| (k.clone(), v.clone())) {
+										editing_tags.shift_remove_index(i);
+										editing_tags.insert_before(i, k, value);
 									}
 								}
 								TagsEditKind::Value(i, v) => {
-									let tags_mut = self.editor.editing_tags.as_mut().unwrap();
-									*tags_mut.get_index_mut(i).unwrap().1 = v;
+									*editing_tags.get_index_mut(i).unwrap().1 = v;
+								}
+								TagsEditKind::NewKey(new_key) => {
+									editing_tags.insert(new_key, String::new());
 								}
 								TagsEditKind::End => {
-									let new_tags = osm_parser::Tags::from_iter(
-										self.editor.editing_tags.take().unwrap()
-									);
-
+									let new_tags = osm_parser::Tags::from_iter(editing_tags.drain(..));
 									match element {
 										ElementRef::Node(node) => {
 											let mut new_node = node.clone();
