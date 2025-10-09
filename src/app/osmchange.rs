@@ -1,4 +1,4 @@
-// osmchange data structures
+	// osmchange data structures
 // todo: find a way to reduce number of structs and conversions
 
 use super::editor::cache::Change;
@@ -63,8 +63,10 @@ pub struct Node {
 	#[serde(rename = "@version")]
 	pub version: u32,
 	#[serde(rename = "@lon")]
+	#[serde(serialize_with = "serialize_f64_7")]
 	pub lon: f64,
 	#[serde(rename = "@lat")]
+	#[serde(serialize_with = "serialize_f64_7")]
 	pub lat: f64,
 	#[serde(rename = "tag")]
 	pub tags: Vec<Tag>,
@@ -182,4 +184,9 @@ impl OsmChange {
 		self.serialize(ser)?;
 		Ok(buffer)
 	}
+}
+
+fn serialize_f64_7<S>(val: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where S: serde::Serializer {
+	serializer.serialize_str(&format!("{:.7}", val))
 }
