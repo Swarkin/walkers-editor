@@ -181,13 +181,13 @@ mod native {
 		}
 
 		// todo: error type
-		pub fn close_changeset(&self, id: NonZeroU32) -> OsmResult<NonZeroU32> {
+		pub fn close_changeset(&self, id: NonZeroU32) -> OsmResult<()> {
 			let url = api_url(format!("/changeset/{id}/close"), self.target_server);
 			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
 			self.http_client.put(url)
 				.header("authorization", format!("{} {}", auth.token_type, auth.access_token))
 				.send_empty()
-				.map(|_| id)
+				.map(|_| ())
 				.map_err(Box::from)
 		}
 
@@ -225,70 +225,56 @@ mod web {
 			}
 		}
 
+		pub async fn send_request(&self, method: String, url: String, body: Vec<u8>, headers: &[(&str, &str)]) -> ehttp::Result<ehttp::Response> {
+			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref();
+			let mut headers = ehttp::Headers::new(headers);
+			if let Some(auth) = auth {
+				headers.insert("authorization", format!("{} {}", auth.token_type, auth.access_token));
+			}
+
+			ehttp::fetch_async(Request { method, url, body, headers, mode: ehttp::Mode::Cors, })
+				.await
+				.map(|x| if x.ok { Ok(x) } else { Err(format!("Request failed with status code {}", x.status)) })?
+		}
+
 		pub async fn get_map(&self, bbox: &Bbox) -> OsmResult<OsmData> {
 			let url = api_url_override(format!("/map.json?bbox={},{},{},{}", bbox.left, bbox.bottom, bbox.right, bbox.top), TargetServer::OpenStreetMap);
-			let resp = ehttp::fetch_async(Request::get(url)).await
-				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
 
+			let resp = self.send_request("GET".into(), url, vec![], &[]).await?;
 			let raw = resp.json::<raw::RawOsmData>()?;
 			raw.try_into()
 		}
 
 		pub async fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<NonZeroU32> {
 			let url = api_url("/changeset/create", self.target_server);
-			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
 			let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
 			let body = quick_xml::se::to_string(&data)?;
-			let resp = ehttp::fetch_async(Request {
-				method: "PUT".into(),
-				url,
-				body: body.into_bytes(),
-				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
-				..Default::default()
-			}).await
-				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
 
+			let resp = self.send_request("PUT".into(), url, body.into_bytes(), &[]).await?;
 			String::from_utf8(resp.bytes)?
 				.parse().map_err(Box::from)
 		}
 
-		pub async fn diff_upload(&self, osmchange_str: String) -> OsmResult<String> {
+		pub async fn diff_upload(&self, id: NonZeroU32, osmchange_str: String) -> OsmResult<String> {
 			let url = api_url(format!("/changeset/{id}/upload"), self.target_server);
-			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
-			ehttp::fetch_async(Request {
-				method: "POSt".to_string(),
-				url,
-				body: osmchange_str.into_bytes(),
-				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
-				..Default::default()
-			})
+
+			let resp = self.send_request("POST".into(), url, osmchange_str.into_bytes(), &[]).await?;
+			String::from_utf8(resp.bytes).map_err(Box::from)
 		}
 
-		pub async fn close_changeset(&self, id: NonZeroU32) -> OsmResult<NonZeroU32> {
+		pub async fn close_changeset(&self, id: NonZeroU32) -> OsmResult<()> {
 			let url = api_url(format!("/changeset/{id}/close"), self.target_server);
-			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
-			ehttp::fetch_async(Request {
-				method: "PUT".into(),
-				url,
-				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
-				..Default::default()
-			}).await
-				.map(|x| if x.ok { Ok(id) } else { Err(format!("request failed with status code {}", x.status)) })?
+
+			self.send_request("PUT".into(), url, vec![], &[]).await
+				.map(|_| ())
 				.map_err(Box::from)
 		}
 
 		pub async fn fetch_token(&self, auth_code: impl AsRef<str>) -> OsmResult<OsmToken> {
 			let url = format!("https://{}", self.target_server.base_token_url());
 			let body = format!("grant_type=authorization_code&code={}&redirect_uri={REDIRECT_URI}&client_id={}", auth_code.as_ref(), self.target_server.client_id());
-			let resp = ehttp::fetch_async(Request {
-				method: "POST".into(),
-				url,
-				body: body.into_bytes(),
-				headers: ehttp::Headers::new(&[("content-type", "application/x-www-form-urlencoded")]),
-				..Default::default()
-			}).await
-				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
 
+			let resp = self.send_request("POST".into(), url, body.into_bytes(), &[("content-type", "application/x-www-form-urlencoded")]).await?;
 			resp.json::<OsmToken>()
 				.map_err(Box::from)
 		}

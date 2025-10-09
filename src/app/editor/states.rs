@@ -127,7 +127,7 @@ pub struct UploaderState {
 	pub osmchange_text: String,
 	pub changeset_creation: Option<OsmResult<NonZeroU32>>,
 	pub diff_upload: Option<OsmResult<String>>,
-	pub changeset_closure: Option<OsmResult<NonZeroU32>>,
+	pub changeset_closure: Option<OsmResult<()>>,
 	pub request_pending: bool,
 }
 
