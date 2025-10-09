@@ -117,14 +117,15 @@ mod native {
 	use osm_parser::OsmData;
 	use std::num::NonZeroU32;
 	use std::time::Duration;
+	use ureq::http::Response;
+	use ureq::{AsSendBody, Body};
 
 	pub struct OsmClient {
 		pub http_client: ureq::Agent,
 		pub target_server: TargetServer,
 		pub auth_token: [Option<OsmToken>; TargetServer::SIZE],
 	}
-
-	// todo: auto-add authorization token if available
+	
 	impl OsmClient {
 		pub fn new(target_server: TargetServer) -> Self {
 			Self {
@@ -132,11 +133,19 @@ mod native {
 					.user_agent(crate::USER_AGENT)
 					.https_only(true)
 					.max_redirects(0)
-					.timeout_global(Some(Duration::from_secs(30)))
+					.timeout_global(Some(Duration::from_secs(60)))
 					.build().into(),
 				target_server,
 				auth_token: Default::default(),
 			}
+		}
+
+		pub fn post_with_auth(&self, url: String, data: impl AsSendBody) -> OsmResult<Response<Body>> {
+			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
+			self.http_client.post(url)
+				.header("authorization", format!("{} {}", auth.token_type, auth.access_token))
+				.send(data)
+				.map_err(Box::from)
 		}
 
 		// todo: error type
@@ -152,15 +161,23 @@ mod native {
 		// todo: error type
 		pub fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<NonZeroU32> {
 			let url = api_url("/changeset/create", self.target_server);
-			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
 			let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
 			let body = quick_xml::se::to_string(&data)?;
-			let resp = self.http_client.put(url)
-				.header("authorization", format!("{} {}", auth.token_type, auth.access_token))
-				.send(body)?;
-			resp.into_body()
+			self.post_with_auth(url, body)?
+				.into_body()
 				.read_to_string()?
-				.parse().map_err(Box::from)
+				.parse::<NonZeroU32>()
+				.map_err(Box::from)
+		}
+
+		// todo: error type
+		/// https://wiki.openstreetmap.org/wiki/API_v0.6#Diff_upload:_POST_/api/0.6/changeset/#id/upload
+		pub fn diff_upload(&self, id: NonZeroU32, osmchange_str: String) -> OsmResult<String> {
+			let url = api_url(format!("/changeset/{id}/upload"), self.target_server);
+			self.post_with_auth(url, osmchange_str)?
+				.into_body()
+				.read_to_string()
+				.map_err(Box::from)
 		}
 
 		// todo: error type
@@ -227,12 +244,24 @@ mod web {
 				url,
 				body: body.into_bytes(),
 				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
-				mode: ehttp::Mode::default(),
+				..Default::default()
 			}).await
 				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
 
 			String::from_utf8(resp.bytes)?
 				.parse().map_err(Box::from)
+		}
+
+		pub async fn diff_upload(&self, osmchange_str: String) -> OsmResult<String> {
+			let url = api_url(format!("/changeset/{id}/upload"), self.target_server);
+			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref().ok_or("missing auth token")?;
+			ehttp::fetch_async(Request {
+				method: "POSt".to_string(),
+				url,
+				body: osmchange_str.into_bytes(),
+				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
+				..Default::default()
+			})
 		}
 
 		pub async fn close_changeset(&self, id: NonZeroU32) -> OsmResult<NonZeroU32> {
@@ -241,9 +270,8 @@ mod web {
 			ehttp::fetch_async(Request {
 				method: "PUT".into(),
 				url,
-				body: vec![],
 				headers: ehttp::Headers::new(&[("authorization", &format!("{} {}", auth.token_type, auth.access_token))]),
-				mode: ehttp::Mode::default(),
+				..Default::default()
 			}).await
 				.map(|x| if x.ok { Ok(id) } else { Err(format!("request failed with status code {}", x.status)) })?
 				.map_err(Box::from)
@@ -257,7 +285,7 @@ mod web {
 				url,
 				body: body.into_bytes(),
 				headers: ehttp::Headers::new(&[("content-type", "application/x-www-form-urlencoded")]),
-				mode: ehttp::Mode::default(),
+				..Default::default()
 			}).await
 				.map(|x| if x.ok { Ok(x) } else { Err(format!("request failed with status code {}", x.status)) })??;
 
