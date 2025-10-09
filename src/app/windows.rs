@@ -246,18 +246,17 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 
 // Returns whether a download was triggered
 pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPluginState) -> bool {
-	const MODE_INDICATOR_WIDTH: f32 = 8.0;
-
 	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
 	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, TRANSPARENT_FRAME.total_margin().top.mul_add(2., 24. + 4.)));
-	let color = match editor_state.mode {
-		EditMode::View => Color32::from_rgb(60, 160, 255),
-		EditMode::Edit => Color32::LIGHT_RED
-	};
 
 	// Draw mode indicator
-	ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode", editor_state.mode));
-	ui.painter().rect_filled(rect, CornerRadius::ZERO, color);
+	if ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode\nPress Space to toggle", editor_state.mode)).clicked() {
+		editor_state.mode = match editor_state.mode {
+			EditMode::View => EditMode::Edit,
+			EditMode::Edit => EditMode::View,
+		}
+	}
+	ui.painter().rect_filled(rect, CornerRadius::ZERO, editor_state.mode.color());
 
 	// Draw toolbar
 	egui::Window::new("Toolbar")
@@ -281,9 +280,10 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 						let selected = if editor_state.mode == EditMode::View {
 							state.selection_mode & flag as u8 != 0
 						} else { false };
-						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(24.0));
 
+						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(TOOLBAR_ICON_SIZE));
 						let resp = ui.add(Button::image(image).selected(selected).corner_radius(4));
+
 						if !ui.ctx().wants_keyboard_input()
 							&& (resp.clicked() || ui.input_mut(|i| i.consume_key(Modifiers::NONE, key)))
 						{
@@ -448,12 +448,12 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 					.text_style(egui::TextStyle::Monospace);
 
 				#[cfg(debug_assertions)]
-				let text = "Licenses are not loaded in a debug build.";
+				let text = "\nLicenses are not loaded in a debug build.\n";
 
 				ui.label(text);
 			});
 		ui.separator();
-		ui.label("Packages marked with (*) have been \"de-duplicated\".\n\
+		ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
 		          The dependencies for the package have already been shown elsewhere in the graph, \
 		          and so are not repeated.");
 		ui.add_space(4.0);

@@ -50,6 +50,15 @@ pub enum EditMode {
 	Edit,
 }
 
+impl EditMode {
+	pub const fn color(&self) -> Color32 {
+		match self {
+			Self::Edit => EDIT_MODE_COLOR,
+			Self::View => VIEW_MODE_COLOR,
+		}
+	}
+}
+
 #[derive(Default, Copy, Clone, PartialEq, Eq)]
 pub enum EditOperation {
 	#[default] Idle,
