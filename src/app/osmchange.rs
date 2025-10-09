@@ -1,12 +1,12 @@
 	// osmchange data structures
 // todo: find a way to reduce number of structs and conversions
 
-use super::editor::cache::Change;
-use quick_xml::{se::Serializer, SeError};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+	use super::editor::cache::Change;
+	use quick_xml::{se::Serializer, SeError};
+	use serde::{Deserialize, Serialize};
+	use std::collections::HashMap;
 
-pub type Id = i64;
+	pub type Id = i64;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct OsmChange {
@@ -186,7 +186,8 @@ impl OsmChange {
 	}
 }
 
+#[allow(clippy::trivially_copy_pass_by_ref)]
 fn serialize_f64_7<S>(val: &f64, serializer: S) -> Result<S::Ok, S::Error>
 where S: serde::Serializer {
-	serializer.serialize_str(&format!("{:.7}", val))
+	serializer.serialize_str(&format!("{val:.7}"))
 }

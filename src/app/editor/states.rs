@@ -1,4 +1,5 @@
 use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState, FillMode};
+use crate::app::editor::cache::ElementId;
 use crate::app::osm::TargetServer;
 use crate::app::{
 	osm::{OsmResult, OsmToken},
@@ -14,7 +15,6 @@ use std::{
 	num::NonZeroU32
 };
 use walkers::MapMemory;
-use crate::app::editor::cache::ElementId;
 
 pub struct EditorState {
 	pub tile_providers: HashMap<Provider, TilesKind>,
@@ -126,6 +126,9 @@ pub struct UploaderState {
 	pub osmchange: OsmChange,
 	pub osmchange_text: String,
 	pub changeset_creation: Option<OsmResult<NonZeroU32>>,
+	pub diff_upload: Option<OsmResult<String>>,
+	pub changeset_closure: Option<OsmResult<NonZeroU32>>,
+	pub request_pending: bool,
 }
 
 #[derive(Default)]

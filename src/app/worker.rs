@@ -20,6 +20,7 @@ pub enum Request {
 	SetTargetServer(TargetServer),
 	FetchToken(String),
 	CreateChangeset(Vec<Tag>),
+	UploadDiff(NonZeroU32, String),
 	#[allow(dead_code)]
 	CloseChangeset(NonZeroU32),
 }
@@ -29,6 +30,7 @@ pub enum Response {
 	Map(OsmResult<OsmData>),
 	Token(OsmResult<OsmToken>, TargetServer),
 	CreatedChangeset(OsmResult<NonZeroU32>),
+	DiffUploaded(OsmResult<String>),
 	ClosedChangeset(OsmResult<NonZeroU32>),
 }
 
@@ -144,6 +146,10 @@ impl Worker {
 			Request::CreateChangeset(tags) => {
 				let result = self.osm_client.create_changeset(tags);
 				self.send_message(Response::CreatedChangeset(result));
+			}
+			Request::UploadDiff(id, osmchange_str) => {
+				let result = self.osm_client.diff_upload(id, osmchange_str);
+				self.send_message(Response::DiffUploaded(result));
 			}
 			Request::CloseChangeset(id) => {
 				let result = self.osm_client.close_changeset(id);

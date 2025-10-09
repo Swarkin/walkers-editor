@@ -51,7 +51,7 @@ pub enum EditMode {
 }
 
 impl EditMode {
-	pub const fn color(&self) -> Color32 {
+	pub const fn color(self) -> Color32 {
 		match self {
 			Self::Edit => EDIT_MODE_COLOR,
 			Self::View => VIEW_MODE_COLOR,

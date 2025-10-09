@@ -8,10 +8,11 @@ mod worker;
 pub mod icons;
 
 use editor::cache::{Change, ElementId, ElementRef};
-use editor::{consts::*, states::*, visual::FillMode, EditMode, EditOperation};
+use editor::visual::FillMode;
+use editor::{consts::*, states::*, EditMode, EditOperation};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ThemePreference, TopBottomPanel, Ui, Vec2};
+use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, ThemePreference, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
@@ -246,16 +247,26 @@ impl MyApp {
 
 					self.editor.prev_size = curr_size;
 				});
+
+				if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Space)) {
+					self.editor.plugin_state.mode = match self.editor.plugin_state.mode {
+						EditMode::View => EditMode::Edit,
+						EditMode::Edit => {
+							self.editor.plugin_state.operation = EditOperation::Idle;
+							EditMode::View
+						},
+					};
+				}
 			}
 			View::Upload => {
 				CentralPanel::default().show(ctx, |ui| {
-					use egui::ScrollArea;
 					use osmchange::Tag;
+					use egui_extras::syntax_highlighting;
 
 					ui.heading("Upload to OpenStreetMap");
 					ui.collapsing("View osmChange", |ui| {
 						ScrollArea::vertical().show(ui, |ui| {
-							egui_extras::syntax_highlighting::code_view_ui(ui, &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()), &self.uploader.osmchange_text, "xml");
+							syntax_highlighting::code_view_ui(ui, &syntax_highlighting::CodeTheme::from_style(ui.style()), &self.uploader.osmchange_text, "xml");
 						});
 					});
 
@@ -264,7 +275,7 @@ impl MyApp {
 						ui.add_space(10.0);
 						if ui.button("Create Changeset").clicked() {
 							// todo: figure out why tags do not show up on OSM
-							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }]; // todo
+							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }];
 							self.worker_handle.send_message(Request::CreateChangeset(tags));
 						}
 
@@ -272,17 +283,43 @@ impl MyApp {
 							match result {
 								Ok(id) => {
 									ui.horizontal(|ui| {
-										ui.label("Changeset ID: ");
+										ui.label("Changeset: ");
 										ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.state.target_server_ui.base_url(), id));
 									});
+
+									if ui.add_enabled(!self.uploader.request_pending, Button::new("Upload")).clicked() {
+										self.uploader.request_pending = true;
+										self.worker_handle.send_message(Request::UploadDiff(*id, self.uploader.osmchange_text.clone()));
+									}
+
+									if ui.add_enabled(!self.uploader.request_pending, Button::new("Close Changeset")).clicked() {
+										self.uploader.request_pending = true;
+										self.worker_handle.send_message(Request::CloseChangeset(*id));
+									}
 								}
-								Err(err) => {
-									ui.label(RichText::new(format!("Failed to create changeset:\n{err}")).color(ui.visuals().error_fg_color));
+								Err(e) => {
+									ui.label(RichText::new(format!("Failed to create changeset:\n{e}")).color(ui.visuals().error_fg_color));
+								}
+							}
+						}
+
+						if let Some(result) = &self.uploader.diff_upload {
+							match result {
+								Ok(resp) => {
+									// todo: remove debug info
+									ui.collapsing("Upload API response", |ui| { ui.monospace(resp); });
+								}
+								Err(e) => {
+									ui.label(RichText::new(format!("Failed to upload:\n{e}")).color(ui.visuals().error_fg_color));
 								}
 							}
 						}
 					} else {
-						ui.strong("Please authenticate to OSM using the Auth tab.");
+						ui.horizontal(|ui| {
+							ui.strong("Please authenticate to OSM using the");
+							if ui.small_button("Auth").clicked() { self.state.view = View::Auth; }
+							ui.strong("tab.");
+						});
 					}
 				});
 			}
@@ -318,21 +355,18 @@ impl MyApp {
 							self.authenticator.request_pending = true;
 						}
 
+						if self.authenticator.request_pending {
+							ui.horizontal(|ui| {
+								ui.spinner();
+								ui.strong("Request in progress...");
+							});
+						}
+
 						// todo: ui should change based on the result of the authentication
 						// todo: logout button
 					}
 				});
 			}
-		}
-
-		if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Space)) {
-			self.editor.plugin_state.mode = match self.editor.plugin_state.mode {
-				EditMode::View => EditMode::Edit,
-				EditMode::Edit => {
-					self.editor.plugin_state.operation = EditOperation::Idle;
-					EditMode::View
-				},
-			};
 		}
 	}
 }
@@ -419,9 +453,15 @@ impl MyApp {
 			}
 			Response::CreatedChangeset(result) => {
 				self.uploader.changeset_creation = Some(result);
+				self.uploader.request_pending = false;
 			}
-			Response::ClosedChangeset(_result) => {
-				todo!();
+			Response::DiffUploaded(result) => {
+				self.uploader.diff_upload = Some(result);
+				self.uploader.request_pending = false;
+			}
+			Response::ClosedChangeset(result) => {
+				self.uploader.changeset_closure = Some(result);
+				self.uploader.request_pending = false;
 			}
 		}
 	}

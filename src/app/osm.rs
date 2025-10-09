@@ -125,7 +125,7 @@ mod native {
 		pub target_server: TargetServer,
 		pub auth_token: [Option<OsmToken>; TargetServer::SIZE],
 	}
-	
+
 	impl OsmClient {
 		pub fn new(target_server: TargetServer) -> Self {
 			Self {
@@ -171,7 +171,7 @@ mod native {
 		}
 
 		// todo: error type
-		/// https://wiki.openstreetmap.org/wiki/API_v0.6#Diff_upload:_POST_/api/0.6/changeset/#id/upload
+		/// <https://wiki.openstreetmap.org/wiki/API_v0.6#Diff_upload:_POST_/api/0.6/changeset/#id/upload>
 		pub fn diff_upload(&self, id: NonZeroU32, osmchange_str: String) -> OsmResult<String> {
 			let url = api_url(format!("/changeset/{id}/upload"), self.target_server);
 			self.post_with_auth(url, osmchange_str)?
