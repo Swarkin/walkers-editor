@@ -17,7 +17,7 @@ debug = []
 kiosk = []
 
 [dependencies]
-walkers = "0.45.0"
+walkers = "0.46.0"
 eframe = { version = "0.32", default-features = false, features = ["glow", "default_fonts"] }
 egui_extras = { version = "0.32", default-features = false, features = ["svg", "syntect"] }
 serde = { version = "1", features = ["derive"] }
