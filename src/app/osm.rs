@@ -51,6 +51,20 @@ impl TargetServer {
 		}
 	}
 
+	pub const fn base_user_url(self) -> &'static str {
+		match self {
+			Self::OpenStreetMap => "www.openstreetmap.org/user",
+			Self::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/user",
+		}
+	}
+
+	pub const fn base_changeset_url(self) -> &'static str {
+		match self {
+			Self::OpenStreetMap => "www.openstreetmap.org/changeset",
+			Self::OpenStreetMapDev => "master.apis.dev.openstreetmap.org/changeset",
+		}
+	}
+
 	pub const fn client_id(self) -> &'static str {
 		match self {
 			Self::OpenStreetMap => "",

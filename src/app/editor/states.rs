@@ -1,8 +1,8 @@
+use super::cache::ElementId;
 use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState, FillMode};
-use crate::app::editor::cache::ElementId;
-use crate::app::osm::TargetServer;
+use crate::app::windows::DataViewerModal;
 use crate::app::{
-	osm::{OsmResult, OsmToken},
+	osm::{OsmResult, OsmToken, TargetServer},
 	osmchange::OsmChange,
 	providers::{Provider, ProviderMap, TilesKind},
 	windows::WindowBitflag,
@@ -25,12 +25,14 @@ pub struct EditorState {
 	pub window_flags: WindowBitflag,
 	pub prev_size: Vec2,
 	pub edit_window: Option<(ElementId, IndexMap<String, String>)>,
+	pub open_modals: u8,
+	pub data_viewer: Option<DataViewerModal>,
 }
 
-impl EditorState {
-	pub fn new(providers: ProviderMap) -> Self {
+impl Default for EditorState {
+	fn default() -> Self {
 		Self {
-			tile_providers: providers,
+			tile_providers: ProviderMap::default(),
 			map_memory: MapMemory::default(),
 			map_state: MapState {
 				selected_provider: Some(Provider::default()),
@@ -38,7 +40,7 @@ impl EditorState {
 				selected_fill_mode: FillMode::default(),
 				selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
 				download: MapDownloadState::Idle(None),
-				scale_factor: 1.0,
+				scale_factor: 1f32,
 				zoom_with_ctrl: false,
 			},
 			osm_data: EditorOsmData::default(),
@@ -46,6 +48,8 @@ impl EditorState {
 			window_flags: WindowBitflag::default(),
 			prev_size: Vec2::ZERO,
 			edit_window: None,
+			open_modals: 0u8,
+			data_viewer: None,
 		}
 	}
 }
@@ -54,13 +58,11 @@ pub struct MapState {
 	pub selected_provider: Option<Provider>,
 	pub selected_visualization: Visualization,
 	pub selected_fill_mode: FillMode,
-	pub selection_mode: SelectionBitflag,
+	pub selection_mode: u8,
 	pub download: MapDownloadState,
 	pub scale_factor: f32,
 	pub zoom_with_ctrl: bool,
 }
-
-pub type SelectionBitflag = u8;
 
 #[derive(Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -84,7 +86,14 @@ impl SelectionFlag {
 	pub const ITER: [Self; 3] = [Self::Nodes, Self::Ways, Self::Areas];
 }
 
-pub type CacheBitflag = u8;
+#[derive(Copy, Clone, PartialEq, Eq)]
+#[repr(u8)]
+pub enum ModalFlag {
+	Licenses = 1 << 0,
+	DataViewer = 1 << 1,
+	#[cfg(target_family = "wasm")]
+	FirefoxNotice = 1 << 7,
+}
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
@@ -99,7 +108,7 @@ pub enum CacheFlag {
 }
 
 impl CacheFlag {
-	pub const ALL: CacheBitflag = CacheBitflag::MAX;
+	pub const ALL: u8 = u8::MAX;
 }
 
 #[cfg(feature = "debug")]
