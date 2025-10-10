@@ -1,10 +1,18 @@
-use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, states::{MapDownloadState, MapState, SelectionFlag}, visual::{FillMode, Visualization}, EditMode, EditOperation, EditorPluginState};
+use super::editor::{
+	cache::{Change, ElementRef},
+	consts::{osm::*, *},
+	states::{MapDownloadState, MapState, SelectionFlag},
+	visual::{FillMode, Visualization},
+	EditMode, EditOperation, EditorPluginState
+};
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
-use eframe::egui::{Modifiers, Rect, Sense};
+use eframe::egui::{Widget, WidgetText};
 use egui::text::LayoutJob;
-use egui::{Align2, Area, AtomExt, Button, Color32, CornerRadius, CursorIcon, Event, FontId, Frame, Grid, Image, ImageSource, InnerResponse, Key, Margin, Order, Pos2, Shadow, Stroke, TextFormat, Ui, Vec2};
+use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2};
+use egui_extras::{Column, TableBuilder};
+use osm_parser::OsmData;
 use walkers::sources::Attribution;
 use walkers::Position;
 
@@ -85,29 +93,106 @@ pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
 		});
 }
 
-pub fn tags(ui: &Ui, tags: &osm_parser::Tags) {
-	egui::Window::new("Tags")
+#[derive(Debug)]
+pub enum TagsEditKind {
+	Key(usize, String),
+	Value(usize, String),
+	NewKey(String),
+	End,
+}
+
+pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_enabled: bool) -> Option<TagsEditKind> {
+	let resp = egui::Window::new("Tags")
 		.collapsible(true)
-		.resizable(false)
-		.anchor(Align2::LEFT_TOP, [WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN + 54.]) // todo: extract magic number
+		.vscroll(true)
+		.default_size([300., 200.])
+		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
 		.frame(TRANSPARENT_FRAME)
 		.show(ui.ctx(), |ui| {
-			Grid::new("tags").show(ui, |ui| {
-				for (k, v) in tags {
-					ui.label(k);
-					ui.label(v);
-					ui.end_row();
-				}
-			});
-		});
+			let mut change = None;
+
+			TableBuilder::new(ui)
+				.striped(true)
+				.resizable(true)
+				.column(Column::initial(100.0).clip(true))
+				.column(Column::remainder().clip(true))
+				.header(16.0, |mut header| {
+					header.col(|ui| { ui.strong("Key"); });
+					header.col(|ui| { ui.strong("Value"); });
+				})
+				.body(|body| {
+					if edit_enabled {
+						// todo: add ability to add new tag
+						body.rows(20.0, editing_tags.len() + 1, |mut row| {
+							let i = row.index();
+
+							if i == editing_tags.len() {
+								let mut new_key = String::new();
+
+								row.col(|ui| {
+									let resp = ui.add(TextEdit::singleline(&mut new_key).hint_text("+ New Key"));
+									if resp.changed() {
+										change = Some(TagsEditKind::NewKey(new_key));
+									}
+								});
+							} else {
+								let pair = editing_tags.get_index(row.index()).unwrap();
+								let (mut new_k, mut new_v) = (pair.0.to_owned(), pair.1.to_owned());
+
+								row.col(|ui| {
+									let resp = ui.text_edit_singleline(&mut new_k);
+									if resp.changed() {
+										change = Some(TagsEditKind::Key(i, new_k));
+									} else if resp.lost_focus() {
+										change = Some(TagsEditKind::End);
+									}
+								});
+								row.col(|ui| {
+									let resp = ui.text_edit_singleline(&mut new_v);
+									if resp.changed() {
+										change = Some(TagsEditKind::Value(i, new_v));
+									} else if resp.lost_focus() {
+										change = Some(TagsEditKind::End);
+									}
+								});
+							}
+						});
+					} else {
+						body.rows(20.0, editing_tags.len(), |mut row| {
+							let (k, v) = editing_tags.get_index(row.index()).unwrap();
+							row.col(|ui| {
+								ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+								ui.add_space(2.0);
+								ui.label(k);
+							});
+							row.col(|ui| {
+								ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+								ui.add_space(2.0);
+								ui.label(v);
+							});
+						});
+					}
+				});
+			ui.allocate_space(Vec2::new(0., ui.available_height()));
+			change
+		}).unwrap();
+
+	resp.inner?
+}
+
+pub enum MapWindowResult {
+	ShowLicenses,
+	ShowDataViewer,
 }
 
 // Returns whether the licenses button was pressed
 pub fn map<'a>(
 	ui: &Ui,
 	map_state: &mut MapState,
-	providers: &mut impl Iterator<Item = &'a Provider>,
-) -> bool {
+	providers: &mut impl Iterator<Item=&'a Provider>,
+) -> Option<MapWindowResult> {
+	let mut result = None;
+
 	egui::Window::new("Map")
 		.collapsible(false)
 		.resizable(false)
@@ -150,9 +235,17 @@ pub fn map<'a>(
 				ui.add(egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text("Scale factor"));
 				ui.checkbox(&mut map_state.zoom_with_ctrl, "Zoom with Ctrl");
 
-				ui.button("Show Open-Source Licenses").clicked()
-			}).body_returned.unwrap_or(false)
-		}).unwrap().inner.unwrap_or(false)
+				if ui.button("Show data viewer").clicked() {
+					result = Some(MapWindowResult::ShowDataViewer);
+				}
+
+				if ui.button("Show Open-source licenses").clicked() {
+					result = Some(MapWindowResult::ShowLicenses);
+				}
+			});
+		});
+
+	result
 }
 
 pub fn history(ui: &Ui, history: &Vec<Change>) {
@@ -175,15 +268,17 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 
 // Returns whether a download was triggered
 pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPluginState) -> bool {
-	const MODE_INDICATOR_WIDTH: f32 = 8.0;
-
 	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
 	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, TRANSPARENT_FRAME.total_margin().top.mul_add(2., 24. + 4.)));
-	let color = match editor_state.mode { EditMode::View => Color32::from_rgb(60, 160, 255), EditMode::Edit => Color32::LIGHT_RED };
 
 	// Draw mode indicator
-	ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode", editor_state.mode));
-	ui.painter().rect_filled(rect, CornerRadius::ZERO, color);
+	if ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode\nPress Space to toggle", editor_state.mode)).clicked() {
+		editor_state.mode = match editor_state.mode {
+			EditMode::View => EditMode::Edit,
+			EditMode::Edit => EditMode::View,
+		}
+	}
+	ui.painter().rect_filled(rect, CornerRadius::ZERO, editor_state.mode.color());
 
 	// Draw toolbar
 	egui::Window::new("Toolbar")
@@ -207,9 +302,10 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 						let selected = if editor_state.mode == EditMode::View {
 							state.selection_mode & flag as u8 != 0
 						} else { false };
-						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(24.0));
 
+						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(TOOLBAR_ICON_SIZE));
 						let resp = ui.add(Button::image(image).selected(selected).corner_radius(4));
+
 						if !ui.ctx().wants_keyboard_input()
 							&& (resp.clicked() || ui.input_mut(|i| i.consume_key(Modifiers::NONE, key)))
 						{
@@ -300,8 +396,10 @@ pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 		})?.inner?
 }
 
+use crate::app::editor::cache::ElementId;
 #[cfg(feature = "debug")]
 use crate::app::editor::{cache::EditorOsmData, states::CacheFlag};
+use crate::app::osm::TargetServer;
 
 #[cfg(feature = "debug")]
 pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
@@ -326,9 +424,9 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 			});
 
 			ui.collapsing("Cache Timings", |ui| {
-				egui_extras::TableBuilder::new(ui)
+				TableBuilder::new(ui)
 					.striped(true)
-					.columns(egui_extras::Column::auto(), 3)
+					.columns(Column::auto(), 3)
 					.header(18.0, |mut header| {
 						header.col(|ui| { ui.label("Cache"); });
 						header.col(|ui| { ui.label("Time (ms)"); });
@@ -348,7 +446,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 		});
 }
 
-pub fn licenses_modal(ctx: &egui::Context) -> bool {
+pub fn licenses_modal(ctx: &Context) -> bool {
 	let screen = ctx.screen_rect();
 	let width = screen.width() * 0.8;
 	let height = screen.height() * 0.6;
@@ -357,7 +455,7 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 		.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0))
 		.default_width(width);
 
-	egui::Modal::new("licenses".into()).area(area).show(ctx, |ui| {
+	Modal::new("licenses".into()).area(area).show(ctx, |ui| {
 		ui.heading("Open-Source Licenses");
 		ui.add_space(4.0);
 		ui.horizontal(|ui| {
@@ -374,12 +472,12 @@ pub fn licenses_modal(ctx: &egui::Context) -> bool {
 					.text_style(egui::TextStyle::Monospace);
 
 				#[cfg(debug_assertions)]
-				let text = "Licenses are not loaded in a debug build.";
+				let text = "\nLicenses are not loaded in a debug build.\n";
 
 				ui.label(text);
 			});
 		ui.separator();
-		ui.label("Packages marked with (*) have been \"de-duplicated\".\n\
+		ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
 		          The dependencies for the package have already been shown elsewhere in the graph, \
 		          and so are not repeated.");
 		ui.add_space(4.0);
@@ -395,7 +493,7 @@ pub fn update_modal(ctx: &egui::Context) -> bool {
 		ui.separator();
 		ui.strong("How to update:");
 		ui.label("1. Close all instances of the editor.");
-		ui.label("2. Open the latest version in a new tab.");
+		ui.label("2. Open the latest version in a fresh browser tab.");
 		ui.label("The new version should be loaded automatically.");
 		ui.separator();
 		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
@@ -412,6 +510,167 @@ pub fn firefox_modal(ctx: &egui::Context) -> bool {
 		ui.separator();
 		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
 	}).inner
+}
+
+pub struct DataViewerModal {
+	selected_element: Option<ElementId>,
+	cached_id_list: Vec<ElementId>,
+}
+
+impl DataViewerModal {
+	pub fn new(osm: &OsmData) -> Self {
+		Self {
+			selected_element: None,
+			cached_id_list: {
+				let mut ids = osm.nodes.keys().map(|x| ElementId::Node(*x))
+					.chain(osm.ways.keys().map(|x| ElementId::Way(*x)))
+					.collect::<Vec<_>>();
+				ids.sort_unstable();
+				ids
+			},
+		}
+	}
+
+	#[allow(clippy::too_many_lines)]
+	pub fn show(&mut self, ctx: &Context, osm: &OsmData) -> bool {
+		let screen = ctx.screen_rect();
+		let width = screen.width() * 0.8;
+		let height = screen.height() * 0.6;
+		let area = Area::new("data_view_area".into())
+			.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0))
+			.default_width(width);
+
+		Modal::new(egui::Id::new("data_view_modal")).area(area).show(ctx, |ui| {
+			ui.set_width_range(width..=width);
+			ui.set_height_range(height..=height);
+
+			ui.heading("Data View");
+			ui.label(format!("Showing {} elements", self.cached_id_list.len()));
+			ui.separator();
+
+			let available_height = height - 100.0;
+
+			ui.columns(2, |columns| {
+				columns[0].set_width((width * 0.4).max(250.0));
+				columns[0].vertical(|ui| {
+					TableBuilder::new(ui)
+						.striped(true)
+						.resizable(false)
+						.sense(Sense::click())
+						.max_scroll_height(available_height)
+						.column(Column::exact(40.0).clip(true))
+						.column(Column::exact(120.0).clip(true))
+						.header(18.0, |mut header| {
+							header.col(|ui| { ui.strong("Type"); });
+							header.col(|ui| { ui.strong("ID"); });
+						})
+						.body(|body| {
+							body.rows(18.0, self.cached_id_list.len(), |mut row| {
+								let i = row.index();
+								let element_id = self.cached_id_list.get(i).unwrap();
+
+								row.col(|ui| {
+									egui::Label::new(element_id.type_str())
+										.sense(Sense::empty())
+										.ui(ui);
+								});
+								row.col(|ui| {
+									egui::Label::new(WidgetText::Text(element_id.id_ref().to_string()).monospace())
+										.sense(Sense::empty())
+										.ui(ui);
+								});
+
+								if row.response().clicked() {
+									self.selected_element = Some(element_id.to_owned());
+								}
+							});
+						});
+				});
+
+				columns[1].set_width(columns[1].available_width());
+				columns[1].vertical(|ui| {
+					egui::ScrollArea::vertical()
+						.max_height(available_height)
+						.show(ui, |ui| {
+							if let Some(selected_id) = &self.selected_element {
+								let element = match selected_id {
+									ElementId::Node(n) => osm.nodes.get(n).map(ElementRef::Node),
+									ElementId::Way(w) => osm.ways.get(w).map(ElementRef::Way),
+								};
+
+								if let Some(element) = element {
+									ui.horizontal(|ui| {
+										ui.image(element.element_icon());
+										if let Some(name) = element.name() {
+											ui.heading(format!("{} {}: {name}", element.type_str(), element.id_ref()));
+										} else {
+											ui.heading(format!("{} {}", element.type_str(), element.id_ref()));
+										}
+									});
+
+									ui.add_space(8.0);
+
+									ui.horizontal(|ui| {
+										ui.image(icons::COMMIT).on_hover_text_at_pointer("Version");
+										ui.monospace(element.version().to_string());
+									});
+									ui.horizontal(|ui| {
+										ui.image(icons::HASHTAG).on_hover_text_at_pointer("Changeset ID");
+										ui.hyperlink_to(
+											WidgetText::Text(element.changeset().to_string()).monospace(),
+											format!("https://{}/{}", TargetServer::OpenStreetMap.base_changeset_url(), element.changeset())
+										);
+									});
+									ui.horizontal(|ui| {
+										ui.image(icons::USER).on_hover_text_at_pointer("Username");
+										ui.hyperlink_to(
+											WidgetText::Text(element.user().to_string()).monospace(),
+											format!("https://{}/{}", TargetServer::OpenStreetMap.base_user_url(), element.user())
+										);
+									});
+									ui.horizontal(|ui| {
+										ui.image(icons::CLOCK).on_hover_text_at_pointer("Timestamp");
+										ui.monospace(element.timestamp());
+									});
+
+									match element {
+										ElementRef::Node(n) => {
+											ui.label(format!("Position: {:.6}, {:.6}", n.pos.lat, n.pos.lon));
+										}
+										ElementRef::Way(w) => {
+											ui.collapsing(format!("{} Nodes", w.nodes.len()), |ui| {
+												for node_id in &w.nodes {
+													ui.monospace(node_id.to_string());
+												}
+											});
+										}
+									}
+
+									ui.add_space(8.0);
+
+									egui::Grid::new("data_view_tags")
+										.min_col_width(100.0)
+										.striped(true)
+										.spacing([8.0, 4.0])
+										.show(ui, |ui| {
+											for (k, v) in element.tags() {
+												ui.label(k);
+												ui.label(v);
+												ui.end_row();
+											}
+										});
+								}
+							} else {
+								ui.weak("No element selected.");
+							}
+						});
+				});
+			});
+
+			ui.separator();
+			ui.button("Close").clicked()
+		}).inner
+	}
 }
 
 pub enum OverlapSelectorResult<'a> {
