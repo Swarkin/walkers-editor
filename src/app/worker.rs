@@ -20,6 +20,7 @@ pub enum Request {
 	SetTargetServer(TargetServer),
 	FetchToken(String),
 	CreateChangeset(Vec<Tag>),
+	UploadDiff(NonZeroU32, String),
 	#[allow(dead_code)]
 	CloseChangeset(NonZeroU32),
 }
@@ -29,7 +30,8 @@ pub enum Response {
 	Map(OsmResult<OsmData>),
 	Token(OsmResult<OsmToken>, TargetServer),
 	CreatedChangeset(OsmResult<NonZeroU32>),
-	ClosedChangeset(OsmResult<NonZeroU32>),
+	DiffUploaded(OsmResult<String>),
+	ClosedChangeset(OsmResult<()>),
 }
 
 pub struct Worker {
@@ -81,74 +83,81 @@ impl WorkerHandle {
 }
 
 impl Worker {
-	#[cfg(target_family = "wasm")]
-	#[allow(clippy::future_not_send)]
-	async fn handle_message(&mut self, request: Request) {
+	#[cfg(not(target_family = "wasm"))]
+	fn handle_message(&mut self, request: Request) {
 		match request {
 			Request::GetMap(bbox) => {
-				let data = self.osm_client.get_map(&bbox);
-				#[cfg(target_family = "wasm")] let data = data.await;
-
-				self.send_message(Response::Map(data));
+				let result = self.osm_client.get_map(&bbox);
+				self.send_message(Response::Map(result));
 			}
 			Request::SetTargetServer(target) => {
 				self.osm_client.target_server = target;
 			}
 			Request::FetchToken(auth_code) => {
-				let token = self.osm_client.fetch_token(auth_code);
-				#[cfg(target_family = "wasm")] let token = token.await;
-
+				let result = self.osm_client.fetch_token(auth_code);
 				let target_server = self.osm_client.target_server;
 
-				if let Ok(token) = token.as_ref() {
+				if let Ok(token) = result.as_ref() {
 					self.osm_client.auth_token[target_server as usize] = Some(token.to_owned());
 				}
 
-				self.send_message(Response::Token(token, target_server));
+				self.send_message(Response::Token(result, target_server));
 			}
 			Request::CreateChangeset(tags) => {
 				let result = self.osm_client.create_changeset(tags);
-				#[cfg(target_family = "wasm")] let result = result.await;
-
 				self.send_message(Response::CreatedChangeset(result));
+			}
+			Request::UploadDiff(id, osmchange_str) => {
+				let result = self.osm_client.diff_upload(id, osmchange_str);
+				self.send_message(Response::DiffUploaded(result));
 			}
 			Request::CloseChangeset(id) => {
 				let result = self.osm_client.close_changeset(id);
-				#[cfg(target_family = "wasm")] let result = result.await;
+				self.send_message(Response::ClosedChangeset(result));
+			}
+		}
+	}
 
+	#[cfg(target_family = "wasm")]
+	#[allow(clippy::future_not_send)]
+	async fn handle_message(&mut self, request: Request) {
+		match request {
+			Request::GetMap(bbox) => {
+				let result = self.osm_client.get_map(&bbox).await;
+				self.send_message(Response::Map(result));
+			}
+			Request::SetTargetServer(target) => {
+				self.osm_client.target_server = target;
+			}
+			Request::FetchToken(auth_code) => {
+				let result = self.osm_client.fetch_token(auth_code).await;
+				let target_server = self.osm_client.target_server;
+
+				if let Ok(token) = result.as_ref() {
+					self.osm_client.auth_token[target_server as usize] = Some(token.to_owned());
+				}
+
+				self.send_message(Response::Token(result, target_server));
+			}
+			Request::CreateChangeset(tags) => {
+				let result = self.osm_client.create_changeset(tags).await;
+				self.send_message(Response::CreatedChangeset(result));
+			}
+			Request::UploadDiff(id, osmchange_str) => {
+				let result = self.osm_client.diff_upload(id, osmchange_str).await;
+				self.send_message(Response::DiffUploaded(result));
+			}
+			Request::CloseChangeset(id) => {
+				let result = self.osm_client.close_changeset(id).await;
 				self.send_message(Response::ClosedChangeset(result));
 			}
 		}
 	}
 
 	#[cfg(not(target_family = "wasm"))]
-	fn handle_message(&mut self, request: Request) {
-		match request {
-			Request::GetMap(bbox) => {
-				let data = self.osm_client.get_map(&bbox);
-				self.send_message(Response::Map(data));
-			}
-			Request::SetTargetServer(target) => {
-				self.osm_client.target_server = target;
-			}
-			Request::FetchToken(auth_code) => {
-				let token = self.osm_client.fetch_token(auth_code);
-				let target_server = self.osm_client.target_server;
-
-				if let Ok(token) = token.as_ref() {
-					self.osm_client.auth_token[target_server as usize] = Some(token.to_owned());
-				}
-
-				self.send_message(Response::Token(token, target_server));
-			}
-			Request::CreateChangeset(tags) => {
-				let result = self.osm_client.create_changeset(tags);
-				self.send_message(Response::CreatedChangeset(result));
-			}
-			Request::CloseChangeset(id) => {
-				let result = self.osm_client.close_changeset(id);
-				self.send_message(Response::ClosedChangeset(result));
-			}
+	pub fn run(&mut self, receiver: Receiver<Request>) {
+		for msg in receiver {
+			self.handle_message(msg);
 		}
 	}
 
@@ -157,13 +166,6 @@ impl Worker {
 	pub async fn run(&mut self, mut receiver: Receiver<Request>) {
 		while let Some(msg) = receiver.next().await {
 			self.handle_message(msg).await;
-		}
-	}
-
-	#[cfg(not(target_family = "wasm"))]
-	pub fn run(&mut self, receiver: Receiver<Request>) {
-		for msg in receiver {
-			self.handle_message(msg);
 		}
 	}
 }

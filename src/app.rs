@@ -7,25 +7,27 @@ mod osmchange;
 mod worker;
 pub mod icons;
 
-use crate::app::editor::{EditMode, EditOperation};
-use editor::{consts::*, states::*, visual::FillMode};
+use crate::app::providers::providers;
+use crate::app::windows::{DataViewerModal, MapWindowResult};
+use editor::cache::{Change, ElementId, ElementRef};
+use editor::visual::FillMode;
+use editor::{consts::*, states::*, EditMode, EditOperation};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ThemePreference, TopBottomPanel, Ui, Vec2};
+use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, ThemePreference, TopBottomPanel, Ui, Vec2};
+use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
-use providers::{providers, Provider};
+use providers::Provider;
+use rustc_hash::FxHashSet;
 use walkers::{Map, Tiles};
-use windows::Window;
+use windows::{TagsEditKind, Window};
 use worker::{Request, Response, Worker, WorkerHandle};
 
 #[derive(Default)]
 pub struct AppState {
 	pub view: View,
 	pub target_server_ui: TargetServer,
-	pub show_licenses_modal: bool,
-	#[cfg(target_family = "wasm")]
-	pub show_firefox_modal: bool,
 }
 
 #[derive(Default, PartialEq, Eq)]
@@ -140,11 +142,63 @@ impl MyApp {
 						map(ui, None, &mut self.editor.map_memory, editor_plugin);
 					}
 
-					if self.editor.window_flags & Window::Tags as u8 == 0
-						&& let Some(element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first())
-					{
-						let element = self.editor.osm_data.get(element.id_ref()).expect("id not found");
-						windows::tags(ui, element.tags());
+					// todo: textbox mode like in iD
+					if self.editor.window_flags & Window::Tags as u8 == 0	{
+						if let Some(focused_element) = self.editor.plugin_state.selected.as_ref().or_else(|| self.editor.plugin_state.hovered.first()) {
+							let element = self.editor.osm_data.get(focused_element.id_ref()).expect("id not found");
+							if let Some((editing_id, editing_tags)) = &mut self.editor.edit_window {
+								if editing_id != focused_element {
+									*editing_tags = IndexMap::from_iter(element.tags().to_owned());
+									focused_element.clone_into(editing_id);
+								}
+							} else {
+								// todo: avoid allocation when window never focused
+								let mut map = IndexMap::from_iter(element.tags().to_owned());
+								map.sort_unstable_keys();
+								self.editor.edit_window = Some((focused_element.to_owned(), map));
+							}
+
+							let (_, editing_tags) = self.editor.edit_window.as_mut().unwrap();
+							let edit_enabled = self.editor.plugin_state.mode == EditMode::Edit;
+
+							if let Some(edit_kind) = windows::tags(ui, editing_tags, edit_enabled) {
+								match edit_kind {
+									TagsEditKind::Key(i, k) => {
+										if let Some((_, value)) = editing_tags.get_index(i).map(|(k, v)| (k.clone(), v.clone())) {
+											editing_tags.shift_remove_index(i);
+											editing_tags.insert_before(i, k, value);
+										}
+									}
+									TagsEditKind::Value(i, v) => {
+										*editing_tags.get_index_mut(i).unwrap().1 = v;
+									}
+									TagsEditKind::NewKey(new_key) => {
+										editing_tags.insert(new_key, String::new());
+									}
+									TagsEditKind::End => {
+										let new_tags = editing_tags.clone().into_iter().collect::<osm_parser::Tags>();
+										match element {
+											ElementRef::Node(node) => {
+												let mut new_node = node.clone();
+												new_node.tags = new_tags;
+
+												let change = Change::ModifyNode(node.id, new_node);
+												self.editor.osm_data.apply_change(change);
+											}
+											ElementRef::Way(way) => {
+												let mut new_way = way.clone();
+												new_way.tags = new_tags;
+
+												let change = Change::ModifyWay(way.id, new_way);
+												self.editor.osm_data.apply_change(change);
+											}
+										}
+									}
+								}
+							}
+						} else {
+							self.editor.edit_window = None;
+						}
 					}
 
 					if self.editor.window_flags & Window::History as u8 == 0 {
@@ -154,9 +208,11 @@ impl MyApp {
 					if self.editor.window_flags & Window::Map as u8 == 0 {
 						let prev_fill_mode = self.editor.map_state.selected_fill_mode;
 
-						let show_licenses = windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
-						if show_licenses {
-							self.state.show_licenses_modal = true;
+						if let Some(result) = windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys()) {
+							match result {
+								MapWindowResult::ShowLicenses => self.editor.open_modals |= ModalFlag::Licenses as u8,
+								MapWindowResult::ShowDataViewer => self.editor.open_modals |= ModalFlag::DataViewer as u8,
+							}
 						}
 
 						if self.editor.map_state.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
@@ -192,16 +248,26 @@ impl MyApp {
 
 					self.editor.prev_size = curr_size;
 				});
+
+				if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Space)) {
+					self.editor.plugin_state.mode = match self.editor.plugin_state.mode {
+						EditMode::View => EditMode::Edit,
+						EditMode::Edit => {
+							self.editor.plugin_state.operation = EditOperation::Idle;
+							EditMode::View
+						},
+					};
+				}
 			}
 			View::Upload => {
 				CentralPanel::default().show(ctx, |ui| {
-					use egui::ScrollArea;
 					use osmchange::Tag;
+					use egui_extras::syntax_highlighting;
 
 					ui.heading("Upload to OpenStreetMap");
 					ui.collapsing("View osmChange", |ui| {
 						ScrollArea::vertical().show(ui, |ui| {
-							egui_extras::syntax_highlighting::code_view_ui(ui, &egui_extras::syntax_highlighting::CodeTheme::from_style(ui.style()), &self.uploader.osmchange_text, "xml");
+							syntax_highlighting::code_view_ui(ui, &syntax_highlighting::CodeTheme::from_style(ui.style()), &self.uploader.osmchange_text, "xml");
 						});
 					});
 
@@ -210,7 +276,7 @@ impl MyApp {
 						ui.add_space(10.0);
 						if ui.button("Create Changeset").clicked() {
 							// todo: figure out why tags do not show up on OSM
-							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }]; // todo
+							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }];
 							self.worker_handle.send_message(Request::CreateChangeset(tags));
 						}
 
@@ -218,17 +284,43 @@ impl MyApp {
 							match result {
 								Ok(id) => {
 									ui.horizontal(|ui| {
-										ui.label("Changeset ID: ");
+										ui.label("Changeset: ");
 										ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.state.target_server_ui.base_url(), id));
 									});
+
+									if ui.add_enabled(!self.uploader.request_pending, Button::new("Upload")).clicked() {
+										self.uploader.request_pending = true;
+										self.worker_handle.send_message(Request::UploadDiff(*id, self.uploader.osmchange_text.clone()));
+									}
+
+									if ui.add_enabled(!self.uploader.request_pending, Button::new("Close Changeset")).clicked() {
+										self.uploader.request_pending = true;
+										self.worker_handle.send_message(Request::CloseChangeset(*id));
+									}
 								}
-								Err(err) => {
-									ui.label(RichText::new(format!("Failed to create changeset:\n{err}")).color(ui.visuals().error_fg_color));
+								Err(e) => {
+									ui.label(RichText::new(format!("Failed to create changeset:\n{e}")).color(ui.visuals().error_fg_color));
+								}
+							}
+						}
+
+						if let Some(result) = &self.uploader.diff_upload {
+							match result {
+								Ok(resp) => {
+									// todo: remove debug info
+									ui.collapsing("Upload API response", |ui| { ui.monospace(resp); });
+								}
+								Err(e) => {
+									ui.label(RichText::new(format!("Failed to upload:\n{e}")).color(ui.visuals().error_fg_color));
 								}
 							}
 						}
 					} else {
-						ui.strong("Please authenticate to OSM using the Auth tab.");
+						ui.horizontal(|ui| {
+							ui.strong("Please authenticate to OSM using the");
+							if ui.small_button("Auth").clicked() { self.state.view = View::Auth; }
+							ui.strong("tab.");
+						});
 					}
 				});
 			}
@@ -264,21 +356,18 @@ impl MyApp {
 							self.authenticator.request_pending = true;
 						}
 
+						if self.authenticator.request_pending {
+							ui.horizontal(|ui| {
+								ui.spinner();
+								ui.strong("Request in progress...");
+							});
+						}
+
 						// todo: ui should change based on the result of the authentication
 						// todo: logout button
 					}
 				});
 			}
-		}
-
-		if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Space)) {
-			self.editor.plugin_state.mode = match self.editor.plugin_state.mode {
-				EditMode::View => EditMode::Edit,
-				EditMode::Edit => {
-					self.editor.plugin_state.operation = EditOperation::Idle;
-					EditMode::View
-				},
-			};
 		}
 	}
 }
@@ -319,18 +408,25 @@ impl MyApp {
 			receiver: response_receiver,
 		};
 
+		let tile_providers = providers(&cc.egui_ctx);
+
 		#[cfg(target_family = "wasm")]
-		let state = AppState {
-			show_firefox_modal: cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox"),
+		let editor = EditorState {
+			tile_providers,
+			open_modals: if cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox") { ModalFlag::FirefoxNotice as u8 } else { Default::default() },
 			..Default::default()
 		};
 
 		#[cfg(not(target_family = "wasm"))]
-		let state = AppState::default();
+		let editor = EditorState {
+			tile_providers,
+			..Default::default()
+		};
 
 		Self {
-			worker_handle, state,
-			editor: EditorState::new(providers(&cc.egui_ctx)),
+			worker_handle,
+			state: AppState::default(),
+			editor,
 			uploader: UploaderState::default(),
 			authenticator: AuthenticatorState::default(),
 		}
@@ -339,7 +435,19 @@ impl MyApp {
 	fn handle_message(&mut self, msg: Response, ctx: &Context) {
 		match msg {
 			Response::Map(result) => {
-				let result = result.map(|data| {
+				let result = result.map(|mut data| {
+					let mut local_changes = FxHashSet::default();
+					for change in &self.editor.osm_data.changes {
+						local_changes.insert(change.element_id());
+					}
+
+					data.nodes.retain(|id, _| {
+						// todo: handle conflicts
+						// if let Some(node) = self.editor.osm_data.data.nodes.get(id) && node.version != n.version {}
+						!local_changes.contains(&ElementId::Node(*id))
+					});
+					data.ways.retain(|id, _| !local_changes.contains(&ElementId::Way(*id)));
+
 					self.editor.osm_data.append_new_nodes_ways(data);
 					self.editor.osm_data.refresh_in_view_flag = true;
 				});
@@ -353,9 +461,15 @@ impl MyApp {
 			}
 			Response::CreatedChangeset(result) => {
 				self.uploader.changeset_creation = Some(result);
+				self.uploader.request_pending = false;
 			}
-			Response::ClosedChangeset(_result) => {
-				todo!();
+			Response::DiffUploaded(result) => {
+				self.uploader.diff_upload = Some(result);
+				self.uploader.request_pending = false;
+			}
+			Response::ClosedChangeset(result) => {
+				self.uploader.changeset_closure = Some(result);
+				self.uploader.request_pending = false;
 			}
 		}
 	}
@@ -378,16 +492,28 @@ impl eframe::App for MyApp {
 		}
 
 		#[cfg(target_family = "wasm")]
-		if self.state.show_firefox_modal
+		if self.editor.open_modals & ModalFlag::FirefoxNotice as u8 != 0
 			&& windows::firefox_modal(ctx)
 		{
-			self.state.show_firefox_modal = false;
+			self.editor.open_modals &= ModalFlag::FirefoxNotice as u8;
 		}
 
-		if self.state.show_licenses_modal
+		if self.editor.open_modals & ModalFlag::Licenses as u8 != 0
 			&& windows::licenses_modal(ctx)
 		{
-			self.state.show_licenses_modal = false;
+			self.editor.open_modals &= !(ModalFlag::Licenses as u8);
+		}
+
+		if self.editor.open_modals & ModalFlag::DataViewer as u8 != 0 {
+			if self.editor.data_viewer.is_none() {
+				self.editor.data_viewer = Some(DataViewerModal::new(&self.editor.osm_data.data));
+			} else {
+				let data_viewer = self.editor.data_viewer.as_mut().unwrap();
+				if data_viewer.show(ctx, &self.editor.osm_data.data) {
+					self.editor.open_modals &= !(ModalFlag::DataViewer as u8);
+					self.editor.data_viewer = None;
+				}
+			}
 		}
 
 		#[cfg(not(feature = "kiosk"))]

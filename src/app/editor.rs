@@ -8,12 +8,12 @@ pub mod r_star;
 use super::osm::Bbox;
 use super::places::school;
 use super::windows::OverlapSelectorResult;
-use crate::app::editor::r_star::NodeEntry;
 use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
 use eframe::egui::{Color32, CursorIcon, FontId, Pos2, Response, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use osm_parser::*;
+use r_star::NodeEntry;
 use r_star::WebMercatorPoint;
 use rstar::AABB;
 use states::{CacheFlag, MapState, SelectionFlag};
@@ -48,6 +48,15 @@ pub struct EditorPluginState {
 pub enum EditMode {
 	#[default] View,
 	Edit,
+}
+
+impl EditMode {
+	pub const fn color(self) -> Color32 {
+		match self {
+			Self::Edit => EDIT_MODE_COLOR,
+			Self::View => VIEW_MODE_COLOR,
+		}
+	}
 }
 
 #[derive(Default, Copy, Clone, PartialEq, Eq)]

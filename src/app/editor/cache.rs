@@ -1,5 +1,5 @@
 use super::r_star::*;
-use super::states::{CacheBitflag, CacheFlag};
+use super::states::CacheFlag;
 use crate::app::editor::is_way_closed;
 use crate::app::icons::*;
 use eframe::egui::{Color32, ImageSource, Mesh, Pos2, TextureId, Vec2};
@@ -11,6 +11,7 @@ use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex
 use osm_parser::{Coordinate, Id, Node, OsmData, Tags, Way};
 use rstar::AABB;
 use rustc_hash::FxBuildHasher;
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use walkers::{Position, Projector};
 
@@ -46,7 +47,7 @@ pub type NodeUsageCache = HashMap<Id, Vec<Id>>;
 pub type WayMeshCache = HashMap<Id, MeshData>;
 
 /// Stores a list of area IDs ordered by the area size, used for rendering.
-pub type AreaSizeOrderedCache = IndexMap<Id, f32, FxBuildHasher>; // can easily be refactored to use indexmap if the size is needed
+pub type AreaSizeOrderedCache = IndexMap<Id, f32, FxBuildHasher>;
 
 #[cfg(feature = "debug")]
 #[derive(Default)]
@@ -66,9 +67,11 @@ pub struct MeshData {
 	pub vertices: Vec<Vertex>,
 }
 
+// todo: use more precise changes to save memory
 #[derive(Debug)]
 pub enum Change {
 	CreateNode(Id, Node),
+	ModifyNode(Id, Node),
 	ModifyWay(Id, Way),
 }
 
@@ -82,6 +85,13 @@ impl Display for Change {
 					write!(f, "Added Node {id}")
 				}
 			}
+			Self::ModifyNode(id, node) => {
+				if let Some(name) = node.tags.get("name") {
+					write!(f, "Updated {name}")
+				} else {
+					write!(f, "Updated Node {id}")
+				}
+			},
 			Self::ModifyWay(id, way) => {
 				if let Some(name) = way.tags.get("name") {
 					write!(f, "Updated {name}")
@@ -89,6 +99,15 @@ impl Display for Change {
 					write!(f, "Updated Way {id}")
 				}
 			},
+		}
+	}
+}
+
+impl Change {
+	pub const fn element_id(&self) -> ElementId {
+		match self {
+			Self::CreateNode(id, _) | Self::ModifyNode(id, _) => ElementId::Node(*id),
+			Self::ModifyWay(id, _) => ElementId::Way(*id),
 		}
 	}
 }
@@ -107,7 +126,7 @@ pub struct EditorOsmData {
 	pub refresh_in_view_flag: bool,
 
 	pub changes: Vec<Change>,
-	pub cache_flags: CacheBitflag,
+	pub cache_flags: u8,
 	#[cfg(feature = "debug")]
 	pub cache_debug: CacheDebug,
 
@@ -176,18 +195,69 @@ impl ElementRef<'_> {
 			ElementRef::Way(_) => "Way",
 		}
 	}
+
+	pub const fn version(&self) -> u32 {
+		match self {
+			ElementRef::Node(n) => n.version,
+			ElementRef::Way(w) => w.version,
+		}
+	}
+
+	pub const fn changeset(&self) -> u64 {
+		match self {
+			ElementRef::Node(n) => n.changeset,
+			ElementRef::Way(w) => w.changeset,
+		}
+	}
+
+	pub fn user(&self) -> &str {
+		match self {
+			ElementRef::Node(n) => &n.user,
+			ElementRef::Way(w) => &w.user,
+		}
+	}
+
+	pub fn timestamp(&self) -> &str {
+		match self {
+			ElementRef::Node(n) => &n.timestamp,
+			ElementRef::Way(w) => &w.timestamp,
+		}
+	}
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum ElementId {
 	Node(Id),
 	Way(Id),
+}
+
+impl PartialOrd for ElementId {
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Ord for ElementId {
+	fn cmp(&self, other: &Self) -> Ordering {
+		match (self, other) {
+			(Self::Node(a), Self::Node(b)) | (Self::Way(a), Self::Way(b)) => a.cmp(b),
+			(Self::Node(_), Self::Way(_)) => Ordering::Less,
+			(Self::Way(_), Self::Node(_)) => Ordering::Greater,
+		}
+	}
 }
 
 impl ElementId {
 	pub const fn id_ref(&self) -> &Id {
 		match self {
 			Self::Node(id) | Self::Way(id) => id,
+		}
+	}
+
+	pub const fn type_str(&self) -> &'static str {
+		match self {
+			Self::Node(_) => "Node",
+			Self::Way(_) => "Way",
 		}
 	}
 }
@@ -200,6 +270,17 @@ impl EditorOsmData {
 				self.data.nodes.insert(id, node.clone());
 				self.changes.push(Change::CreateNode(id, node));
 			}
+			Change::ModifyNode(id, node ) => {
+				self.data.nodes.insert(id, node.clone());
+
+				if let Some(Change::ModifyNode(prev_id, prev_node)) = self.changes.last_mut()
+					&& *prev_id == id
+				{
+					*prev_node = node;
+				} else {
+					self.changes.push(Change::ModifyNode(id, node));
+				}
+			}
 			Change::ModifyWay(id, way) => {
 				self.data.ways.insert(id, way.clone());
 
@@ -207,10 +288,9 @@ impl EditorOsmData {
 					&& *prev_id == id
 				{
 					*prev_way = way;
-					return; // do not record a new change
+				} else {
+					self.changes.push(Change::ModifyWay(id, way));
 				}
-
-				self.changes.push(Change::ModifyWay(id, way));
 			}
 		}
 	}

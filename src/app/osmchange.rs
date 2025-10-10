@@ -1,12 +1,12 @@
-// osmchange data structures
+	// osmchange data structures
 // todo: find a way to reduce number of structs and conversions
 
-use super::editor::cache::Change;
-use quick_xml::{se::Serializer, SeError};
-use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+	use super::editor::cache::Change;
+	use quick_xml::{se::Serializer, SeError};
+	use serde::{Deserialize, Serialize};
+	use std::collections::HashMap;
 
-pub type Id = i64;
+	pub type Id = i64;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct OsmChange {
@@ -63,8 +63,10 @@ pub struct Node {
 	#[serde(rename = "@version")]
 	pub version: u32,
 	#[serde(rename = "@lon")]
+	#[serde(serialize_with = "serialize_f64_7")]
 	pub lon: f64,
 	#[serde(rename = "@lat")]
+	#[serde(serialize_with = "serialize_f64_7")]
 	pub lat: f64,
 	#[serde(rename = "tag")]
 	pub tags: Vec<Tag>,
@@ -130,6 +132,7 @@ pub struct Nd {
 impl OsmChange {
 	pub fn from(changes: &Vec<Change>) -> Self {
 		let mut created_nodes = HashMap::new();
+		let mut modified_nodes = HashMap::new();
 		let mut modified_ways = HashMap::new();
 
 		let mut create = Create::default();
@@ -141,6 +144,9 @@ impl OsmChange {
 				Change::CreateNode(_, node) => {
 					created_nodes.insert(node.id, node);
 				}
+				Change::ModifyNode(_, node) => {
+					modified_nodes.insert(node.id, node);
+				}
 				Change::ModifyWay(_, way) => {
 					modified_ways.insert(way.id, way);
 				}
@@ -149,6 +155,12 @@ impl OsmChange {
 
 		for node in created_nodes.into_values() {
 			create.node.push(node.into());
+		}
+
+		for node in modified_nodes.into_values() {
+			let mut n: Node = node.into();
+			n.version += 1;
+			modify.node.push(n);
 		}
 
 		for way in modified_ways.into_values() {
@@ -172,4 +184,10 @@ impl OsmChange {
 		self.serialize(ser)?;
 		Ok(buffer)
 	}
+}
+
+#[allow(clippy::trivially_copy_pass_by_ref)]
+fn serialize_f64_7<S>(val: &f64, serializer: S) -> Result<S::Ok, S::Error>
+where S: serde::Serializer {
+	serializer.serialize_str(&format!("{val:.7}"))
 }
