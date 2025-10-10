@@ -7,6 +7,8 @@ mod osmchange;
 mod worker;
 pub mod icons;
 
+use crate::app::providers::providers;
+use crate::app::windows::{DataViewerModal, MapWindowResult};
 use editor::cache::{Change, ElementId, ElementRef};
 use editor::visual::FillMode;
 use editor::{consts::*, states::*, EditMode, EditOperation};
@@ -16,7 +18,7 @@ use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, M
 use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
-use providers::{providers, Provider};
+use providers::Provider;
 use rustc_hash::FxHashSet;
 use walkers::{Map, Tiles};
 use windows::{TagsEditKind, Window};
@@ -26,9 +28,6 @@ use worker::{Request, Response, Worker, WorkerHandle};
 pub struct AppState {
 	pub view: View,
 	pub target_server_ui: TargetServer,
-	pub show_licenses_modal: bool,
-	#[cfg(target_family = "wasm")]
-	pub show_firefox_modal: bool,
 }
 
 #[derive(Default, PartialEq, Eq)]
@@ -209,9 +208,11 @@ impl MyApp {
 					if self.editor.window_flags & Window::Map as u8 == 0 {
 						let prev_fill_mode = self.editor.map_state.selected_fill_mode;
 
-						let show_licenses = windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys());
-						if show_licenses {
-							self.state.show_licenses_modal = true;
+						if let Some(result) = windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys()) {
+							match result {
+								MapWindowResult::ShowLicenses => self.editor.open_modals |= ModalFlag::Licenses as u8,
+								MapWindowResult::ShowDataViewer => self.editor.open_modals |= ModalFlag::DataViewer as u8,
+							}
 						}
 
 						if self.editor.map_state.selected_fill_mode == FillMode::Full && prev_fill_mode != FillMode::Full {
@@ -407,18 +408,25 @@ impl MyApp {
 			receiver: response_receiver,
 		};
 
+		let tile_providers = providers(&cc.egui_ctx);
+
 		#[cfg(target_family = "wasm")]
-		let state = AppState {
-			show_firefox_modal: cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox"),
+		let editor = EditorState {
+			tile_providers,
+			open_modals: if cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox") { ModalFlag::FirefoxNotice as u8 } else { Default::default() },
 			..Default::default()
 		};
 
 		#[cfg(not(target_family = "wasm"))]
-		let state = AppState::default();
+		let editor = EditorState {
+			tile_providers,
+			..Default::default()
+		};
 
 		Self {
-			worker_handle, state,
-			editor: EditorState::new(providers(&cc.egui_ctx)),
+			worker_handle,
+			state: AppState::default(),
+			editor,
 			uploader: UploaderState::default(),
 			authenticator: AuthenticatorState::default(),
 		}
@@ -484,16 +492,28 @@ impl eframe::App for MyApp {
 		}
 
 		#[cfg(target_family = "wasm")]
-		if self.state.show_firefox_modal
+		if self.editor.open_modals & ModalFlag::FirefoxNotice as u8 != 0
 			&& windows::firefox_modal(ctx)
 		{
-			self.state.show_firefox_modal = false;
+			self.editor.open_modals &= ModalFlag::FirefoxNotice as u8;
 		}
 
-		if self.state.show_licenses_modal
+		if self.editor.open_modals & ModalFlag::Licenses as u8 != 0
 			&& windows::licenses_modal(ctx)
 		{
-			self.state.show_licenses_modal = false;
+			self.editor.open_modals &= !(ModalFlag::Licenses as u8);
+		}
+
+		if self.editor.open_modals & ModalFlag::DataViewer as u8 != 0 {
+			if self.editor.data_viewer.is_none() {
+				self.editor.data_viewer = Some(DataViewerModal::new(&self.editor.osm_data.data));
+			} else {
+				let data_viewer = self.editor.data_viewer.as_mut().unwrap();
+				if data_viewer.show(ctx, &self.editor.osm_data.data) {
+					self.editor.open_modals &= !(ModalFlag::DataViewer as u8);
+					self.editor.data_viewer = None;
+				}
+			}
 		}
 
 		#[cfg(not(feature = "kiosk"))]
