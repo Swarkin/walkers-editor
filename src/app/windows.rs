@@ -447,7 +447,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 }
 
 pub fn licenses_modal(ctx: &Context) -> bool {
-	let screen = ctx.screen_rect();
+	let screen = ctx.content_rect();
 	let width = screen.width() * 0.8;
 	let height = screen.height() * 0.6;
 
@@ -533,7 +533,7 @@ impl DataViewerModal {
 
 	#[allow(clippy::too_many_lines)]
 	pub fn show(&mut self, ctx: &Context, osm: &OsmData) -> bool {
-		let screen = ctx.screen_rect();
+		let screen = ctx.content_rect();
 		let width = screen.width() * 0.8;
 		let height = screen.height() * 0.6;
 		let area = Area::new("data_view_area".into())

@@ -103,7 +103,7 @@ impl MyApp {
 		match self.state.view {
 			View::Edit => {
 				// regenerate cache on zoom or resize
-				let curr_size = ctx.screen_rect().size();
+				let curr_size = ctx.content_rect().size();
 
 				// todo: dont regenerate cache during zoom animation
 				if curr_size != self.editor.prev_size {

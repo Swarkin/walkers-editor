@@ -396,7 +396,7 @@ impl Plugin for EditorPlugin<'_> {
 					&& let Some(mouse) = mouse
 					&& let Some(name) = element.tags().get("name")
 				{
-					let galley = ui.fonts(|f| {
+					let galley = ui.fonts_mut(|f| {
 						f.layout_no_wrap(name.to_owned(), FontId::proportional(HOVER_TOOLTIP_FONT_SIZE), Color32::LIGHT_GRAY)
 					});
 					let rect = galley.rect
