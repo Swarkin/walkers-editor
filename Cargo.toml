@@ -17,9 +17,9 @@ debug = []
 kiosk = []
 
 [dependencies]
-walkers = "0.46.0"
-eframe = { version = "0.32", default-features = false, features = ["glow", "default_fonts"] }
-egui_extras = { version = "0.32", default-features = false, features = ["svg", "syntect"] }
+walkers = "0.47.0"
+eframe = { version = "*", default-features = false, features = ["glow", "default_fonts"] }
+egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
 serde = { version = "1", features = ["derive"] }
 quick-xml = { version = "0.38", features = ["serialize"] }
 crossbeam-channel = "0.5"
@@ -31,7 +31,7 @@ indexmap = "2.11"
 rstar = "0.12"
 
 [target.'cfg(target_family = "unix")'.dependencies]
-eframe = { version = "0.32", default-features = false, features = ["glow", "default_fonts", "wayland", "x11"] }
+eframe = { version = "*", default-features = false, features = ["glow", "default_fonts", "wayland", "x11"] }
 
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 ureq = { version = "3.0", default-features = false, features = ["rustls", "json", "gzip"] }
