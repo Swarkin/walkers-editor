@@ -14,7 +14,7 @@ use editor::visual::FillMode;
 use editor::{consts::*, states::*, EditMode, EditOperation};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, ThemePreference, TopBottomPanel, Ui, Vec2};
+use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, Theme, ThemePreference, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
@@ -92,6 +92,14 @@ impl MyApp {
 										}
 									}
 								});
+
+							if ui.small_button("Theme").clicked() {
+								if ctx.theme() == Theme::Dark {
+									ctx.set_theme(Theme::Light);
+								} else {
+									ctx.set_theme(Theme::Dark);
+								}
+							}
 						}
 					);
 				});
