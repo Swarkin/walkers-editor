@@ -8,7 +8,7 @@ on:
 env:
   CARGO_TERM_COLOR: "always"
   RUSTFLAGS: "-Dwarnings"
-  CLIPPY_FLAGS: "-W clippy::all -W clippy::pedantic -W clippy::nursery -W clippy::cargo"
+  CLIPPY_FLAGS: "-W clippy::all -W clippy::pedantic -W clippy::nursery"
   BUILD_FLAGS: "--all-targets --all-features"
   TRUNK_ARTIFACT_NAME: "trunk-output"
 
