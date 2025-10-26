@@ -486,7 +486,13 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 			});
 			ui.collapsing("View tabler-icons License", |ui| {
 				egui::ScrollArea::vertical().show(ui, |ui| {
-					ui.monospace(include_str!("../../assets/ui/LICENSE"));
+					#[cfg(not(debug_assertions))]
+					let text = include_str!("../../assets/ui/LICENSE");
+
+					#[cfg(debug_assertions)]
+					let text = "\nLicense not loaded in a debug build.\n";
+
+					ui.monospace(text);
 				});
 			});
 		});
