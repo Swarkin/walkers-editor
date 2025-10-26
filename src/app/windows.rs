@@ -235,11 +235,11 @@ pub fn map<'a>(
 				ui.add(egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text("Scale factor"));
 				ui.checkbox(&mut map_state.zoom_with_ctrl, "Zoom with Ctrl");
 
-				if ui.button("Show data viewer").clicked() {
+				if ui.button("Data Viewer").clicked() {
 					result = Some(MapWindowResult::ShowDataViewer);
 				}
 
-				if ui.button("Show Open-source licenses").clicked() {
+				if ui.button("Open-source Licenses").clicked() {
 					result = Some(MapWindowResult::ShowLicenses);
 				}
 			});
@@ -448,25 +448,20 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 
 pub fn licenses_modal(ctx: &Context) -> bool {
 	let screen = ctx.content_rect();
-	let width = screen.width() * 0.8;
-	let height = screen.height() * 0.6;
-
 	let area = Area::new("licenses_area".into())
-		.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0))
-		.default_width(width);
+		.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0));
 
 	Modal::new("licenses".into()).area(area).show(ctx, |ui| {
 		ui.heading("Open-Source Licenses");
-		ui.add_space(4.0);
-		ui.horizontal(|ui| {
-			ui.spacing_mut().item_spacing = Vec2::ZERO;
-			ui.hyperlink_to(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY"));
-			ui.label(" has been made possible by the following awesome open-source libraries:");
-		});
 		ui.separator();
-		egui::ScrollArea::vertical()
-			.max_height(height)
-			.show(ui, |ui| {
+		egui::ScrollArea::vertical().max_height(screen.height() * 0.8).show(ui, |ui| {
+			ui.heading("Packages");
+			ui.horizontal(|ui| {
+				ui.spacing_mut().item_spacing = Vec2::ZERO;
+				ui.hyperlink_to(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY"));
+				ui.label(" has been made possible by the following awesome open-source libraries:");
+			});
+			ui.collapsing("View package tree", |ui| {
 				#[cfg(not(debug_assertions))]
 				let text = egui::RichText::new(crate::LICENSES_TEXT)
 					.text_style(egui::TextStyle::Monospace);
@@ -475,11 +470,26 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 				let text = "\nLicenses are not loaded in a debug build.\n";
 
 				ui.label(text);
+				ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
+				    The dependencies for the package have already been shown elsewhere in the graph, \
+				    and so are not repeated.");
 			});
-		ui.separator();
-		ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
-		          The dependencies for the package have already been shown elsewhere in the graph, \
-		          and so are not repeated.");
+			ui.separator();
+			ui.heading("Icons");
+			ui.horizontal(|ui| {
+				ui.spacing_mut().item_spacing = Vec2::ZERO;
+				ui.label("All icons under ");
+				ui.hyperlink_to("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui", ));
+				ui.label(" are from ");
+				ui.hyperlink_to("tabler-icons", "https://github.com/tabler/tabler-icons");
+				ui.label(", licensed under the MIT license.");
+			});
+			ui.collapsing("View tabler-icons License", |ui| {
+				egui::ScrollArea::vertical().show(ui, |ui| {
+					ui.monospace(include_str!("../../assets/ui/LICENSE"));
+				});
+			});
+		});
 		ui.add_space(4.0);
 		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
 	}).inner
