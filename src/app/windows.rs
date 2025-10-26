@@ -16,10 +16,19 @@ use osm_parser::OsmData;
 use walkers::sources::Attribution;
 use walkers::Position;
 
-const TRANSPARENT_FRAME: Frame = Frame {
+const TRANSPARENT_FRAME_DARK: Frame = Frame {
 	inner_margin: Margin::same(6),
 	fill: Color32::from_rgba_premultiplied(20, 20, 20, 240),
 	stroke: Stroke { width: 1.0, color: Color32::from_gray(60) },
+	corner_radius: CornerRadius::same(6),
+	outer_margin: Margin::ZERO,
+	shadow: Shadow::NONE,
+};
+
+const TRANSPARENT_FRAME_LIGHT: Frame = Frame {
+	inner_margin: Margin::same(6),
+	fill: Color32::from_rgba_premultiplied(240, 240, 240, 240),
+	stroke: Stroke { width: 1.0, color: Color32::from_gray(200) },
 	corner_radius: CornerRadius::same(6),
 	outer_margin: Margin::ZERO,
 	shadow: Shadow::NONE,
@@ -60,13 +69,21 @@ impl Window {
 	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Location, Self::Debug];
 }
 
+fn themed_frame(theme: egui::Theme) -> Frame {
+	if theme == egui::Theme::Dark {
+		TRANSPARENT_FRAME_DARK
+	} else {
+		TRANSPARENT_FRAME_LIGHT
+	}
+}
+
 pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
 	egui::Window::new("Acknowledge")
 		.title_bar(false)
 		.auto_sized()
 		.order(Order::Background)
 		.anchor(Align2::LEFT_BOTTOM, Vec2::ZERO)
-		.frame(TRANSPARENT_FRAME
+		.frame(themed_frame(ui.ctx().theme())
 			.multiply_with_opacity(0.85)
 			.inner_margin(Margin { left: 0, right: 6, top: 2, bottom: 2 })
 			.corner_radius(CornerRadius { nw: 0, ne: 6, sw: 0, se: 0 })
@@ -107,7 +124,7 @@ pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_ena
 		.vscroll(true)
 		.default_size([300., 200.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			let mut change = None;
 
@@ -199,7 +216,7 @@ pub fn map<'a>(
 		.title_bar(false)
 		.fixed_size([150., 150.])
 		.anchor(Align2::RIGHT_BOTTOM, [-WINDOW_MARGIN, -WINDOW_MARGIN])
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			ui.collapsing("Map", |ui| {
 				let text = map_state.selected_provider
@@ -252,7 +269,7 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 	egui::Window::new("History")
 		.max_height(256.0)
 		.anchor(Align2::RIGHT_TOP, [-10., 42.])
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			if history.is_empty() {
 				ui.weak("Empty");
@@ -269,7 +286,9 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 // Returns whether a download was triggered
 pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPluginState) -> bool {
 	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
-	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, TRANSPARENT_FRAME.total_margin().top.mul_add(2., 24. + 4.)));
+	let frame = themed_frame(ui.ctx().theme())
+		.corner_radius(CornerRadius { ne: 6, nw: 0, se: 6, sw: 0 });
+	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, frame.total_margin().top.mul_add(2., 24. + 4.)));
 
 	// Draw mode indicator
 	if ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode\nPress Space to toggle", editor_state.mode)).clicked() {
@@ -285,7 +304,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 		.title_bar(false)
 		.resizable(false)
 		.anchor(Align2::LEFT_TOP, top_left.to_vec2() + Vec2::new(MODE_INDICATOR_WIDTH, 0.0))
-		.frame(TRANSPARENT_FRAME.corner_radius(CornerRadius { ne: 6, nw: 0, se: 6, sw: 0 }))
+		.frame(frame)
 		.show(ui.ctx(), |ui| {
 			ui.spacing_mut().button_padding = Vec2::splat(2.0);
 			ui.horizontal(|ui| {
@@ -303,8 +322,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 							state.selection_mode & flag as u8 != 0
 						} else { false };
 
-						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(TOOLBAR_ICON_SIZE));
-						let resp = ui.add(Button::image(image).selected(selected).corner_radius(4));
+						let resp = ui.add(Button::image(prepare_icon(ui.ctx(), icon, ICON_SIZE)).selected(selected).corner_radius(4));
 
 						if !ui.ctx().wants_keyboard_input()
 							&& (resp.clicked() || ui.input_mut(|i| i.consume_key(Modifiers::NONE, key)))
@@ -330,8 +348,8 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 								let text = egui::RichText::new(if status.is_ok() { "✔" } else { "✘" }).strong();
 								ui.add_enabled(enabled, Button::new(text).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE)).corner_radius(4))
 							} else { // todo: global error modal / success toast
-								let image = Image::new(icons::DOWNLOAD).fit_to_exact_size(Vec2::splat(TOP_BAR_BUTTON_SIZE - 4.0));
-								ui.add_enabled(enabled, Button::image(image).corner_radius(4))
+								let image = prepare_icon(ui.ctx(), icons::DOWNLOAD, ICON_SIZE);
+								ui.add_enabled(enabled, Button::new(image).corner_radius(4))
 							};
 
 							// Return whether a download was triggered
@@ -357,7 +375,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 	egui::Window::new("Location")
 		.default_pos(Pos2::new(ui.available_width() / 2.0, TOP_BAR_HEIGHT + WINDOW_MARGIN))
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.resizable(false)
 		.show(ui.ctx(), |ui| {
 			ui.style_mut().spacing.item_spacing = Vec2::splat(4.0);
@@ -405,7 +423,7 @@ use crate::app::osm::TargetServer;
 pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
 	egui::Window::new("Debug")
 		.resizable(false)
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			ui.heading(format!("Δt: {:.4} ms", ui.input(|i| i.unstable_dt) * 1000.0));
 			if let Some(p) = provider {
@@ -699,7 +717,7 @@ pub fn overlap_selector<'a>(ui: &Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) ->
 	egui::Window::new("On Top Selector")
 		.title_bar(false)
 		.auto_sized()
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.fixed_pos(pos)
 		.show(ui.ctx(), |ui| {
 			let mut resp = OverlapSelectorResult::None;
