@@ -6,9 +6,8 @@ use eframe::egui::{Color32, Context, Image, ImageSource, Vec2};
 pub const TOP_BAR_HEIGHT: f32 = 37.0;
 pub const TOP_BAR_FONT_SIZE: f32 = 14.0;
 pub const TOP_BAR_BUTTON_SIZE: f32 = 28.0;
-pub const TOP_BAR_ICON_SIZE: f32 = 24.0;
 
-pub const TOOLBAR_ICON_SIZE: f32 = 24.0;
+pub const ICON_SIZE: f32 = 24.0;
 
 pub const EDIT_MODE_COLOR: Color32 = Color32::LIGHT_RED;
 pub const VIEW_MODE_COLOR: Color32 = Color32::from_rgb(60, 160, 255);
