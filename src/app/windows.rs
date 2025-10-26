@@ -16,10 +16,19 @@ use osm_parser::OsmData;
 use walkers::sources::Attribution;
 use walkers::Position;
 
-const TRANSPARENT_FRAME: Frame = Frame {
+const TRANSPARENT_FRAME_DARK: Frame = Frame {
 	inner_margin: Margin::same(6),
 	fill: Color32::from_rgba_premultiplied(20, 20, 20, 240),
 	stroke: Stroke { width: 1.0, color: Color32::from_gray(60) },
+	corner_radius: CornerRadius::same(6),
+	outer_margin: Margin::ZERO,
+	shadow: Shadow::NONE,
+};
+
+const TRANSPARENT_FRAME_LIGHT: Frame = Frame {
+	inner_margin: Margin::same(6),
+	fill: Color32::from_rgba_premultiplied(240, 240, 240, 240),
+	stroke: Stroke { width: 1.0, color: Color32::from_gray(200) },
 	corner_radius: CornerRadius::same(6),
 	outer_margin: Margin::ZERO,
 	shadow: Shadow::NONE,
@@ -60,13 +69,21 @@ impl Window {
 	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Location, Self::Debug];
 }
 
+fn themed_frame(theme: egui::Theme) -> Frame {
+	if theme == egui::Theme::Dark {
+		TRANSPARENT_FRAME_DARK
+	} else {
+		TRANSPARENT_FRAME_LIGHT
+	}
+}
+
 pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
 	egui::Window::new("Acknowledge")
 		.title_bar(false)
 		.auto_sized()
 		.order(Order::Background)
 		.anchor(Align2::LEFT_BOTTOM, Vec2::ZERO)
-		.frame(TRANSPARENT_FRAME
+		.frame(themed_frame(ui.ctx().theme())
 			.multiply_with_opacity(0.85)
 			.inner_margin(Margin { left: 0, right: 6, top: 2, bottom: 2 })
 			.corner_radius(CornerRadius { nw: 0, ne: 6, sw: 0, se: 0 })
@@ -107,7 +124,7 @@ pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_ena
 		.vscroll(true)
 		.default_size([300., 200.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			let mut change = None;
 
@@ -199,7 +216,7 @@ pub fn map<'a>(
 		.title_bar(false)
 		.fixed_size([150., 150.])
 		.anchor(Align2::RIGHT_BOTTOM, [-WINDOW_MARGIN, -WINDOW_MARGIN])
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			ui.collapsing("Map", |ui| {
 				let text = map_state.selected_provider
@@ -235,11 +252,11 @@ pub fn map<'a>(
 				ui.add(egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text("Scale factor"));
 				ui.checkbox(&mut map_state.zoom_with_ctrl, "Zoom with Ctrl");
 
-				if ui.button("Show data viewer").clicked() {
+				if ui.button("Data Viewer").clicked() {
 					result = Some(MapWindowResult::ShowDataViewer);
 				}
 
-				if ui.button("Show Open-source licenses").clicked() {
+				if ui.button("Open-source Licenses").clicked() {
 					result = Some(MapWindowResult::ShowLicenses);
 				}
 			});
@@ -252,7 +269,7 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 	egui::Window::new("History")
 		.max_height(256.0)
 		.anchor(Align2::RIGHT_TOP, [-10., 42.])
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			if history.is_empty() {
 				ui.weak("Empty");
@@ -269,7 +286,9 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 // Returns whether a download was triggered
 pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPluginState) -> bool {
 	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
-	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, TRANSPARENT_FRAME.total_margin().top.mul_add(2., 24. + 4.)));
+	let frame = themed_frame(ui.ctx().theme())
+		.corner_radius(CornerRadius { ne: 6, nw: 0, se: 6, sw: 0 });
+	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, frame.total_margin().top.mul_add(2., 24. + 4.)));
 
 	// Draw mode indicator
 	if ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode\nPress Space to toggle", editor_state.mode)).clicked() {
@@ -285,7 +304,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 		.title_bar(false)
 		.resizable(false)
 		.anchor(Align2::LEFT_TOP, top_left.to_vec2() + Vec2::new(MODE_INDICATOR_WIDTH, 0.0))
-		.frame(TRANSPARENT_FRAME.corner_radius(CornerRadius { ne: 6, nw: 0, se: 6, sw: 0 }))
+		.frame(frame)
 		.show(ui.ctx(), |ui| {
 			ui.spacing_mut().button_padding = Vec2::splat(2.0);
 			ui.horizontal(|ui| {
@@ -303,8 +322,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 							state.selection_mode & flag as u8 != 0
 						} else { false };
 
-						let image = Image::new(icon).fit_to_exact_size(Vec2::splat(TOOLBAR_ICON_SIZE));
-						let resp = ui.add(Button::image(image).selected(selected).corner_radius(4));
+						let resp = ui.add(Button::image(prepare_icon(ui.ctx(), icon, ICON_SIZE)).selected(selected).corner_radius(4));
 
 						if !ui.ctx().wants_keyboard_input()
 							&& (resp.clicked() || ui.input_mut(|i| i.consume_key(Modifiers::NONE, key)))
@@ -330,8 +348,8 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 								let text = egui::RichText::new(if status.is_ok() { "✔" } else { "✘" }).strong();
 								ui.add_enabled(enabled, Button::new(text).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE)).corner_radius(4))
 							} else { // todo: global error modal / success toast
-								let image = Image::new(icons::DOWNLOAD).fit_to_exact_size(Vec2::splat(TOP_BAR_BUTTON_SIZE - 4.0));
-								ui.add_enabled(enabled, Button::image(image).corner_radius(4))
+								let image = prepare_icon(ui.ctx(), icons::DOWNLOAD, ICON_SIZE);
+								ui.add_enabled(enabled, Button::new(image).corner_radius(4))
 							};
 
 							// Return whether a download was triggered
@@ -357,7 +375,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 	egui::Window::new("Location")
 		.default_pos(Pos2::new(ui.available_width() / 2.0, TOP_BAR_HEIGHT + WINDOW_MARGIN))
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.resizable(false)
 		.show(ui.ctx(), |ui| {
 			ui.style_mut().spacing.item_spacing = Vec2::splat(4.0);
@@ -405,7 +423,7 @@ use crate::app::osm::TargetServer;
 pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
 	egui::Window::new("Debug")
 		.resizable(false)
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			ui.heading(format!("Δt: {:.4} ms", ui.input(|i| i.unstable_dt) * 1000.0));
 			if let Some(p) = provider {
@@ -447,26 +465,21 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 }
 
 pub fn licenses_modal(ctx: &Context) -> bool {
-	let screen = ctx.screen_rect();
-	let width = screen.width() * 0.8;
-	let height = screen.height() * 0.6;
-
+	let screen = ctx.content_rect();
 	let area = Area::new("licenses_area".into())
-		.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0))
-		.default_width(width);
+		.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0));
 
 	Modal::new("licenses".into()).area(area).show(ctx, |ui| {
 		ui.heading("Open-Source Licenses");
-		ui.add_space(4.0);
-		ui.horizontal(|ui| {
-			ui.spacing_mut().item_spacing = Vec2::ZERO;
-			ui.hyperlink_to(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY"));
-			ui.label(" has been made possible by the following awesome open-source libraries:");
-		});
 		ui.separator();
-		egui::ScrollArea::vertical()
-			.max_height(height)
-			.show(ui, |ui| {
+		egui::ScrollArea::vertical().max_height(screen.height() * 0.8).show(ui, |ui| {
+			ui.heading("Packages");
+			ui.horizontal(|ui| {
+				ui.spacing_mut().item_spacing = Vec2::ZERO;
+				ui.hyperlink_to(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY"));
+				ui.label(" has been made possible by the following awesome open-source libraries:");
+			});
+			ui.collapsing("View package tree", |ui| {
 				#[cfg(not(debug_assertions))]
 				let text = egui::RichText::new(crate::LICENSES_TEXT)
 					.text_style(egui::TextStyle::Monospace);
@@ -475,11 +488,32 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 				let text = "\nLicenses are not loaded in a debug build.\n";
 
 				ui.label(text);
+				ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
+				    The dependencies for the package have already been shown elsewhere in the graph, \
+				    and so are not repeated.");
 			});
-		ui.separator();
-		ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
-		          The dependencies for the package have already been shown elsewhere in the graph, \
-		          and so are not repeated.");
+			ui.separator();
+			ui.heading("Icons");
+			ui.horizontal(|ui| {
+				ui.spacing_mut().item_spacing = Vec2::ZERO;
+				ui.label("All icons under ");
+				ui.hyperlink_to("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui", ));
+				ui.label(" are from ");
+				ui.hyperlink_to("tabler-icons", "https://github.com/tabler/tabler-icons");
+				ui.label(", licensed under the MIT license.");
+			});
+			ui.collapsing("View tabler-icons License", |ui| {
+				egui::ScrollArea::vertical().show(ui, |ui| {
+					#[cfg(not(debug_assertions))]
+					let text = include_str!("../../assets/ui/LICENSE");
+
+					#[cfg(debug_assertions)]
+					let text = "\nLicense not loaded in a debug build.\n";
+
+					ui.monospace(text);
+				});
+			});
+		});
 		ui.add_space(4.0);
 		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
 	}).inner
@@ -533,7 +567,7 @@ impl DataViewerModal {
 
 	#[allow(clippy::too_many_lines)]
 	pub fn show(&mut self, ctx: &Context, osm: &OsmData) -> bool {
-		let screen = ctx.screen_rect();
+		let screen = ctx.content_rect();
 		let width = screen.width() * 0.8;
 		let height = screen.height() * 0.6;
 		let area = Area::new("data_view_area".into())
@@ -683,7 +717,7 @@ pub fn overlap_selector<'a>(ui: &Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) ->
 	egui::Window::new("On Top Selector")
 		.title_bar(false)
 		.auto_sized()
-		.frame(TRANSPARENT_FRAME)
+		.frame(themed_frame(ui.ctx().theme()))
 		.fixed_pos(pos)
 		.show(ui.ctx(), |ui| {
 			let mut resp = OverlapSelectorResult::None;

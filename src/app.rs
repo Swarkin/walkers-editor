@@ -14,7 +14,7 @@ use editor::visual::FillMode;
 use editor::{consts::*, states::*, EditMode, EditOperation};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{AtomExt, Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, ThemePreference, TopBottomPanel, Ui, Vec2};
+use egui::{Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, Theme, ThemePreference, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
@@ -62,12 +62,12 @@ impl MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
-							let btn = title_bar_button("Editor", prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, TOP_BAR_ICON_SIZE));
+							let btn = title_bar_button("Editor", prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Edit, btn).clicked() {
 								self.state.view = View::Edit;
 							}
 
-							let btn = title_bar_button("Upload", prepare_icon(ctx, icons::UPLOAD, TOP_BAR_ICON_SIZE));
+							let btn = title_bar_button("Upload", prepare_icon(ctx, icons::UPLOAD, ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Upload, btn).clicked() {
 								self.state.view = View::Upload;
 								// todo: clean up osmchange memory usage after no longer in use
@@ -76,13 +76,14 @@ impl MyApp {
 								self.uploader.osmchange_text = self.uploader.osmchange.to_string_pretty().unwrap();
 							}
 
-							let btn = title_bar_button("Auth", prepare_icon(ctx, icons::USER, TOP_BAR_ICON_SIZE));
+							let btn = title_bar_button("Auth", prepare_icon(ctx, icons::USER, ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Auth, btn).clicked() {
 								self.state.view = View::Auth;
 							}
 						},
 						|ui| {
-							MenuButton::new(icons::LAYOUT.atom_size(Vec2::splat(TOP_BAR_ICON_SIZE)))
+							let icon = prepare_icon(ctx, icons::LAYOUT, ICON_SIZE);
+							MenuButton::new(icon)
 								.config(MenuConfig::default().close_behavior(PopupCloseBehavior::CloseOnClickOutside))
 								.ui(ui, |ui| {
 									for window in Window::ITER {
@@ -92,6 +93,12 @@ impl MyApp {
 										}
 									}
 								});
+
+							let (new_theme, theme_icon) = if ctx.theme() == Theme::Dark { (Theme::Light, icons::MOON) } else { (Theme::Dark, icons::SUN) };
+							let btn = title_bar_button("Theme", prepare_icon(ctx, theme_icon, ICON_SIZE));
+							if ui.add(btn).clicked() {
+								ctx.set_theme(new_theme);
+							}
 						}
 					);
 				});
@@ -103,7 +110,7 @@ impl MyApp {
 		match self.state.view {
 			View::Edit => {
 				// regenerate cache on zoom or resize
-				let curr_size = ctx.screen_rect().size();
+				let curr_size = ctx.content_rect().size();
 
 				// todo: dont regenerate cache during zoom animation
 				if curr_size != self.editor.prev_size {
