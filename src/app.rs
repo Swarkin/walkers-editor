@@ -95,7 +95,7 @@ impl MyApp {
 								});
 
 							let (new_theme, theme_icon) = if ctx.theme() == Theme::Dark { (Theme::Light, icons::MOON) } else { (Theme::Dark, icons::SUN) };
-							let btn = title_bar_button("Theme", prepare_icon(ctx, theme_icon, ICON_SIZE));
+							let btn = title_bar_button("", prepare_icon(ctx, theme_icon, ICON_SIZE));
 							if ui.add(btn).clicked() {
 								ctx.set_theme(new_theme);
 							}
@@ -544,8 +544,13 @@ fn map(
 }
 
 fn title_bar_button<'a>(text: &str, img: Image<'a>) -> Button<'a> {
-	Button::image_and_text(img, RichText::new(format!("{text} ")).strong().size(TOP_BAR_FONT_SIZE))
-		.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
+	if text.is_empty() {
+		Button::image(img)
+			.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
+	} else {
+		Button::image_and_text(img, RichText::new(format!("{text} ")).strong().size(TOP_BAR_FONT_SIZE))
+			.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
+	}
 }
 
 fn server_selector(ui: &mut Ui, value: &mut TargetServer) {
