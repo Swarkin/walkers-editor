@@ -118,7 +118,13 @@ impl Plugin for EditorPlugin<'_> {
 		}
 
 		match self.editor_state.operation {
-			EditOperation::Idle => {}
+			EditOperation::Idle => {
+				if let Some(selected_id) = &self.editor_state.selected {
+					if let ElementId::Node(id) = selected_id && *id < 0 && ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Delete)) { // todo: allow elements other than nodes
+						self.osm.apply_change(Change::DeleteNode(*id));
+					}
+				}
+			}
 			EditOperation::AddNode => {
 				if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
 					self.editor_state.operation = EditOperation::Idle;

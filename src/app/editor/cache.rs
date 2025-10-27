@@ -73,6 +73,7 @@ pub enum Change {
 	CreateNode(Id, Node),
 	ModifyNode(Id, Node),
 	ModifyWay(Id, Way),
+	DeleteNode(Id),
 }
 
 impl Display for Change {
@@ -99,6 +100,9 @@ impl Display for Change {
 					write!(f, "Updated Way {id}")
 				}
 			},
+			Self::DeleteNode(id) => {
+				write!(f, "Deleted {id}")
+			}
 		}
 	}
 }
@@ -108,6 +112,7 @@ impl Change {
 		match self {
 			Self::CreateNode(id, _) | Self::ModifyNode(id, _) => ElementId::Node(*id),
 			Self::ModifyWay(id, _) => ElementId::Way(*id),
+			Self::DeleteNode(id) => ElementId::Node(*id),
 		}
 	}
 }
@@ -292,6 +297,7 @@ impl EditorOsmData {
 					self.changes.push(Change::ModifyWay(id, way));
 				}
 			}
+			Change::DeleteNode(id 0> )
 		}
 	}
 
