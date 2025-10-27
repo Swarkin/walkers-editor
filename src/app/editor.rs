@@ -10,7 +10,7 @@ use super::places::school;
 use super::windows::OverlapSelectorResult;
 use cache::{Change, EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
-use eframe::egui::{Color32, CursorIcon, FontId, Pos2, Response, Stroke, Ui};
+use eframe::egui::{Color32, CursorIcon, FontId, Key, Modifiers, Pos2, Response, Stroke, Ui};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use osm_parser::*;
 use r_star::NodeEntry;
@@ -117,28 +117,31 @@ impl Plugin for EditorPlugin<'_> {
 			self.editor_state.map_bbox.top = tl.y();
 		}
 
-		#[allow(clippy::single_match)]
 		match self.editor_state.operation {
 			EditOperation::Idle => {}
 			EditOperation::AddNode => {
-				ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
+				if ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Escape)) {
+					self.editor_state.operation = EditOperation::Idle;
+				} else {
+					ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
 
-				if clicked {
-					#[allow(clippy::collapsible_if)]
-					if let Some(mouse) = mouse {
-						self.editor_state.placeholder_id -= 1;
-						let id = self.editor_state.placeholder_id;
-						let pos = projector.unproject(mouse.to_vec2());
-						let coord = Coordinate::new(pos.0.y, pos.0.x);
+					if clicked {
+						#[allow(clippy::collapsible_if)]
+						if let Some(mouse) = mouse {
+							self.editor_state.placeholder_id -= 1;
+							let id = self.editor_state.placeholder_id;
+							let pos = projector.unproject(mouse.to_vec2());
+							let coord = Coordinate::new(pos.0.y, pos.0.x);
 
-						#[allow(clippy::cast_possible_truncation)]
-						self.osm.rtree_data.nodes.insert(NodeEntry::new([coord.lat as f32, coord.lon as f32], id));
-						let change = Change::CreateNode(id, Node { id, pos: coord, ..Default::default() });
-						self.osm.apply_change(change);
+							#[allow(clippy::cast_possible_truncation)]
+							self.osm.rtree_data.nodes.insert(NodeEntry::new([coord.lat as f32, coord.lon as f32], id));
+							let change = Change::CreateNode(id, Node { id, pos: coord, ..Default::default() });
+							self.osm.apply_change(change);
 
-						self.editor_state.operation = EditOperation::Idle;
-						self.editor_state.selected = Some(ElementId::Node(id));
-						self.osm.refresh_in_view_flag = true;
+							self.editor_state.operation = EditOperation::Idle;
+							self.editor_state.selected = Some(ElementId::Node(id));
+							self.osm.refresh_in_view_flag = true;
+						}
 					}
 				}
 			}
