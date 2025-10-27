@@ -14,7 +14,7 @@ use editor::visual::FillMode;
 use editor::{consts::*, states::*, EditMode, EditOperation};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{Button, CentralPanel, Color32, Context, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, Theme, ThemePreference, TopBottomPanel, Ui, Vec2};
+use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, Theme, ThemePreference, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
@@ -539,6 +539,7 @@ fn map(
 ) -> egui::Response {
 	ui.add(Map::new(tiles, map_memory, places::school())
 		.zoom_with_ctrl(editor_plugin.map_state.zoom_with_ctrl)
+		.drag_pan_buttons(DragPanButtons::PRIMARY | DragPanButtons::MIDDLE | DragPanButtons::SECONDARY)
 		.with_plugin(editor_plugin)
 	)
 }
