@@ -24,10 +24,12 @@ use walkers::{Map, Tiles};
 use windows::{TagsEditKind, Window};
 use worker::{Request, Response, Worker, WorkerHandle};
 
+/// State related to the application itself
 #[derive(Default)]
 pub struct AppState {
 	pub view: View,
 	pub target_server_ui: TargetServer,
+	pub open_modals: u8,
 }
 
 #[derive(Default, PartialEq, Eq)]
@@ -217,8 +219,8 @@ impl MyApp {
 
 						if let Some(result) = windows::map(ui, &mut self.editor.map_state, &mut self.editor.tile_providers.keys()) {
 							match result {
-								MapWindowResult::ShowLicenses => self.editor.open_modals |= ModalFlag::Licenses as u8,
-								MapWindowResult::ShowDataViewer => self.editor.open_modals |= ModalFlag::DataViewer as u8,
+								MapWindowResult::ShowLicenses => self.state.open_modals |= ModalFlag::Licenses as u8,
+								MapWindowResult::ShowDataViewer => self.state.open_modals |= ModalFlag::DataViewer as u8,
 							}
 						}
 
@@ -505,19 +507,19 @@ impl eframe::App for MyApp {
 			self.editor.open_modals &= ModalFlag::FirefoxNotice as u8;
 		}
 
-		if self.editor.open_modals & ModalFlag::Licenses as u8 != 0
+		if self.state.open_modals & ModalFlag::Licenses as u8 != 0
 			&& windows::licenses_modal(ctx)
 		{
-			self.editor.open_modals &= !(ModalFlag::Licenses as u8);
+			self.state.open_modals &= !(ModalFlag::Licenses as u8);
 		}
 
-		if self.editor.open_modals & ModalFlag::DataViewer as u8 != 0 {
+		if self.state.open_modals & ModalFlag::DataViewer as u8 != 0 {
 			if self.editor.data_viewer.is_none() {
 				self.editor.data_viewer = Some(DataViewerModal::new(&self.editor.osm_data.data));
 			} else {
 				let data_viewer = self.editor.data_viewer.as_mut().unwrap();
 				if data_viewer.show(ctx, &self.editor.osm_data.data) {
-					self.editor.open_modals &= !(ModalFlag::DataViewer as u8);
+					self.state.open_modals &= !(ModalFlag::DataViewer as u8);
 					self.editor.data_viewer = None;
 				}
 			}

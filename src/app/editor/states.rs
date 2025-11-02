@@ -16,6 +16,7 @@ use std::{
 };
 use walkers::MapMemory;
 
+/// State related to the editor tab
 pub struct EditorState {
 	pub tile_providers: HashMap<Provider, TilesKind>,
 	pub map_memory: MapMemory,
@@ -25,7 +26,6 @@ pub struct EditorState {
 	pub window_flags: WindowBitflag,
 	pub prev_size: Vec2,
 	pub edit_window: Option<(ElementId, IndexMap<String, String>)>,
-	pub open_modals: u8,
 	pub data_viewer: Option<DataViewerModal>,
 }
 
@@ -48,7 +48,6 @@ impl Default for EditorState {
 			window_flags: WindowBitflag::default(),
 			prev_size: Vec2::ZERO,
 			edit_window: None,
-			open_modals: 0u8,
 			data_viewer: None,
 		}
 	}
@@ -130,6 +129,7 @@ pub enum MapDownloadState {
 	Downloading,
 }
 
+/// State related to the upload tab
 #[derive(Default)]
 pub struct UploaderState {
 	pub osmchange: OsmChange,
@@ -140,9 +140,9 @@ pub struct UploaderState {
 	pub request_pending: bool,
 }
 
+/// State related to the auth tab
 #[derive(Default)]
 pub struct AuthenticatorState {
-	// todo: currently no way to check which server this belongs to
 	pub token: HashMap<TargetServer, OsmResult<OsmToken>>,
 	pub authorization_code: String,
 	pub request_pending: bool,
