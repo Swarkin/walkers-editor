@@ -416,24 +416,29 @@ impl MyApp {
 			receiver: response_receiver,
 		};
 
-		let cache_dir = dirs::cache_dir().unwrap_or_else(|| ".cache".into());
-		let tile_providers = providers(&cc.egui_ctx, Some(cache_dir));
+		#[cfg(not(target_family = "wasm"))]
+		let cache_dir = dirs::cache_dir()
+			.map(|x| x.join(env!("CARGO_PKG_NAME")));
 
 		#[cfg(target_family = "wasm")]
-		let editor = Editor {
-			tile_providers,
+		let cache_dir = None;
+
+		let tile_providers = providers(&cc.egui_ctx, cache_dir);
+
+		#[cfg(target_family = "wasm")]
+		let app_state = AppState {
 			open_modals: if cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox") { ModalFlag::FirefoxNotice as u8 } else { Default::default() },
 			..Default::default()
 		};
 
 		#[cfg(not(target_family = "wasm"))]
-		let editor = Editor::default();
+		let app_state = AppState::default();
 
 		Self {
 			worker_handle,
-			state: AppState::default(),
+			state: app_state,
 			editor_state: EditorState {
-				editor,
+				editor: Editor::default(),
 				map_memory: MapMemory::default(),
 				tile_providers,
 			},
@@ -502,10 +507,10 @@ impl eframe::App for MyApp {
 		}
 
 		#[cfg(target_family = "wasm")]
-		if self.editor.editor.open_modals & ModalFlag::FirefoxNotice as u8 != 0
+		if self.state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
 			&& windows::firefox_modal(ctx)
 		{
-			self.editor.editor.open_modals &= ModalFlag::FirefoxNotice as u8;
+			self.state.open_modals &= ModalFlag::FirefoxNotice as u8;
 		}
 
 		if self.state.open_modals & ModalFlag::Licenses as u8 != 0

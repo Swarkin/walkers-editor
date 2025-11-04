@@ -2,6 +2,7 @@ use eframe::egui::Context;
 use osm_parser::convert::{Convert, Projection};
 use osm_parser::Coordinate;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use walkers::sources::{Attribution, TileSource};
 use walkers::{HttpOptions, HttpTiles, MaxParallelDownloads, TileId, Tiles};
 
@@ -91,32 +92,32 @@ impl TileSource for Bavaria20cm {
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub fn http_options() -> HttpOptions {
+pub const fn http_options(cache: Option<PathBuf>) -> HttpOptions {
 	HttpOptions {
-		cache: Some(".cache".into()),
+		cache,
 		user_agent: Some(walkers::HeaderValue::from_static(crate::USER_AGENT)),
 		max_parallel_downloads: MaxParallelDownloads(6),
 	}
 }
 
 #[cfg(target_family = "wasm")]
-pub const fn http_options() -> HttpOptions {
+pub const fn http_options(cache: Option<PathBuf>) -> HttpOptions {
 	HttpOptions {
-		cache: None,
+		cache,
 		user_agent: None,
 		max_parallel_downloads: MaxParallelDownloads(6),
 	}
 }
 
 
-pub fn providers(egui_ctx: &Context) -> ProviderMap {
+pub fn providers(egui_ctx: &Context, cache_dir: Option<PathBuf>) -> ProviderMap {
 	let mut providers = ProviderMap::default();
 
 	providers.insert(
 		Provider::OpenStreetMap,
 		TilesKind::Http(HttpTiles::with_options(
 			walkers::sources::OpenStreetMap,
-			http_options(),
+			http_options(cache_dir.clone()),
 			egui_ctx.to_owned(),
 		)),
 	);
@@ -125,7 +126,7 @@ pub fn providers(egui_ctx: &Context) -> ProviderMap {
 		Provider::EsriWorldImagery,
 		TilesKind::Http(HttpTiles::with_options(
 			EsriWorldImagery,
-			http_options(),
+			http_options(cache_dir.clone()),
 			egui_ctx.to_owned(),
 		)),
 	);
@@ -134,7 +135,7 @@ pub fn providers(egui_ctx: &Context) -> ProviderMap {
 		Provider::Bavaria20cm,
 		TilesKind::Http(HttpTiles::with_options(
 			Bavaria20cm,
-			http_options(),
+			http_options(cache_dir.clone()),
 			egui_ctx.to_owned(),
 		)),
 	);
@@ -148,7 +149,7 @@ pub fn providers(egui_ctx: &Context) -> ProviderMap {
 					access_token,
 					high_resolution: true,
 				},
-				http_options(),
+				http_options(cache_dir),
 				egui_ctx.to_owned(),
 			)),
 		);

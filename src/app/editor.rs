@@ -258,7 +258,7 @@ impl Editor {
 
 // logic
 impl Editor {
-	#[allow(clippy::too_many_lines)]
+	#[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
 	pub fn run(&mut self, ui: &Ui, projector: &Projector, map_memory: &MapMemory) {
 		let resp = ui.response();
 		let curr_zoom = map_memory.zoom();
