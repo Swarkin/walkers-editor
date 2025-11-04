@@ -1,56 +1,22 @@
-use super::cache::ElementId;
-use super::{cache::EditorOsmData, visual::Visualization, EditorPluginState, FillMode};
-use crate::app::windows::DataViewerModal;
+use crate::app::editor::Editor;
+use crate::app::providers::TilesKind;
 use crate::app::{
+	editor::{FillMode, Visualization},
 	osm::{OsmResult, OsmToken, TargetServer},
 	osmchange::OsmChange,
-	providers::{Provider, ProviderMap, TilesKind},
-	windows::WindowBitflag,
+	providers::Provider,
 };
-use eframe::egui::Vec2;
-use indexmap::IndexMap;
 use std::{
 	collections::HashMap,
 	fmt::{Display, Formatter},
-	num::NonZeroU32
+	num::NonZeroU32,
 };
 use walkers::MapMemory;
 
-/// State related to the editor tab
 pub struct EditorState {
-	pub tile_providers: HashMap<Provider, TilesKind>,
+	pub editor: Editor,
 	pub map_memory: MapMemory,
-	pub map_state: MapState,
-	pub plugin_state: EditorPluginState,
-	pub osm_data: EditorOsmData,
-	pub window_flags: WindowBitflag,
-	pub prev_size: Vec2,
-	pub edit_window: Option<(ElementId, IndexMap<String, String>)>,
-	pub data_viewer: Option<DataViewerModal>,
-}
-
-impl Default for EditorState {
-	fn default() -> Self {
-		Self {
-			tile_providers: ProviderMap::default(),
-			map_memory: MapMemory::default(),
-			map_state: MapState {
-				selected_provider: Some(Provider::default()),
-				selected_visualization: Visualization::default(),
-				selected_fill_mode: FillMode::default(),
-				selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
-				download: MapDownloadState::Idle(None),
-				scale_factor: 1f32,
-				zoom_with_ctrl: false,
-			},
-			osm_data: EditorOsmData::default(),
-			plugin_state: EditorPluginState::default(),
-			window_flags: WindowBitflag::default(),
-			prev_size: Vec2::ZERO,
-			edit_window: None,
-			data_viewer: None,
-		}
-	}
+	pub tile_providers: HashMap<Provider, TilesKind>,
 }
 
 pub struct MapState {
@@ -61,6 +27,20 @@ pub struct MapState {
 	pub download: MapDownloadState,
 	pub scale_factor: f32,
 	pub zoom_with_ctrl: bool,
+}
+
+impl Default for MapState {
+	fn default() -> Self {
+		Self {
+			selected_provider: Some(Provider::default()),
+			selected_visualization: Visualization::default(),
+			selected_fill_mode: FillMode::default(),
+			selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
+			download: MapDownloadState::Idle(None),
+			scale_factor: 1.,
+			zoom_with_ctrl: false,
+		}
+	}
 }
 
 #[derive(Copy, Clone, PartialEq, Eq)]
@@ -127,6 +107,12 @@ impl CacheFlag {
 pub enum MapDownloadState {
 	Idle(Option<(OsmResult<()>, f64)>),
 	Downloading,
+}
+
+impl Default for MapDownloadState {
+	fn default() -> Self {
+		Self::Idle(None)
+	}
 }
 
 /// State related to the upload tab
