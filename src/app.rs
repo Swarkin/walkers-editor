@@ -375,8 +375,8 @@ impl MyApp {
 		Map::new(tiles, &mut self.editor_state.map_memory, Position::new(10.216_837, 50.059_561))
 			.zoom_with_ctrl(self.editor_state.editor.map_state.zoom_with_ctrl)
 			.drag_pan_buttons(DragPanButtons::PRIMARY | DragPanButtons::MIDDLE | DragPanButtons::SECONDARY)
-			.show(ui, |ui, projector, map_memory| {
-				self.editor_state.editor.run(ui, projector, map_memory);
+			.show(ui, |ui, response, projector, map_memory| {
+				self.editor_state.editor.run(ui, response, projector, map_memory);
 			})
 	}
 }

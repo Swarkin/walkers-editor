@@ -17,7 +17,8 @@ debug = []
 kiosk = []
 
 [dependencies]
-walkers = { version = "0.48.0", default-features = false }
+#walkers = { version = "0.48.0", default-features = false }
+walkers = { git = "https://github.com/Swarkin/walkers", default-features = false }
 eframe = { version = "*", default-features = false, features = ["glow", "default_fonts"] }
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
 serde = { version = "1", features = ["derive"] }

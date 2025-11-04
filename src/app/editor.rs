@@ -10,7 +10,7 @@ use crate::app::windows::{DataViewerModal, OverlapSelectorResult, WindowBitflag}
 use cache::Change;
 use cache::{EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
-use eframe::egui::{Color32, CursorIcon, FontId, Key, Modifiers, Pos2, Stroke, Ui, Vec2};
+use eframe::egui::{Color32, CursorIcon, FontId, Key, Modifiers, Pos2, Response, Stroke, Ui, Vec2};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
 use indexmap::IndexMap;
 use osm_parser::*;
@@ -259,8 +259,7 @@ impl Editor {
 // logic
 impl Editor {
 	#[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
-	pub fn run(&mut self, ui: &Ui, projector: &Projector, map_memory: &MapMemory) {
-		let resp = ui.response();
+	pub fn run(&mut self, ui: &Ui, response: &Response, projector: &Projector, map_memory: &MapMemory) {
 		let curr_zoom = map_memory.zoom();
 
 		#[allow(clippy::float_cmp)]
@@ -268,8 +267,8 @@ impl Editor {
 			self.osm_data.refresh_in_view_flag = true;
 		}
 
-		let mouse = resp.hover_pos();
-		let clicked = resp.clicked();
+		let mouse = response.hover_pos();
+		let clicked = response.clicked();
 
 		let should_draw_nodes = curr_zoom > NODE_MIN_ZOOM;
 
@@ -289,11 +288,11 @@ impl Editor {
 
 		/* update editor state */ {
 			if clicked {
-				self.last_click_coords = projector.unproject(resp.interact_pointer_pos().unwrap().to_vec2());
+				self.last_click_coords = projector.unproject(response.interact_pointer_pos().unwrap().to_vec2());
 			}
 
-			let tl = projector.unproject(resp.rect.min.to_vec2());
-			let br = projector.unproject(resp.rect.max.to_vec2());
+			let tl = projector.unproject(response.rect.min.to_vec2());
+			let br = projector.unproject(response.rect.max.to_vec2());
 			self.map_bbox.left = tl.x();
 			self.map_bbox.bottom = br.y();
 			self.map_bbox.right = br.x();
@@ -542,7 +541,7 @@ impl Editor {
 		}
 
 		/* draw overlap selector */ {
-			if resp.middle_clicked() {
+			if response.middle_clicked() {
 				self.overlap_selector_elements.clone_from(&self.hovered);
 				self.overlap_selector_pos = mouse.unwrap();
 			}
