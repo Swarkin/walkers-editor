@@ -388,7 +388,6 @@ impl MyApp {
 		#[cfg(target_family = "wasm")]
 		use futures::channel::mpsc as channel;
 
-		cc.egui_ctx.options_mut(|x| x.theme_preference = ThemePreference::Dark);
 		egui_extras::install_image_loaders(&cc.egui_ctx);
 
 		let (request_sender, request_receiver) = channel::unbounded::<Request>();
