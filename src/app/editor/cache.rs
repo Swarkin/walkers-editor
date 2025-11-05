@@ -71,6 +71,7 @@ pub struct MeshData {
 #[derive(Debug)]
 pub enum Change {
 	CreateNode(Id, Node),
+	CreateWay(Id, Way),
 	ModifyNode(Id, Node),
 	ModifyWay(Id, Way),
 }
@@ -91,14 +92,21 @@ impl Display for Change {
 				} else {
 					write!(f, "Updated Node {id}")
 				}
-			},
+			}
+			Self::CreateWay(id, way) => {
+				if let Some(name) = way.tags.get("name") {
+					write!(f, "Added {name}")
+				} else {
+					write!(f, "Added Way {id}")
+				}
+			}
 			Self::ModifyWay(id, way) => {
 				if let Some(name) = way.tags.get("name") {
 					write!(f, "Updated {name}")
 				} else {
 					write!(f, "Updated Way {id}")
 				}
-			},
+			}
 		}
 	}
 }
@@ -107,7 +115,7 @@ impl Change {
 	pub const fn element_id(&self) -> ElementId {
 		match self {
 			Self::CreateNode(id, _) | Self::ModifyNode(id, _) => ElementId::Node(*id),
-			Self::ModifyWay(id, _) => ElementId::Way(*id),
+			Self::CreateWay(id, _) | Self::ModifyWay(id, _) => ElementId::Way(*id),
 		}
 	}
 }
@@ -280,6 +288,10 @@ impl EditorOsmData {
 				} else {
 					self.changes.push(Change::ModifyNode(id, node));
 				}
+			}
+			Change::CreateWay(id, way) => {
+				self.data.ways.insert(id, way.clone());
+				self.changes.push(Change::CreateWay(id, way));
 			}
 			Change::ModifyWay(id, way) => {
 				self.data.ways.insert(id, way.clone());

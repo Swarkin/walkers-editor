@@ -5,7 +5,7 @@ fn main() {
 
 	/* generate licenses text */ {
 		let output = std::process::Command::new("cargo")
-			.args(["tree", "--format={p} - {l}"])
+			.args(["tree", "--format={p} - {l}", "--charset=ascii"])
 			.output()
 			.expect("failed to run command");
 

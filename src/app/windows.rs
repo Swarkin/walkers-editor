@@ -1,16 +1,9 @@
-use super::editor::{
-	cache::{Change, ElementRef},
-	consts::{osm::*, *},
-	states::{MapDownloadState, MapState, SelectionFlag},
-	visual::{FillMode, Visualization},
-	EditMode, EditOperation, EditorPluginState
-};
+use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, consume_key, states::{MapDownloadState, MapState, SelectionFlag}, visual::{FillMode, Visualization}, EditMode, EditOperation};
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
-use eframe::egui::{Widget, WidgetText};
 use egui::text::LayoutJob;
-use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2};
+use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
 use osm_parser::OsmData;
 use walkers::sources::Attribution;
@@ -77,7 +70,7 @@ fn themed_frame(theme: egui::Theme) -> Frame {
 	}
 }
 
-pub fn acknowledge(ui: &Ui, attribution: Attribution, simple: bool) {
+pub fn attribution(ui: &Ui, attribution: Attribution, simple: bool) {
 	egui::Window::new("Acknowledge")
 		.title_bar(false)
 		.auto_sized()
@@ -284,20 +277,20 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 }
 
 // Returns whether a download was triggered
-pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPluginState) -> bool {
+pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, editor_operation: &mut EditOperation, map_bbox: &Bbox) -> bool {
 	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
 	let frame = themed_frame(ui.ctx().theme())
 		.corner_radius(CornerRadius { ne: 6, nw: 0, se: 6, sw: 0 });
 	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, frame.total_margin().top.mul_add(2., 24. + 4.)));
 
 	// Draw mode indicator
-	if ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{} mode\nPress Space to toggle", editor_state.mode)).clicked() {
-		editor_state.mode = match editor_state.mode {
+	if ui.allocate_rect(rect, Sense::click()).on_hover_text(format!("{editor_mode} mode\nPress Space to toggle")).clicked() {
+		*editor_mode = match editor_mode {
 			EditMode::View => EditMode::Edit,
 			EditMode::Edit => EditMode::View,
 		}
 	}
-	ui.painter().rect_filled(rect, CornerRadius::ZERO, editor_state.mode.color());
+	ui.painter().rect_filled(rect, CornerRadius::ZERO, editor_mode.color());
 
 	// Draw toolbar
 	egui::Window::new("Toolbar")
@@ -318,19 +311,24 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 					for ((flag, icon), key) in SelectionFlag::ITER.into_iter()
 						.zip(ICONS).zip(KEYS)
 					{
-						let selected = if editor_state.mode == EditMode::View {
+						let selected = if *editor_mode == EditMode::View {
 							state.selection_mode & flag as u8 != 0
 						} else { false };
 
 						let resp = ui.add(Button::image(prepare_icon(ui.ctx(), icon, ICON_SIZE)).selected(selected).corner_radius(4));
 
 						if !ui.ctx().wants_keyboard_input()
-							&& (resp.clicked() || ui.input_mut(|i| i.consume_key(Modifiers::NONE, key)))
+							&& (resp.clicked() || consume_key(ui.ctx(), key, Modifiers::NONE))
 						{
-							if editor_state.mode == EditMode::View {
+							if *editor_mode == EditMode::View {
 								state.selection_mode ^= flag as u8;
 							} else {
-								editor_state.operation = EditOperation::AddNode;
+								#[allow(clippy::single_match)]
+								match flag {
+									SelectionFlag::Nodes => *editor_operation = EditOperation::AddNode,
+									SelectionFlag::Ways => *editor_operation = EditOperation::AddWay(vec![]),
+									SelectionFlag::Areas => {}
+								}
 							}
 						}
 					}
@@ -341,7 +339,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_state: &mut EditorPlugi
 				/* map download */ {
 					match &state.download {
 						MapDownloadState::Idle(status) => {
-							let enabled = editor_state.map_bbox.area() < MAX_DOWNLOAD_AREA;
+							let enabled = map_bbox.area() < MAX_DOWNLOAD_AREA;
 							let time = ui.ctx().input(|i| i.time);
 
 							let button_resp = if let Some((status, prev_time)) = status && time - prev_time < DOWNLOAD_FEEDBACK_SECONDS {
@@ -417,7 +415,7 @@ pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 use crate::app::editor::cache::ElementId;
 #[cfg(feature = "debug")]
 use crate::app::editor::{cache::EditorOsmData, states::CacheFlag};
-use crate::app::osm::TargetServer;
+use crate::app::osm::{Bbox, TargetServer};
 
 #[cfg(feature = "debug")]
 pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
@@ -487,7 +485,9 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 				#[cfg(debug_assertions)]
 				let text = "\nLicenses are not loaded in a debug build.\n";
 
-				ui.label(text);
+				egui::ScrollArea::vertical().show(ui, |ui| {
+					ui.label(text);
+				});
 				ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
 				    The dependencies for the package have already been shown elsewhere in the graph, \
 				    and so are not repeated.");
