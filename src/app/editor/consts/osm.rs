@@ -10,6 +10,8 @@ pub const NODE_STROKE_COLOR: Color32 = Color32::GRAY;
 
 pub const WAY_WIDTH: f32 = 1.0;
 pub const WAY_COLOR: Color32 = Color32::GRAY;
+pub const WAY_TEMP_WIDTH: f32 = 2.5;
+pub const WAY_TEMP_COLOR: Color32 = Color32::LIGHT_GRAY;
 pub const NODE_STROKE_WIDTH: f32 = 1.0;
 
 pub const HOVER_COLOR: Color32 = Color32::from_rgb(100, 200, 255);

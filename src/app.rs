@@ -6,6 +6,7 @@ mod osmchange;
 mod worker;
 pub mod icons;
 
+use crate::app::editor::consume_key;
 use editor::cache::{Change, ElementId, ElementRef};
 use editor::visual::FillMode;
 use editor::Editor;
@@ -241,7 +242,7 @@ impl MyApp {
 					self.editor_state.editor.prev_size = curr_size;
 				});
 
-				if ctx.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Space)) {
+				if consume_key(ctx, Key::Space, Modifiers::NONE) {
 					self.editor_state.editor.mode = match self.editor_state.editor.mode {
 						EditMode::View => EditMode::Edit,
 						EditMode::Edit => {
@@ -261,6 +262,9 @@ impl MyApp {
 						ScrollArea::vertical().show(ui, |ui| {
 							syntax_highlighting::code_view_ui(ui, &syntax_highlighting::CodeTheme::from_style(ui.style()), &self.uploader_state.osmchange_text, "xml");
 						});
+						if ui.button("Copy to Clipboard").clicked() {
+							ui.ctx().copy_text(self.uploader_state.osmchange_text.clone());
+						}
 					});
 
 					// todo: simple function to check whether authentication exists
@@ -341,7 +345,7 @@ impl MyApp {
 						ui.label("2. Paste the resulting code into the field below:");
 						let widget = TextEdit::singleline(&mut self.authenticator_state.authorization_code);
 						if ui.add_enabled(!self.authenticator_state.request_pending, widget).lost_focus()
-							&& ui.input_mut(|i| i.consume_key(Modifiers::NONE, Key::Enter))
+							&& consume_key(ctx, Key::Enter, Modifiers::NONE)
 							&& !self.authenticator_state.authorization_code.is_empty()
 						{
 							self.worker_handle.send_message(Request::FetchToken(self.authenticator_state.authorization_code.clone()));
@@ -423,8 +427,6 @@ impl MyApp {
 		#[cfg(target_family = "wasm")]
 		let cache_dir = None;
 
-		let tile_providers = providers(&cc.egui_ctx, cache_dir);
-
 		#[cfg(target_family = "wasm")]
 		let app_state = AppState {
 			open_modals: if cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox") { ModalFlag::FirefoxNotice as u8 } else { Default::default() },
@@ -440,7 +442,7 @@ impl MyApp {
 			editor_state: EditorState {
 				editor: Editor::default(),
 				map_memory: MapMemory::default(),
-				tile_providers,
+				tile_providers: providers(&cc.egui_ctx, cache_dir),
 			},
 			uploader_state: UploaderState::default(),
 			authenticator_state: AuthenticatorState::default(),

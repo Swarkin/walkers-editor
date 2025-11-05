@@ -1,10 +1,4 @@
-use super::editor::{
-	cache::{Change, ElementRef},
-	consts::{osm::*, *},
-	states::{MapDownloadState, MapState, SelectionFlag},
-	visual::{FillMode, Visualization},
-	EditMode, EditOperation,
-};
+use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, consume_key, states::{MapDownloadState, MapState, SelectionFlag}, visual::{FillMode, Visualization}, EditMode, EditOperation};
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
@@ -290,7 +284,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, ed
 	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, frame.total_margin().top.mul_add(2., 24. + 4.)));
 
 	// Draw mode indicator
-	if ui.allocate_rect(rect, Sense::hover()).on_hover_text(format!("{editor_mode} mode\nPress Space to toggle")).clicked() {
+	if ui.allocate_rect(rect, Sense::click()).on_hover_text(format!("{editor_mode} mode\nPress Space to toggle")).clicked() {
 		*editor_mode = match editor_mode {
 			EditMode::View => EditMode::Edit,
 			EditMode::Edit => EditMode::View,
@@ -324,12 +318,17 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, ed
 						let resp = ui.add(Button::image(prepare_icon(ui.ctx(), icon, ICON_SIZE)).selected(selected).corner_radius(4));
 
 						if !ui.ctx().wants_keyboard_input()
-							&& (resp.clicked() || ui.input_mut(|i| i.consume_key(Modifiers::NONE, key)))
+							&& (resp.clicked() || consume_key(ui.ctx(), key, Modifiers::NONE))
 						{
 							if *editor_mode == EditMode::View {
 								state.selection_mode ^= flag as u8;
 							} else {
-								*editor_operation = EditOperation::AddNode;
+								#[allow(clippy::single_match)]
+								match flag {
+									SelectionFlag::Nodes => *editor_operation = EditOperation::AddNode,
+									SelectionFlag::Ways => *editor_operation = EditOperation::AddWay(vec![]),
+									SelectionFlag::Areas => {}
+								}
 							}
 						}
 					}
