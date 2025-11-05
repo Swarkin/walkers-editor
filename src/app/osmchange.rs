@@ -1,12 +1,9 @@
-	// osmchange data structures
-// todo: find a way to reduce number of structs and conversions
+use super::editor::cache::Change;
+use quick_xml::{se::Serializer, SeError};
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
-	use super::editor::cache::Change;
-	use quick_xml::{se::Serializer, SeError};
-	use serde::{Deserialize, Serialize};
-	use std::collections::HashMap;
-
-	pub type Id = i64;
+pub type Id = i64;
 
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct OsmChange {
@@ -41,10 +38,18 @@ impl Modify {
 	}
 }
 
-/*#[derive(Debug, Default, Serialize, Deserialize)]
+/*#[derive(Debug, Serialize, Deserialize)]
 pub struct Delete {
+	#[serde(rename = "@if-unused")]
+	if_unused: bool,
 	pub node: Vec<Node>,
 	pub way: Vec<Way>,
+}
+
+impl Default for Delete {
+	fn default() -> Self {
+		Self { if_unused: true, node: vec![], way: vec![] }
+	}
 }
 
 impl Delete {
@@ -94,6 +99,8 @@ pub struct Way {
 	// pub changeset: u64,
 	#[serde(rename = "@version")]
 	pub version: u32,
+	#[serde(rename = "nd")]
+	pub nd: Vec<Nd>,
 	#[serde(rename = "tag")]
 	pub tags: Vec<Tag>,
 }
@@ -104,6 +111,7 @@ impl From<&osm_parser::Way> for Way {
 			id: value.id,
 			// changeset: value.changeset,
 			version: value.version,
+			nd: value.nodes.iter().map(|&r#ref| Nd { r#ref }).collect(),
 			tags: value.tags.iter().map(Into::into).collect(),
 		}
 	}
@@ -123,15 +131,16 @@ impl From<(&String, &String)> for Tag {
 	}
 }
 
-#[allow(unused)]
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Nd {
+	#[serde(rename = "@ref")]
 	r#ref: Id,
 }
 
 impl OsmChange {
 	pub fn from(changes: &Vec<Change>) -> Self {
 		let mut created_nodes = HashMap::new();
+		let mut created_ways = HashMap::new();
 		let mut modified_nodes = HashMap::new();
 		let mut modified_ways = HashMap::new();
 
@@ -146,6 +155,9 @@ impl OsmChange {
 				}
 				Change::ModifyNode(_, node) => {
 					modified_nodes.insert(node.id, node);
+				}
+				Change::CreateWay(_, way) => {
+					created_ways.insert(way.id, way);
 				}
 				Change::ModifyWay(_, way) => {
 					modified_ways.insert(way.id, way);
@@ -163,6 +175,9 @@ impl OsmChange {
 			modify.node.push(n);
 		}
 
+		for way in created_ways.into_values() {
+			create.way.push(way.into());
+		}
 		for way in modified_ways.into_values() {
 			let mut w: Way = way.into();
 			w.version += 1;
