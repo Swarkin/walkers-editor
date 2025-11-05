@@ -168,7 +168,7 @@ mod native {
 			// always use the main osm instance to fetch map data
 			let url = api_url_override(format!("/map.json?bbox={},{},{},{}", bbox.left, bbox.bottom, bbox.right, bbox.top), TargetServer::OpenStreetMap);
 			let resp = self.http_client.get(url).call()?;
-			let raw = resp.into_body().read_json::<raw::RawOsmData>()?;
+			let raw = resp.into_body().into_with_config().limit(100_000_000).read_json::<raw::RawOsmData>()?;
 			raw.try_into()
 		}
 

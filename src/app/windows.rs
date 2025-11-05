@@ -2,6 +2,7 @@ use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, consume_ke
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
+use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
@@ -114,9 +115,10 @@ pub enum TagsEditKind {
 pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_enabled: bool) -> Option<TagsEditKind> {
 	let resp = egui::Window::new("Tags")
 		.collapsible(true)
-		.vscroll(true)
 		.default_size([300., 200.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
+		.vscroll(true)
+		.scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden) // workaround for infinite window grow
 		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
 			let mut change = None;
