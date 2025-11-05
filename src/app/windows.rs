@@ -262,6 +262,7 @@ pub fn map<'a>(
 
 pub fn history(ui: &Ui, history: &Vec<Change>) {
 	egui::Window::new("History")
+		.default_size([80.0, 150.0])
 		.max_height(256.0)
 		.anchor(Align2::RIGHT_TOP, [-10., 42.])
 		.frame(themed_frame(ui.ctx().theme()))
@@ -269,12 +270,13 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 			if history.is_empty() {
 				ui.weak("Empty");
 			} else {
-				egui::ScrollArea::vertical().auto_shrink([true, false]).show(ui, |ui| {
+				egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
 					for change in history {
 						ui.label(format!("{change}"));
 					}
 				});
 			}
+			ui.take_available_space();
 		});
 }
 
