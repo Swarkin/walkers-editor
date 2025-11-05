@@ -297,6 +297,7 @@ impl Editor {
 		self.hovered.clear();
 
 		/* update editor state */ {
+			self.prev_zoom = curr_zoom;
 			if clicked {
 				self.last_click_coords = projector.unproject(response.interact_pointer_pos().unwrap().to_vec2());
 			}
@@ -392,6 +393,7 @@ impl Editor {
 								self.osm_data.rtree_data.nodes.insert(NodeEntry::new([coord.lat as f32, coord.lon as f32], id));
 								let change = Change::CreateNode(id, Node { id, pos: coord, ..Default::default() });
 								self.osm_data.apply_change(change);
+								self.osm_data.refresh_in_view_flag = true;
 
 								self.operation = EditOperation::Idle;
 								self.selected = Some(ElementId::Node(id));
@@ -449,6 +451,7 @@ impl Editor {
 							self.osm_data.apply_change(Change::CreateWay(id, Way { id, nodes, ..Default::default() }));
 							self.osm_data.rtree_data.ways.insert(WayEntry::new(Rectangle::from_aabb(aabb), id));
 
+							self.osm_data.refresh_in_view_flag = true;
 							self.operation = EditOperation::Idle;
 						}
 					}
