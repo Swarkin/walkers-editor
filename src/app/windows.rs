@@ -442,6 +442,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 			});
 
 			ui.collapsing("Cache Timings", |ui| {
+				ui.label(format!("View Timing: {} ns", editor_osm_data.view_timing));
 				TableBuilder::new(ui)
 					.striped(true)
 					.columns(Column::auto(), 3)
