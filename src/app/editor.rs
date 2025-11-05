@@ -795,6 +795,28 @@ impl Editor {
 			}
 		}
 
+		/* handle delete key */ {
+			if matches!(self.operation, EditOperation::Idle)
+				&& consume_key(ui.ctx(), Key::Delete, Modifiers::NONE)
+			{
+				#[allow(clippy::collapsible_if)]
+				if let Some(selected) = &self.selected
+					&& let ElementId::Node(node_id) = selected
+					&& self.osm_data.orphan_nodes.contains(node_id)
+				{
+					let node = self.osm_data.data.nodes.get(node_id).expect("id not found in data");
+
+					#[allow(clippy::cast_possible_truncation)]
+					self.osm_data.rtree_data.nodes.remove(&NodeEntry::new([node.pos.lat as f32, node.pos.lon as f32], *node_id)).unwrap();
+					self.osm_data.apply_change(Change::DeleteNode(*node_id, node.to_owned()));
+					self.osm_data.refresh_in_view_flag = true;
+
+					self.hovered.clear();
+					self.selected = None;
+				}
+			}
+		}
+
 		ui.painter().extend(self.shapes.drain(..));
 		ui.painter().extend(self.shapes_top.drain(..));
 	}

@@ -68,12 +68,12 @@ impl MyApp {
 							let btn = title_bar_button("Editor", prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Edit, btn).clicked() {
 								self.state.view = View::Edit;
+								self.uploader_state.clear_osmchange();
 							}
 
 							let btn = title_bar_button("Upload", prepare_icon(ctx, icons::UPLOAD, ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Upload, btn).clicked() {
 								self.state.view = View::Upload;
-								// todo: clean up osmchange memory usage after no longer in use
 								self.uploader_state.osmchange = OsmChange::from(&self.editor_state.editor.osm_data.changes);
 								// todo: handle Err case
 								self.uploader_state.osmchange_text = self.uploader_state.osmchange.to_string_pretty().unwrap();
@@ -82,6 +82,7 @@ impl MyApp {
 							let btn = title_bar_button("Auth", prepare_icon(ctx, icons::USER, ICON_SIZE));
 							if ui.add_enabled(self.state.view != View::Auth, btn).clicked() {
 								self.state.view = View::Auth;
+								self.uploader_state.clear_osmchange();
 							}
 						},
 						|ui| {

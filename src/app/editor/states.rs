@@ -126,6 +126,13 @@ pub struct UploaderState {
 	pub request_pending: bool,
 }
 
+impl UploaderState {
+	pub fn clear_osmchange(&mut self) {
+		self.osmchange.clear();
+		self.osmchange_text.clear();
+	}
+}
+
 /// State related to the auth tab
 #[derive(Default)]
 pub struct AuthenticatorState {
