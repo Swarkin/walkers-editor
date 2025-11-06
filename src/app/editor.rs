@@ -311,7 +311,7 @@ impl Editor {
 		}
 
 		/* update elements in view */ {
-			if !self.osm_data.data.nodes.is_empty() {
+			if !self.osm_data.data.nodes.is_empty() || self.osm_data.refresh_in_view_flag {
 				let p_start = projector.project(self.osm_data.view_start);
 				let diff = p_start - current_pos_projected;
 
