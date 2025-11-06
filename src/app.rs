@@ -422,8 +422,7 @@ impl MyApp {
 		};
 
 		#[cfg(not(target_family = "wasm"))]
-		let cache_dir = dirs::cache_dir()
-			.map(|x| x.join(env!("CARGO_PKG_NAME")));
+		let cache_dir = std::env::temp_dir().join(env!("CARGO_PKG_NAME"));
 
 		#[cfg(target_family = "wasm")]
 		let cache_dir = None;
@@ -443,7 +442,7 @@ impl MyApp {
 			editor_state: EditorState {
 				editor: Editor::default(),
 				map_memory: MapMemory::default(),
-				tile_providers: providers(&cc.egui_ctx, cache_dir),
+				tile_providers: providers(&cc.egui_ctx, Some(cache_dir)),
 			},
 			uploader_state: UploaderState::default(),
 			authenticator_state: AuthenticatorState::default(),
