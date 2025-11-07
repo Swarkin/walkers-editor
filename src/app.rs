@@ -13,7 +13,7 @@ use editor::Editor;
 use editor::{consts::*, states::*, EditMode, EditOperation};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, Theme, TopBottomPanel, Ui, Vec2};
+use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, TextEdit, Theme, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
@@ -323,8 +323,6 @@ impl MyApp {
 			}
 			View::Auth => {
 				CentralPanel::default().show(ctx, |ui| {
-					use egui::TextEdit;
-
 					ui.heading("Authenticate to OpenStreetMap");
 
 					let prev_server = self.state.target_server_ui;
@@ -422,7 +420,7 @@ impl MyApp {
 		};
 
 		#[cfg(not(target_family = "wasm"))]
-		let cache_dir = std::env::temp_dir().join(env!("CARGO_PKG_NAME"));
+		let cache_dir = Some(std::env::temp_dir().join(env!("CARGO_PKG_NAME")));
 
 		#[cfg(target_family = "wasm")]
 		let cache_dir = None;
@@ -442,7 +440,7 @@ impl MyApp {
 			editor_state: EditorState {
 				editor: Editor::default(),
 				map_memory: MapMemory::default(),
-				tile_providers: providers(&cc.egui_ctx, Some(cache_dir)),
+				tile_providers: providers(&cc.egui_ctx, cache_dir),
 			},
 			uploader_state: UploaderState::default(),
 			authenticator_state: AuthenticatorState::default(),
