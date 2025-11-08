@@ -6,14 +6,13 @@ pub mod states;
 pub mod r_star;
 
 use crate::app::editor::r_star::WayEntry;
-use crate::app::osm::Bbox;
+use crate::app::osm::{Bbox, OrderedTags};
 use crate::app::windows::{DataViewerModal, OverlapSelectorResult, WindowBitflag};
 use cache::Change;
 use cache::{EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
 use eframe::egui::{Color32, Context, CursorIcon, FontId, Key, Modifiers, Pos2, Response, Shape, Stroke, Ui, Vec2};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
-use indexmap::IndexMap;
 use osm_parser::*;
 use r_star::{NodeEntry, WebMercatorPoint};
 use rstar::primitives::Rectangle;
@@ -33,7 +32,7 @@ pub struct Editor {
 	pub window_flags: WindowBitflag,
 	pub prev_size: Vec2,
 	pub prev_zoom: f64,
-	pub edit_window: Option<(ElementId, IndexMap<String, String>)>,
+	pub edit_window: Option<(ElementId, OrderedTags)>,
 	pub data_viewer: Option<DataViewerModal>,
 
 	pub mode: EditMode,
@@ -297,6 +296,7 @@ impl Editor {
 		self.hovered.clear();
 
 		/* update editor state */ {
+			self.prev_zoom = curr_zoom;
 			if clicked {
 				self.last_click_coords = projector.unproject(response.interact_pointer_pos().unwrap().to_vec2());
 			}
@@ -310,7 +310,7 @@ impl Editor {
 		}
 
 		/* update elements in view */ {
-			if !self.osm_data.data.nodes.is_empty() {
+			if !self.osm_data.data.nodes.is_empty() || self.osm_data.refresh_in_view_flag {
 				let p_start = projector.project(self.osm_data.view_start);
 				let diff = p_start - current_pos_projected;
 
@@ -392,6 +392,7 @@ impl Editor {
 								self.osm_data.rtree_data.nodes.insert(NodeEntry::new([coord.lat as f32, coord.lon as f32], id));
 								let change = Change::CreateNode(id, Node { id, pos: coord, ..Default::default() });
 								self.osm_data.apply_change(change);
+								self.osm_data.refresh_in_view_flag = true;
 
 								self.operation = EditOperation::Idle;
 								self.selected = Some(ElementId::Node(id));
@@ -449,6 +450,7 @@ impl Editor {
 							self.osm_data.apply_change(Change::CreateWay(id, Way { id, nodes, ..Default::default() }));
 							self.osm_data.rtree_data.ways.insert(WayEntry::new(Rectangle::from_aabb(aabb), id));
 
+							self.osm_data.refresh_in_view_flag = true;
 							self.operation = EditOperation::Idle;
 						}
 					}
@@ -788,6 +790,28 @@ impl Editor {
 
 						self.shapes.push(PathShape::convex_polygon(vec![side, tip, side2], Color32::WHITE, PathStroke::new(0.5 * self.map_state.scale_factor, Color32::DARK_GRAY)).into());
 					}
+				}
+			}
+		}
+
+		/* handle delete key */ {
+			if matches!(self.operation, EditOperation::Idle)
+				&& consume_key(ui.ctx(), Key::Delete, Modifiers::NONE)
+			{
+				#[allow(clippy::collapsible_if)]
+				if let Some(selected) = &self.selected
+					&& let ElementId::Node(node_id) = selected
+					&& self.osm_data.orphan_nodes.contains(node_id)
+				{
+					let node = self.osm_data.data.nodes.get(node_id).expect("id not found in data");
+
+					#[allow(clippy::cast_possible_truncation)]
+					self.osm_data.rtree_data.nodes.remove(&NodeEntry::new([node.pos.lat as f32, node.pos.lon as f32], *node_id)).unwrap();
+					self.osm_data.apply_change(Change::DeleteNode(*node_id, node.to_owned()));
+					self.osm_data.refresh_in_view_flag = true;
+
+					self.hovered.clear();
+					self.selected = None;
 				}
 			}
 		}

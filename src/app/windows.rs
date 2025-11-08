@@ -2,6 +2,7 @@ use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, consume_ke
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
+use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
@@ -111,83 +112,88 @@ pub enum TagsEditKind {
 	End,
 }
 
-pub fn tags(ui: &Ui, editing_tags: &indexmap::IndexMap<String, String>, edit_enabled: bool) -> Option<TagsEditKind> {
+pub fn tags(ui: &Ui, editing_tags: &OrderedTags, edit_enabled: bool) -> Option<TagsEditKind> {
 	let resp = egui::Window::new("Tags")
 		.collapsible(true)
-		.vscroll(true)
 		.default_size([300., 200.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
+		.vscroll(true)
+		.scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden) // workaround for infinite window grow
 		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
-			let mut change = None;
-
-			TableBuilder::new(ui)
-				.striped(true)
-				.resizable(true)
-				.column(Column::initial(100.0).clip(true))
-				.column(Column::remainder().clip(true))
-				.header(16.0, |mut header| {
-					header.col(|ui| { ui.strong("Key"); });
-					header.col(|ui| { ui.strong("Value"); });
-				})
-				.body(|body| {
-					if edit_enabled {
-						// todo: add ability to add new tag
-						body.rows(20.0, editing_tags.len() + 1, |mut row| {
-							let i = row.index();
-
-							if i == editing_tags.len() {
-								let mut new_key = String::new();
-
-								row.col(|ui| {
-									let resp = ui.add(TextEdit::singleline(&mut new_key).hint_text("+ New Key"));
-									if resp.changed() {
-										change = Some(TagsEditKind::NewKey(new_key));
-									}
-								});
-							} else {
-								let pair = editing_tags.get_index(row.index()).unwrap();
-								let (mut new_k, mut new_v) = (pair.0.to_owned(), pair.1.to_owned());
-
-								row.col(|ui| {
-									let resp = ui.text_edit_singleline(&mut new_k);
-									if resp.changed() {
-										change = Some(TagsEditKind::Key(i, new_k));
-									} else if resp.lost_focus() {
-										change = Some(TagsEditKind::End);
-									}
-								});
-								row.col(|ui| {
-									let resp = ui.text_edit_singleline(&mut new_v);
-									if resp.changed() {
-										change = Some(TagsEditKind::Value(i, new_v));
-									} else if resp.lost_focus() {
-										change = Some(TagsEditKind::End);
-									}
-								});
-							}
-						});
-					} else {
-						body.rows(20.0, editing_tags.len(), |mut row| {
-							let (k, v) = editing_tags.get_index(row.index()).unwrap();
-							row.col(|ui| {
-								ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
-								ui.add_space(2.0);
-								ui.label(k);
-							});
-							row.col(|ui| {
-								ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
-								ui.add_space(2.0);
-								ui.label(v);
-							});
-						});
-					}
-				});
+			let result = tag_editor_ui(ui, editing_tags, edit_enabled);
 			ui.allocate_space(Vec2::new(0., ui.available_height()));
-			change
+			result
 		}).unwrap();
 
 	resp.inner?
+}
+
+pub fn tag_editor_ui(ui: &mut Ui, editing_tags: &OrderedTags, edit_enabled: bool) -> Option<TagsEditKind> {
+	let mut change = None;
+
+	TableBuilder::new(ui)
+		.striped(true)
+		.resizable(true)
+		.column(Column::initial(100.0).clip(true))
+		.column(Column::remainder().clip(true))
+		.header(16.0, |mut header| {
+			header.col(|ui| { ui.strong("Key"); });
+			header.col(|ui| { ui.strong("Value"); });
+		})
+		.body(|body| {
+			if edit_enabled {
+				body.rows(20.0, editing_tags.len() + 1, |mut row| {
+					let i = row.index();
+
+					if i == editing_tags.len() {
+						let mut new_key = String::new();
+
+						row.col(|ui| {
+							let resp = ui.add(TextEdit::singleline(&mut new_key).hint_text("+ New Key"));
+							if resp.changed() {
+								change = Some(TagsEditKind::NewKey(new_key));
+							}
+						});
+					} else {
+						let pair = editing_tags.get_index(row.index()).unwrap();
+						let (mut new_k, mut new_v) = (pair.0.to_owned(), pair.1.to_owned());
+
+						row.col(|ui| {
+							let resp = ui.text_edit_singleline(&mut new_k);
+							if resp.changed() {
+								change = Some(TagsEditKind::Key(i, new_k));
+							} else if resp.lost_focus() {
+								change = Some(TagsEditKind::End);
+							}
+						});
+						row.col(|ui| {
+							let resp = ui.text_edit_singleline(&mut new_v);
+							if resp.changed() {
+								change = Some(TagsEditKind::Value(i, new_v));
+							} else if resp.lost_focus() {
+								change = Some(TagsEditKind::End);
+							}
+						});
+					}
+				});
+			} else {
+				body.rows(20.0, editing_tags.len(), |mut row| {
+					let (k, v) = editing_tags.get_index(row.index()).unwrap();
+					row.col(|ui| {
+						ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+						ui.add_space(2.0);
+						ui.label(k);
+					});
+					row.col(|ui| {
+						ui.style_mut().wrap_mode = Some(TextWrapMode::Truncate);
+						ui.add_space(2.0);
+						ui.label(v);
+					});
+				});
+			}
+		});
+	change
 }
 
 pub enum MapWindowResult {
@@ -260,6 +266,7 @@ pub fn map<'a>(
 
 pub fn history(ui: &Ui, history: &Vec<Change>) {
 	egui::Window::new("History")
+		.default_size([80.0, 150.0])
 		.max_height(256.0)
 		.anchor(Align2::RIGHT_TOP, [-10., 42.])
 		.frame(themed_frame(ui.ctx().theme()))
@@ -267,12 +274,13 @@ pub fn history(ui: &Ui, history: &Vec<Change>) {
 			if history.is_empty() {
 				ui.weak("Empty");
 			} else {
-				egui::ScrollArea::vertical().auto_shrink([true, false]).show(ui, |ui| {
+				egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
 					for change in history {
 						ui.label(format!("{change}"));
 					}
 				});
 			}
+			ui.take_available_space();
 		});
 }
 
@@ -415,7 +423,7 @@ pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 use crate::app::editor::cache::ElementId;
 #[cfg(feature = "debug")]
 use crate::app::editor::{cache::EditorOsmData, states::CacheFlag};
-use crate::app::osm::{Bbox, TargetServer};
+use crate::app::osm::{Bbox, OrderedTags, TargetServer};
 
 #[cfg(feature = "debug")]
 pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
@@ -440,6 +448,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 			});
 
 			ui.collapsing("Cache Timings", |ui| {
+				ui.label(format!("View Timing: {} ns", editor_osm_data.view_timing));
 				TableBuilder::new(ui)
 					.striped(true)
 					.columns(Column::auto(), 3)
@@ -633,43 +642,51 @@ impl DataViewerModal {
 								};
 
 								if let Some(element) = element {
+									let id = element.id_ref();
+
 									ui.horizontal(|ui| {
 										ui.image(element.element_icon());
 										if let Some(name) = element.name() {
-											ui.heading(format!("{} {}: {name}", element.type_str(), element.id_ref()));
+											ui.heading(format!("{} {}: {name}", element.type_str(), id));
 										} else {
-											ui.heading(format!("{} {}", element.type_str(), element.id_ref()));
+											ui.heading(format!("{} {}", element.type_str(), id));
 										}
 									});
 
 									ui.add_space(8.0);
 
-									ui.horizontal(|ui| {
-										ui.image(icons::COMMIT).on_hover_text_at_pointer("Version");
-										ui.monospace(element.version().to_string());
-									});
-									ui.horizontal(|ui| {
-										ui.image(icons::HASHTAG).on_hover_text_at_pointer("Changeset ID");
-										ui.hyperlink_to(
-											WidgetText::Text(element.changeset().to_string()).monospace(),
-											format!("https://{}/{}", TargetServer::OpenStreetMap.base_changeset_url(), element.changeset())
-										);
-									});
-									ui.horizontal(|ui| {
-										ui.image(icons::USER).on_hover_text_at_pointer("Username");
-										ui.hyperlink_to(
-											WidgetText::Text(element.user().to_string()).monospace(),
-											format!("https://{}/{}", TargetServer::OpenStreetMap.base_user_url(), element.user())
-										);
-									});
-									ui.horizontal(|ui| {
-										ui.image(icons::CLOCK).on_hover_text_at_pointer("Timestamp");
-										ui.monospace(element.timestamp());
-									});
+									if *id > 0 {
+										ui.horizontal(|ui| {
+											ui.add(prepare_icon(ctx, icons::COMMIT, ICON_SIZE)).on_hover_text_at_pointer("Version");
+											ui.monospace(element.version().to_string());
+										});
+										ui.horizontal(|ui| {
+											ui.add(prepare_icon(ctx, icons::HASHTAG, ICON_SIZE)).on_hover_text_at_pointer("Changeset ID");
+											ui.hyperlink_to(
+												WidgetText::Text(element.changeset().to_string()).monospace(),
+												format!("https://{}/{}", TargetServer::OpenStreetMap.base_changeset_url(), element.changeset())
+											);
+										});
+										ui.horizontal(|ui| {
+											ui.add(prepare_icon(ctx, icons::USER, ICON_SIZE)).on_hover_text_at_pointer("Username");
+											ui.hyperlink_to(
+												WidgetText::Text(element.user().to_string()).monospace(),
+												format!("https://{}/{}", TargetServer::OpenStreetMap.base_user_url(), element.user())
+											);
+										});
+										ui.horizontal(|ui| {
+											ui.add(prepare_icon(ctx, icons::CLOCK, ICON_SIZE)).on_hover_text_at_pointer("Timestamp");
+											ui.monospace(element.timestamp());
+										});
+									}
 
 									match element {
 										ElementRef::Node(n) => {
-											ui.label(format!("Position: {:.6}, {:.6}", n.pos.lat, n.pos.lon));
+											let location_str = format!("Position: {:.6}, {:.6}", n.pos.lat, n.pos.lon);
+											ui.label(&location_str);
+											if ui.button("Copy Position").clicked() {
+												ui.ctx().copy_text(location_str);
+											}
 										}
 										ElementRef::Way(w) => {
 											ui.collapsing(format!("{} Nodes", w.nodes.len()), |ui| {

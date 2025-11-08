@@ -5,6 +5,9 @@ mod app;
 
 use app::MyApp;
 
+type HashMap<K, V> = rustc_hash::FxHashMap<K, V>;
+type HashSet<K> = rustc_hash::FxHashSet<K>;
+
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
 #[cfg(not(debug_assertions))]

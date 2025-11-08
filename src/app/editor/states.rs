@@ -1,4 +1,6 @@
 use crate::app::editor::Editor;
+use crate::app::osm::OrderedTags;
+use crate::app::osmchange::ChangesetId;
 use crate::app::providers::TilesKind;
 use crate::app::{
 	editor::{FillMode, Visualization},
@@ -9,9 +11,24 @@ use crate::app::{
 use std::{
 	collections::HashMap,
 	fmt::{Display, Formatter},
-	num::NonZeroU32,
 };
 use walkers::MapMemory;
+
+#[derive(Default)]
+pub struct AppState {
+	pub view: View,
+	pub target_server_ui: TargetServer,
+	pub open_modals: u8,
+	pub top_bar_disabled: bool,
+}
+
+#[derive(Default, PartialEq, Eq)]
+pub enum View {
+	#[default]
+	Edit,
+	Upload,
+	Auth,
+}
 
 pub struct EditorState {
 	pub editor: Editor,
@@ -120,10 +137,76 @@ impl Default for MapDownloadState {
 pub struct UploaderState {
 	pub osmchange: OsmChange,
 	pub osmchange_text: String,
-	pub changeset_creation: Option<OsmResult<NonZeroU32>>,
+	pub changeset_upload: ChangesetUpload,
+}
+
+impl UploaderState {
+	pub fn clear_osmchange(&mut self) {
+		self.osmchange.clear();
+		self.osmchange_text.clear();
+	}
+}
+
+#[derive(Default)]
+pub struct ChangesetUpload {
+	pub tags: OrderedTags,
+	pub target_server: TargetServer,
+	pub state: ChangesetUploadState,
+	pub creation: Option<OsmResult<ChangesetId>>,
 	pub diff_upload: Option<OsmResult<String>>,
-	pub changeset_closure: Option<OsmResult<()>>,
-	pub request_pending: bool,
+	pub close: Option<OsmResult<()>>,
+}
+
+impl ChangesetUpload {
+	pub fn clear(&mut self) {
+		self.tags.clear();
+		self.state = ChangesetUploadState::Idle;
+		self.creation = None;
+		self.diff_upload = None;
+		self.close = None;
+	}
+
+	pub fn is_empty(&self) -> bool {
+		matches!(
+			(&self.creation, &self.diff_upload, &self.close),
+			(None, None, None)
+		)
+	}
+
+	pub fn all_successful(&self) -> bool {
+		matches!(
+			(&self.creation, &self.diff_upload, &self.close),
+			(Some(Ok(_)), Some(Ok(_)), Some(Ok(())))
+		)
+	}
+
+	pub fn any_unsuccessful(&self) -> bool {
+		matches!(
+			(&self.creation, &self.diff_upload, &self.close),
+			(Some(Err(_)), _, _) |
+			(_, Some(Err(_)), _) |
+			(_, _, Some(Err(_)))
+		)
+	}
+}
+
+#[derive(Default)]
+pub enum ChangesetUploadState {
+	#[default] Idle,
+	Creating,
+	Uploading,
+	Closing,
+}
+
+impl Display for ChangesetUploadState {
+	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{}", match self {
+			Self::Idle => "Idle",
+			Self::Creating => "Creating changeset",
+			Self::Uploading => "Uploading changes",
+			Self::Closing => "Closing changeset",
+		})
+	}
 }
 
 /// State related to the auth tab
