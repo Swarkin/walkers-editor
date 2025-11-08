@@ -149,7 +149,7 @@ impl Worker {
 
 				self.send_message(Response::Token(result, target_server));
 			}
-			Request::UploadChanges(tags, osmchange) => {
+			Request::UploadChanges { tags, mut osmchange } => {
 				let tags = tags.into_iter().map(|(k, v)| Tag { k, v }).collect();
 
 				let changeset_result = self.osm_client.create_changeset(tags).await;
@@ -160,7 +160,8 @@ impl Worker {
 				));
 
 				if let Some(changeset_id) = changeset_id {
-					let diff_result = self.osm_client.diff_upload(changeset_id, osmchange).await;
+					osmchange.prepare_upload(changeset_id);
+					let diff_result = self.osm_client.diff_upload(changeset_id, osmchange.to_string_pretty().unwrap()).await;
 					self.send_message(Response::UploadChangesProgress(
 						UploadChangesProgress::DiffUploaded(diff_result),
 					));

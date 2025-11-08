@@ -493,18 +493,18 @@ impl eframe::App for MyApp {
 		self.top_bar(ctx);
 		self.content(ctx);
 
-		#[cfg(target_family = "wasm")]
-		if crate::UPDATE_FLAG.load(std::sync::atomic::Ordering::Relaxed)
-			&& windows::update_modal(ctx)
-		{
-			crate::set_update_flag(false);
-		}
+		#[cfg(target_family = "wasm")] {
+			if crate::UPDATE_FLAG.load(std::sync::atomic::Ordering::Relaxed)
+				&& windows::update_modal(ctx)
+			{
+				crate::set_update_flag(false);
+			}
 
-		#[cfg(target_family = "wasm")]
-		if self.state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
-			&& windows::firefox_modal(ctx)
-		{
-			self.state.open_modals &= ModalFlag::FirefoxNotice as u8;
+			if self.state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
+				&& windows::firefox_modal(ctx)
+			{
+				self.state.open_modals &= ModalFlag::FirefoxNotice as u8;
+			}
 		}
 
 		if self.state.open_modals & ModalFlag::Licenses as u8 != 0
