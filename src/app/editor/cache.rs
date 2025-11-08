@@ -1,7 +1,8 @@
+use super::is_way_closed;
 use super::r_star::*;
 use super::states::CacheFlag;
-use crate::app::editor::is_way_closed;
 use crate::app::icons::*;
+use crate::{HashMap, HashSet};
 use eframe::egui::{Color32, ImageSource, Mesh, Pos2, TextureId, Vec2};
 use eframe::epaint::{Vertex, WHITE_UV};
 use indexmap::IndexMap;
@@ -14,9 +15,6 @@ use rustc_hash::FxBuildHasher;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 use walkers::{Position, Projector};
-
-type HashMap<K, V> = rustc_hash::FxHashMap<K, V>;
-type HashSet<K> = rustc_hash::FxHashSet<K>;
 
 pub const MAX_VIEW_OFFSET: f32 = 100.0; // arbitrary threshold, may not be required?
 
@@ -74,6 +72,7 @@ pub enum Change {
 	CreateWay(Id, Way),
 	ModifyNode(Id, Node),
 	ModifyWay(Id, Way),
+	DeleteNode(Id, Node),
 }
 
 impl Display for Change {
@@ -107,6 +106,9 @@ impl Display for Change {
 					write!(f, "Updated Way {id}")
 				}
 			}
+			Self::DeleteNode(id, _) => {
+				write!(f, "Deleted Node {id}")
+			}
 		}
 	}
 }
@@ -114,7 +116,7 @@ impl Display for Change {
 impl Change {
 	pub const fn element_id(&self) -> ElementId {
 		match self {
-			Self::CreateNode(id, _) | Self::ModifyNode(id, _) => ElementId::Node(*id),
+			Self::CreateNode(id, _) | Self::ModifyNode(id, _) | Self::DeleteNode(id, _) => ElementId::Node(*id),
 			Self::CreateWay(id, _) | Self::ModifyWay(id, _) => ElementId::Way(*id),
 		}
 	}
@@ -303,6 +305,10 @@ impl EditorOsmData {
 				} else {
 					self.changes.push(Change::ModifyWay(id, way));
 				}
+			}
+			Change::DeleteNode(id, node) => {
+				self.data.nodes.remove(&id).unwrap();
+				self.changes.push(Change::DeleteNode(id, node));
 			}
 		}
 	}

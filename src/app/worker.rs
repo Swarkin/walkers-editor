@@ -1,7 +1,5 @@
-use super::osm::{Bbox, OsmClient, OsmResult, OsmToken, TargetServer};
-use super::osmchange::Tag;
+use super::osm::{Bbox, OrderedTags, OsmClient, OsmResult, OsmToken, TargetServer};
 use osm_parser::OsmData;
-use std::num::NonZeroU32;
 
 #[cfg(not(target_family = "wasm"))]
 use {
@@ -9,29 +7,30 @@ use {
 	std::thread::JoinHandle,
 };
 
+use crate::app::osmchange::{ChangesetId, OsmChange, Tag};
 #[cfg(target_family = "wasm")]
 use futures::{
 	channel::mpsc::{UnboundedReceiver as Receiver, UnboundedSender as Sender},
 	stream::StreamExt,
 };
 
-pub enum Request {
-	GetMap(Box<Bbox>), // box is used to keep enum size small
+pub enum Request { // box is used to keep enum size small
+	GetMap(Box<Bbox>),
 	SetTargetServer(TargetServer),
 	FetchToken(String),
-	CreateChangeset(Vec<Tag>),
-	UploadDiff(NonZeroU32, String),
-	#[allow(dead_code)]
-	CloseChangeset(NonZeroU32),
+	UploadChanges { tags: Box<OrderedTags>, osmchange: Box<OsmChange> },
 }
 
-#[derive(Debug)]
 pub enum Response {
 	Map(OsmResult<OsmData>),
 	Token(OsmResult<OsmToken>, TargetServer),
-	CreatedChangeset(OsmResult<NonZeroU32>),
+	UploadChangesProgress(UploadChangesProgress),
+}
+
+pub enum UploadChangesProgress {
+	ChangesetCreated(OsmResult<ChangesetId>),
 	DiffUploaded(OsmResult<String>),
-	ClosedChangeset(OsmResult<()>),
+	ChangesetClosed(OsmResult<()>),
 }
 
 pub struct Worker {
@@ -103,17 +102,28 @@ impl Worker {
 
 				self.send_message(Response::Token(result, target_server));
 			}
-			Request::CreateChangeset(tags) => {
-				let result = self.osm_client.create_changeset(tags);
-				self.send_message(Response::CreatedChangeset(result));
-			}
-			Request::UploadDiff(id, osmchange_str) => {
-				let result = self.osm_client.diff_upload(id, osmchange_str);
-				self.send_message(Response::DiffUploaded(result));
-			}
-			Request::CloseChangeset(id) => {
-				let result = self.osm_client.close_changeset(id);
-				self.send_message(Response::ClosedChangeset(result));
+			Request::UploadChanges { tags, mut osmchange } => {
+				let tags = tags.into_iter().map(|(k, v)| Tag { k, v }).collect();
+
+				let changeset_result = self.osm_client.create_changeset(tags);
+				let changeset_id = changeset_result.as_ref().ok().copied();
+
+				self.send_message(Response::UploadChangesProgress(
+					UploadChangesProgress::ChangesetCreated(changeset_result),
+				));
+
+				if let Some(changeset_id) = changeset_id {
+					osmchange.prepare_upload(changeset_id);
+					let diff_result = self.osm_client.diff_upload(changeset_id, osmchange.to_string_pretty().unwrap());
+					self.send_message(Response::UploadChangesProgress(
+						UploadChangesProgress::DiffUploaded(diff_result),
+					));
+
+					let close_result = self.osm_client.close_changeset(changeset_id);
+					self.send_message(Response::UploadChangesProgress(
+						UploadChangesProgress::ChangesetClosed(close_result),
+					));
+				}
 			}
 		}
 	}
@@ -139,17 +149,28 @@ impl Worker {
 
 				self.send_message(Response::Token(result, target_server));
 			}
-			Request::CreateChangeset(tags) => {
-				let result = self.osm_client.create_changeset(tags).await;
-				self.send_message(Response::CreatedChangeset(result));
-			}
-			Request::UploadDiff(id, osmchange_str) => {
-				let result = self.osm_client.diff_upload(id, osmchange_str).await;
-				self.send_message(Response::DiffUploaded(result));
-			}
-			Request::CloseChangeset(id) => {
-				let result = self.osm_client.close_changeset(id).await;
-				self.send_message(Response::ClosedChangeset(result));
+			Request::UploadChanges { tags, mut osmchange } => {
+				let tags = tags.into_iter().map(|(k, v)| Tag { k, v }).collect();
+
+				let changeset_result = self.osm_client.create_changeset(tags).await;
+				let changeset_id = changeset_result.as_ref().ok().copied();
+
+				self.send_message(Response::UploadChangesProgress(
+					UploadChangesProgress::ChangesetCreated(changeset_result),
+				));
+
+				if let Some(changeset_id) = changeset_id {
+					osmchange.prepare_upload(changeset_id);
+					let diff_result = self.osm_client.diff_upload(changeset_id, osmchange.to_string_pretty().unwrap()).await;
+					self.send_message(Response::UploadChangesProgress(
+						UploadChangesProgress::DiffUploaded(diff_result),
+					));
+
+					let close_result = self.osm_client.close_changeset(changeset_id).await;
+					self.send_message(Response::UploadChangesProgress(
+						UploadChangesProgress::ChangesetClosed(close_result),
+					));
+				}
 			}
 		}
 	}
