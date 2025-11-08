@@ -6,14 +6,13 @@ pub mod states;
 pub mod r_star;
 
 use crate::app::editor::r_star::WayEntry;
-use crate::app::osm::Bbox;
+use crate::app::osm::{Bbox, OrderedTags};
 use crate::app::windows::{DataViewerModal, OverlapSelectorResult, WindowBitflag};
 use cache::Change;
 use cache::{EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
 use eframe::egui::{Color32, Context, CursorIcon, FontId, Key, Modifiers, Pos2, Response, Shape, Stroke, Ui, Vec2};
 use eframe::epaint::{CircleShape, ColorMode, PathShape, PathStroke, RectShape, StrokeKind, TextShape};
-use indexmap::IndexMap;
 use osm_parser::*;
 use r_star::{NodeEntry, WebMercatorPoint};
 use rstar::primitives::Rectangle;
@@ -33,7 +32,7 @@ pub struct Editor {
 	pub window_flags: WindowBitflag,
 	pub prev_size: Vec2,
 	pub prev_zoom: f64,
-	pub edit_window: Option<(ElementId, IndexMap<String, String>)>,
+	pub edit_window: Option<(ElementId, OrderedTags)>,
 	pub data_viewer: Option<DataViewerModal>,
 
 	pub mode: EditMode,

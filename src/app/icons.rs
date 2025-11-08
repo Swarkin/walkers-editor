@@ -11,6 +11,7 @@ pub const DOWNLOAD: ImageSource = include_image!("../../assets/ui/download.svg")
 pub const HASHTAG: ImageSource = include_image!("../../assets/ui/hashtag.svg");
 pub const LAYOUT: ImageSource = include_image!("../../assets/ui/layout.svg");
 pub const MOON: ImageSource = include_image!("../../assets/ui/moon.svg");
+pub const SQUARE_X: ImageSource = include_image!("../../assets/ui/square_x.svg");
 pub const SUN: ImageSource = include_image!("../../assets/ui/sun.svg");
 pub const UPLOAD: ImageSource = include_image!("../../assets/ui/upload.svg");
 pub const USER: ImageSource = include_image!("../../assets/ui/user.svg");
