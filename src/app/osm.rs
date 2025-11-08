@@ -8,7 +8,9 @@ pub use web::OsmClient;
 
 const REDIRECT_URI: &str = "urn:ietf:wg:oauth:2.0:oob";
 const SCOPES: &str = "write_api";
-const DOWNLOAD_LIMIT: u64 = 100_000_000;
+const AUTHORIZATION_HEADER: &str = "authorization";
+const CONTENT_TYPE_HEADER: &str = "content-type";
+const APPLICATION_XML: &str = "application/xml";
 
 type AnyError = Box<dyn std::error::Error + Sync + Send>;
 pub type OsmResult<T> = Result<T, AnyError>;
@@ -127,8 +129,11 @@ mod native {
 	use osm_parser::types::raw;
 	use osm_parser::OsmData;
 	use std::time::Duration;
-	use ureq::http::Response;
-	use ureq::{AsSendBody, Body};
+	use ureq::http::{HeaderName, HeaderValue, Response};
+	use ureq::Body;
+
+	const DOWNLOAD_LIMIT: u64 = 100_000_000;
+	const CONTENT_LENGTH_HEADER: &str = "content-length";
 
 	pub struct OsmClient {
 		pub http_client: ureq::Agent,
@@ -151,23 +156,30 @@ mod native {
 			}
 		}
 
-		pub fn post_with_auth(&self, url: String, data: impl AsSendBody) -> OsmResult<Response<Body>> {
+		pub fn post_with_auth(&self, url: String, data: Vec<u8>) -> OsmResult<Response<Body>> {
 			self.http_client.post(url)
-				.header("authorization", self.get_auth()?)
+				.header(AUTHORIZATION_HEADER, self.get_auth()?)
+				.header(CONTENT_LENGTH_HEADER, data.len())
 				.send(data)
 				.map_err(Box::from)
 		}
 
-		pub fn put_with_auth(&self, url: String, data: impl AsSendBody) -> OsmResult<Response<Body>> {
-			self.http_client.put(url)
-				.header("authorization", self.get_auth()?)
+		pub fn put_with_auth(&self, url: String, data: Vec<u8>, headers: Vec<(HeaderName, HeaderValue)>) -> OsmResult<Response<Body>> {
+			let mut req = self.http_client.put(url);
+
+			for (name, value) in headers {
+				req = req.header(name, value);
+			}
+
+			req.header(AUTHORIZATION_HEADER, self.get_auth()?)
+				.header(CONTENT_LENGTH_HEADER, data.len())
 				.send(data)
 				.map_err(Box::from)
 		}
 
 		pub fn put_with_auth_empty(&self, url: String) -> OsmResult<Response<Body>> {
 			self.http_client.put(url)
-				.header("authorization", self.get_auth()?)
+				.header(AUTHORIZATION_HEADER, self.get_auth()?)
 				.send_empty()
 				.map_err(Box::from)
 		}
@@ -183,7 +195,7 @@ mod native {
 
 			let mut req = self.http_client.get(url);
 			if let Ok(auth) = self.get_auth() {
-				req = req.header("authorization", auth);
+				req = req.header(AUTHORIZATION_HEADER, auth);
 			}
 
 			req.call()?
@@ -197,7 +209,8 @@ mod native {
 			let url = api_url("/changeset/create", self.target_server);
 			let data = OsmCreateChangeset { changeset: RawChangeset { tag: tags } };
 			let body = quick_xml::se::to_string(&data)?;
-			self.put_with_auth(url, body)?
+
+			self.put_with_auth(url, body.into_bytes(), vec![(HeaderName::from_static(CONTENT_TYPE_HEADER), HeaderValue::from_static(APPLICATION_XML))])?
 				.into_body()
 				.read_to_string()?
 				.parse::<ChangesetId>()
@@ -208,7 +221,7 @@ mod native {
 		/// <https://wiki.openstreetmap.org/wiki/API_v0.6#Diff_upload:_POST_/api/0.6/changeset/#id/upload>
 		pub fn diff_upload(&self, id: ChangesetId, osmchange_str: String) -> OsmResult<String> {
 			let url = api_url(format!("/changeset/{id}/upload"), self.target_server);
-			self.post_with_auth(url, osmchange_str)?
+			self.post_with_auth(url, osmchange_str.into_bytes())?
 				.into_body()
 				.read_to_string()
 				.map_err(Box::from)
@@ -236,10 +249,15 @@ mod native {
 mod web {
 	use super::*;
 	use crate::app::osm::TargetServer;
+	use crate::app::osmchange::ChangesetId;
+	use crate::USER_AGENT;
 	use ehttp::Request;
 	use osm_parser::types::raw;
 	use osm_parser::OsmData;
-	use std::num::NonZeroU32;
+
+	const GET: &str = "GET";
+	const PUT: &str = "PUT";
+	const POST: &str = "POST";
 
 	pub struct OsmClient {
 		pub target_server: TargetServer,
@@ -258,8 +276,9 @@ mod web {
 		pub async fn send_request(&self, method: String, url: String, body: Vec<u8>, headers: &[(&str, &str)]) -> ehttp::Result<ehttp::Response> {
 			let auth = self.auth_token.get(self.target_server as usize).unwrap().as_ref();
 			let mut headers = ehttp::Headers::new(headers);
+			headers.insert("x-requested-with", USER_AGENT);
 			if let Some(auth) = auth {
-				headers.insert("authorization", format!("{} {}", auth.token_type, auth.access_token));
+				headers.insert(AUTHORIZATION_HEADER, format!("{} {}", auth.token_type, auth.access_token));
 			}
 
 			ehttp::fetch_async(Request { method, url, body, headers, mode: ehttp::Mode::Cors, })
@@ -270,32 +289,32 @@ mod web {
 		pub async fn get_map(&self, bbox: &Bbox) -> OsmResult<OsmData> {
 			let url = api_url(format!("/map.json?bbox={},{},{},{}", bbox.left, bbox.bottom, bbox.right, bbox.top), self.target_server);
 
-			let resp = self.send_request("GET".into(), url, vec![], &[]).await?;
+			let resp = self.send_request(GET.into(), url, vec![], &[]).await?;
 			let raw = resp.json::<raw::RawOsmData>()?;
 			raw.try_into()
 		}
 
-		pub async fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<NonZeroU32> {
+		pub async fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<ChangesetId> {
 			let url = api_url("/changeset/create", self.target_server);
 			let data = OsmCreateChangeset { changeset: RawChangeset { tag: tags } };
 			let body = quick_xml::se::to_string(&data)?;
 
-			let resp = self.send_request("PUT".into(), url, body.into_bytes(), &[]).await?;
+			let resp = self.send_request(PUT.into(), url, body.into_bytes(), &[(CONTENT_TYPE_HEADER, APPLICATION_XML)]).await?;
 			String::from_utf8(resp.bytes)?
 				.parse().map_err(Box::from)
 		}
 
-		pub async fn diff_upload(&self, id: NonZeroU32, osmchange_str: String) -> OsmResult<String> {
+		pub async fn diff_upload(&self, id: ChangesetId, osmchange_str: String) -> OsmResult<String> {
 			let url = api_url(format!("/changeset/{id}/upload"), self.target_server);
 
-			let resp = self.send_request("POST".into(), url, osmchange_str.into_bytes(), &[]).await?;
+			let resp = self.send_request(POST.into(), url, osmchange_str.into_bytes(), &[]).await?;
 			String::from_utf8(resp.bytes).map_err(Box::from)
 		}
 
-		pub async fn close_changeset(&self, id: NonZeroU32) -> OsmResult<()> {
+		pub async fn close_changeset(&self, id: ChangesetId) -> OsmResult<()> {
 			let url = api_url(format!("/changeset/{id}/close"), self.target_server);
 
-			self.send_request("PUT".into(), url, vec![], &[]).await
+			self.send_request(PUT.into(), url, vec![], &[]).await
 				.map(|_| ())
 				.map_err(Box::from)
 		}
@@ -304,7 +323,7 @@ mod web {
 			let url = format!("https://{}", self.target_server.base_token_url());
 			let body = format!("grant_type=authorization_code&code={}&redirect_uri={REDIRECT_URI}&client_id={}", auth_code.as_ref(), self.target_server.client_id());
 
-			let resp = self.send_request("POST".into(), url, body.into_bytes(), &[("content-type", "application/x-www-form-urlencoded")]).await?;
+			let resp = self.send_request(POST.into(), url, body.into_bytes(), &[("content-type", "application/x-www-form-urlencoded")]).await?;
 			resp.json::<OsmToken>()
 				.map_err(Box::from)
 		}
