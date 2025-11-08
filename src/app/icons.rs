@@ -5,9 +5,12 @@ pub const PRIMITIVE_WAY_ICON: ImageSource = include_image!("../../assets/primiti
 //pub const PRIMITIVE_AREA_ICON: ImageSource = include_image!("../../assets/primitives/area24.svg");
 //pub const PRIMITIVE_RELATION_ICON: ImageSource = include_image!("../../assets/primitives/relation24.svg");
 
+pub const CHECK: ImageSource = include_image!("../../assets/ui/check.svg");
 pub const CLOCK: ImageSource = include_image!("../../assets/ui/clock.svg");
 pub const COMMIT: ImageSource = include_image!("../../assets/ui/commit.svg");
+pub const CROSS: ImageSource = include_image!("../../assets/ui/cross.svg");
 pub const DOWNLOAD: ImageSource = include_image!("../../assets/ui/download.svg");
+pub const EXTERNAL: ImageSource = include_image!("../../assets/ui/external.svg");
 pub const HASHTAG: ImageSource = include_image!("../../assets/ui/hashtag.svg");
 pub const LAYOUT: ImageSource = include_image!("../../assets/ui/layout.svg");
 pub const MOON: ImageSource = include_image!("../../assets/ui/moon.svg");

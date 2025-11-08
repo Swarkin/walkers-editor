@@ -6,6 +6,7 @@ use eframe::egui::{Color32, Context, Image, ImageSource, Vec2};
 pub const TOP_BAR_HEIGHT: f32 = 37.0;
 pub const TOP_BAR_FONT_SIZE: f32 = 14.0;
 pub const TOP_BAR_BUTTON_SIZE: f32 = 28.0;
+pub const WIDE_BUTTON_SIZE: Vec2 = Vec2::new(160.0, ICON_SIZE + 6.0);
 
 pub const ICON_SIZE: f32 = 24.0;
 
@@ -38,5 +39,11 @@ const fn tint(dark: bool) -> u8 {
 pub fn prepare_icon<'a>(ctx: &Context, img: ImageSource<'a>, size: f32) -> Image<'a> {
 	Image::new(img)
 		.tint(Color32::from_gray(tint(ctx.style().visuals.dark_mode)))
+		.fit_to_exact_size(Vec2::splat(size))
+}
+
+pub fn prepare_icon_with_tint(img: ImageSource, size: f32, tint: Color32) -> Image {
+	Image::new(img)
+		.tint(tint)
 		.fit_to_exact_size(Vec2::splat(size))
 }

@@ -6,7 +6,9 @@ mod osmchange;
 pub mod worker;
 pub mod icons;
 
+use crate::app::editor::cache::EditorOsmData;
 use crate::app::editor::states::ChangesetUploadState;
+use crate::app::osm::OsmResult;
 use crate::app::worker::UploadChangesProgress;
 use editor::cache::{Change, ElementId, ElementRef};
 use editor::consts::*;
@@ -14,7 +16,7 @@ use editor::states::{AppState, AuthenticatorState, CacheFlag, EditorState, MapDo
 use editor::visual::FillMode;
 use editor::{consume_key, EditMode, EditOperation, Editor};
 use eframe::egui;
-use eframe::egui::{ComboBox, Grid};
+use eframe::egui::{CollapsingHeader, ComboBox, Grid, Spinner, Widget};
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, TextEdit, Theme, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
@@ -30,7 +32,7 @@ use worker::{Request, Response, Worker, WorkerHandle};
 
 pub struct MyApp {
 	worker_handle: WorkerHandle,
-	state: AppState,
+	app_state: AppState,
 	editor_state: EditorState,
 	uploader_state: UploaderState,
 	authenticator_state: AuthenticatorState,
@@ -52,23 +54,25 @@ impl MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
+							if self.app_state.top_bar_disabled { ui.disable(); }
+
 							let btn = title_bar_button("Editor", prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));
-							if ui.add_enabled(self.state.view != View::Edit, btn).clicked() {
-								self.state.view = View::Edit;
+							if ui.add_enabled(self.app_state.view != View::Edit, btn).clicked() {
+								self.app_state.view = View::Edit;
 								self.uploader_state.clear_osmchange();
 							}
 
 							let btn = title_bar_button("Upload", prepare_icon(ctx, icons::UPLOAD, ICON_SIZE));
-							if ui.add_enabled(self.state.view != View::Upload, btn).clicked() {
-								self.state.view = View::Upload;
+							if ui.add_enabled(self.app_state.view != View::Upload, btn).clicked() {
+								self.app_state.view = View::Upload;
 								self.uploader_state.osmchange = OsmChange::from(&self.editor_state.editor.osm_data.changes);
 								// todo: handle Err case
 								self.uploader_state.osmchange_text = self.uploader_state.osmchange.to_string_pretty().unwrap();
 							}
 
 							let btn = title_bar_button("Auth", prepare_icon(ctx, icons::USER, ICON_SIZE));
-							if ui.add_enabled(self.state.view != View::Auth, btn).clicked() {
-								self.state.view = View::Auth;
+							if ui.add_enabled(self.app_state.view != View::Auth, btn).clicked() {
+								self.app_state.view = View::Auth;
 								self.uploader_state.clear_osmchange();
 							}
 						},
@@ -98,7 +102,7 @@ impl MyApp {
 
 	#[allow(clippy::too_many_lines)]
 	fn content(&mut self, ctx: &Context) {
-		match self.state.view {
+		match self.app_state.view {
 			View::Edit => {
 				// regenerate cache on zoom or resize
 				let curr_size = ctx.content_rect().size();
@@ -191,8 +195,8 @@ impl MyApp {
 
 						if let Some(result) = windows::map(ui, &mut self.editor_state.editor.map_state, &mut self.editor_state.tile_providers.keys()) {
 							match result {
-								MapWindowResult::ShowLicenses => self.state.open_modals |= ModalFlag::Licenses as u8,
-								MapWindowResult::ShowDataViewer => self.state.open_modals |= ModalFlag::DataViewer as u8,
+								MapWindowResult::ShowLicenses => self.app_state.open_modals |= ModalFlag::Licenses as u8,
+								MapWindowResult::ShowDataViewer => self.app_state.open_modals |= ModalFlag::DataViewer as u8,
 							}
 						}
 
@@ -255,13 +259,13 @@ impl MyApp {
 					});
 
 					// todo: simple function to check whether authentication exists
-					if self.authenticator_state.token.get(&self.state.target_server_ui).is_some_and(Result::is_ok) {
-						ui.add_space(10.0);
+					if self.authenticator_state.token.get(&self.app_state.target_server_ui).is_some_and(Result::is_ok) {
+						ui.add_space(10.);
 
-						// todo: list changes
+						// todo: list changes (sidebar?)
 
-						let upload_idle = matches!(self.uploader_state.changeset_upload.state, ChangesetUploadState::Idle);
-						let can_upload = upload_idle && !self.uploader_state.osmchange.is_empty() || self.uploader_state.changeset_upload.creation.is_none();
+						let upload_state_idle = matches!(self.uploader_state.changeset_upload.state, ChangesetUploadState::Idle);
+						let can_upload = upload_state_idle && !self.app_state.top_bar_disabled && !self.uploader_state.osmchange.is_empty();
 
 						let changeset_comment_mut = self.uploader_state.changeset_upload.tags.entry("comment".into()).or_default();
 						let textedit = TextEdit::singleline(changeset_comment_mut)
@@ -269,45 +273,153 @@ impl MyApp {
 							.char_limit(255)
 							.desired_rows(4)
 							.clip_text(false);
-						ui.add_enabled(upload_idle, textedit);
-
-						if ui.add_enabled(can_upload, Button::new((prepare_icon(ctx, icons::UPLOAD, ICON_SIZE), "Upload changes"))).clicked() {
+						ui.add_enabled(upload_state_idle, textedit);
+						ui.add_space(5.);
+						if ui.add_enabled(can_upload, Button::new((prepare_icon(ctx, icons::UPLOAD, ICON_SIZE), "Upload")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+							self.app_state.top_bar_disabled = true;
 							self.uploader_state.osmchange_text = self.uploader_state.osmchange.to_string_pretty().unwrap();
 							self.worker_handle.send_message(Request::UploadChanges {
 								tags: Box::new(self.uploader_state.changeset_upload.tags.clone()),
 								osmchange: Box::new(self.uploader_state.osmchange.clone())
 							});
+							self.uploader_state.changeset_upload.target_server = self.app_state.target_server_ui;
 							self.uploader_state.changeset_upload.state = ChangesetUploadState::Creating;
 						}
 
-						if !upload_idle {
+						if !upload_state_idle {
 							ui.horizontal(|ui| {
 								ui.spinner();
 								ui.label(format!("{}...", self.uploader_state.changeset_upload.state));
 							});
 						}
 
-						if let Some(creation_result) = &self.uploader_state.changeset_upload.creation {
-							ui.monospace(format!("Create changeset: {creation_result:?}"));
-						}
-						if let Some(diff_result) = &self.uploader_state.changeset_upload.diff_upload {
-							ui.collapsing("Diff upload response", |ui| {
-								ScrollArea::vertical().show(ui, |ui| {
-									ui.monospace(format!("Diff upload: {diff_result:?}"));
+						ui.add_space(10.);
+
+						if !self.uploader_state.changeset_upload.is_empty() {
+							CollapsingHeader::new("Technical info").default_open(cfg!(feature = "debug")).show(ui, |ui| {
+								fn status_message<T>(ui: &mut Ui, result: Option<&OsmResult<T>>, msg: &str) {
+									ui.horizontal(|ui| {
+										if result.is_none() {
+											Spinner::new().size(ICON_SIZE).ui(ui);
+										} else if result.as_ref().is_some_and(|x| x.is_ok()) {
+											ui.add(prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN));
+										} else {
+											ui.add(prepare_icon_with_tint(icons::CROSS, ICON_SIZE, Color32::LIGHT_RED));
+										}
+										ui.label(msg);
+									});
+								}
+
+								ui.group(|ui| {
+									let result = &self.uploader_state.changeset_upload.creation;
+									status_message(ui, result.as_ref(), "Creating changeset");
+
+									if let Some(result) = result {
+										match result {
+											Ok(id) => {
+												let text = id.to_string();
+												ui.monospace(&text);
+
+												ui.horizontal(|ui| {
+													if ui.button("Copy Link").clicked() {
+														ctx.copy_text(format!("https://{}/changeset/{text}", self.uploader_state.changeset_upload.target_server.base_url()));
+													}
+													if ui.button("Copy ID").clicked() { ctx.copy_text(text); }
+												});
+											}
+											Err(e) => {
+												let text = e.to_string();
+												ui.monospace(text);
+
+												if ui.button("Copy Error").clicked() { ctx.copy_text(e.to_string()); }
+											}
+										}
+									}
+								});
+
+								ui.add_space(10.);
+
+								ui.group(|ui| {
+									let result = &self.uploader_state.changeset_upload.diff_upload;
+									status_message(ui, result.as_ref(), "Uploading osmChange document");
+
+									if let Some(result) = result {
+										match result {
+											Ok(resp) => {
+												ScrollArea::vertical().max_height(128.).show(ui, |ui| ui.monospace(resp));
+											}
+											Err(e) => {
+												let text = e.to_string();
+												ui.monospace(text);
+
+												if ui.button("Copy Error").clicked() { ctx.copy_text(e.to_string()); }
+											}
+										}
+									}
+								});
+
+								ui.add_space(10.);
+								ui.group(|ui| {
+									let result = &self.uploader_state.changeset_upload.close;
+									status_message(ui, result.as_ref(), "Closing changeset");
+
+									if let Some(result) = result {
+										match result {
+											Ok(()) => {}
+											Err(e) => {
+												let text = e.to_string();
+												ui.monospace(text);
+
+												if ui.button("Copy Error").clicked() { ctx.copy_text(e.to_string()); }
+											}
+										}
+									}
 								});
 							});
 						}
-						if let Some(close_result) = &self.uploader_state.changeset_upload.close {
-							ui.monospace(format!("Close changeset: {close_result:?}"));
 
-							if ui.button((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), "Clear")).clicked() {
+						if self.uploader_state.changeset_upload.all_successful() {
+							ui.horizontal(|ui| {
+								ui.add(prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN));
+								ui.strong(RichText::new("Upload successful!").color(Color32::LIGHT_GREEN));
+							});
+
+							ui.horizontal(|ui| {
+								ui.add(prepare_icon(ctx, icons::EXTERNAL, ICON_SIZE));
+								ui.hyperlink_to("View on OSM", format!("https://{}/changeset/{}", self.uploader_state.changeset_upload.target_server.base_url(), self.uploader_state.changeset_upload.creation.as_ref().unwrap().as_ref().unwrap()));
+							});
+						} else if self.uploader_state.changeset_upload.any_unsuccessful() {
+							ui.horizontal(|ui| {
+								ui.add(prepare_icon_with_tint(icons::CROSS, ICON_SIZE, Color32::LIGHT_RED));
+								ui.strong(RichText::new("Upload failed!").color(Color32::LIGHT_RED));
+								ui.label("Check the technical info section for details and back up the osmChange document.");
+								ui.add_space(5.);
+								if ui.small_button("Unlock editor (Unsafe)").clicked() { self.app_state.top_bar_disabled = false; }
+							});
+						}
+
+						if !self.uploader_state.changeset_upload.is_empty() {
+							ui.add_space(10.);
+
+							if ui.add(Button::new((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), "Clear")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+								// todo: clear changes and downloaded data
 								self.uploader_state.changeset_upload.clear();
+
+								self.editor_state.editor.operation = EditOperation::Idle;
+								self.editor_state.editor.mode = EditMode::View;
+								self.editor_state.editor.osm_data = EditorOsmData::default();
+								self.editor_state.editor.hovered.clear();
+								self.editor_state.editor.selected = None;
+								self.editor_state.editor.placeholder_id = 0;
+								self.editor_state.editor.overlap_selector_elements.clear();
+
+								self.app_state.top_bar_disabled = false;
 							}
 						}
 					} else {
 						ui.horizontal(|ui| {
 							ui.strong("Please authenticate to OSM using the");
-							if ui.small_button("Auth").clicked() { self.state.view = View::Auth; }
+							if ui.small_button("Auth").clicked() { self.app_state.view = View::Auth; }
 							ui.strong("tab.");
 						});
 					}
@@ -317,18 +429,18 @@ impl MyApp {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading("Authenticate to OpenStreetMap");
 
-					if server_selector(ui, &mut self.state.target_server_ui) {
+					if server_selector(ui, &mut self.app_state.target_server_ui) {
 						// update target server for OsmClient of worker
-						self.worker_handle.send_message(Request::SetTargetServer(self.state.target_server_ui));
+						self.worker_handle.send_message(Request::SetTargetServer(self.app_state.target_server_ui));
 					}
 
 					ui.add_space(10.0);
 
-					if self.state.target_server_ui == TargetServer::OpenStreetMap {
+					if self.app_state.target_server_ui == TargetServer::OpenStreetMap {
 						ui.strong(format!("The main OpenStreetMap instance is not available for editing in {} as of now.", env!("CARGO_PKG_NAME")));
 					} else {
 						ui.label("1. Open this URL and follow the authorization process:");
-						ui.hyperlink(osm::client_auth_url(self.state.target_server_ui));
+						ui.hyperlink(osm::client_auth_url(self.app_state.target_server_ui));
 
 						ui.add_space(10.0);
 						ui.label("2. Paste the resulting code into the field below:");
@@ -426,7 +538,7 @@ impl MyApp {
 
 		Self {
 			worker_handle,
-			state: app_state,
+			app_state,
 			editor_state: EditorState {
 				editor: Editor::default(),
 				map_memory: MapMemory::default(),
@@ -500,26 +612,26 @@ impl eframe::App for MyApp {
 				crate::set_update_flag(false);
 			}
 
-			if self.state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
+			if self.app_state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
 				&& windows::firefox_modal(ctx)
 			{
-				self.state.open_modals &= ModalFlag::FirefoxNotice as u8;
+				self.app_state.open_modals &= ModalFlag::FirefoxNotice as u8;
 			}
 		}
 
-		if self.state.open_modals & ModalFlag::Licenses as u8 != 0
+		if self.app_state.open_modals & ModalFlag::Licenses as u8 != 0
 			&& windows::licenses_modal(ctx)
 		{
-			self.state.open_modals &= !(ModalFlag::Licenses as u8);
+			self.app_state.open_modals &= !(ModalFlag::Licenses as u8);
 		}
 
-		if self.state.open_modals & ModalFlag::DataViewer as u8 != 0 {
+		if self.app_state.open_modals & ModalFlag::DataViewer as u8 != 0 {
 			if self.editor_state.editor.data_viewer.is_none() {
 				self.editor_state.editor.data_viewer = Some(DataViewerModal::new(&self.editor_state.editor.osm_data.data));
 			} else {
 				let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
 				if data_viewer.show(ctx, &self.editor_state.editor.osm_data.data) {
-					self.state.open_modals &= !(ModalFlag::DataViewer as u8);
+					self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
 					self.editor_state.editor.data_viewer = None;
 				}
 			}
