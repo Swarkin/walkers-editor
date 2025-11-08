@@ -107,7 +107,7 @@ pub struct OsmCreateChangeset {
 #[derive(Debug, serde::Serialize)]
 #[serde(rename = "changeset")]
 pub struct RawChangeset {
-	tags: Vec<Tag>
+	tag: Vec<Tag>
 }
 
 fn api_url(path: impl AsRef<str>, target_server: TargetServer) -> String {
@@ -195,7 +195,7 @@ mod native {
 		// todo: error type
 		pub fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<ChangesetId> {
 			let url = api_url("/changeset/create", self.target_server);
-			let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
+			let data = OsmCreateChangeset { changeset: RawChangeset { tag: tags } };
 			let body = quick_xml::se::to_string(&data)?;
 			self.put_with_auth(url, body)?
 				.into_body()
@@ -277,7 +277,7 @@ mod web {
 
 		pub async fn create_changeset(&self, tags: Vec<Tag>) -> OsmResult<NonZeroU32> {
 			let url = api_url("/changeset/create", self.target_server);
-			let data = OsmCreateChangeset { changeset: RawChangeset { tags } };
+			let data = OsmCreateChangeset { changeset: RawChangeset { tag: tags } };
 			let body = quick_xml::se::to_string(&data)?;
 
 			let resp = self.send_request("PUT".into(), url, body.into_bytes(), &[]).await?;
