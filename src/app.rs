@@ -3,15 +3,18 @@ mod editor;
 mod providers;
 mod osm;
 mod osmchange;
-mod worker;
+pub mod worker;
 pub mod icons;
 
-use crate::app::editor::consume_key;
+use crate::app::editor::states::ChangesetUploadState;
+use crate::app::worker::UploadChangesProgress;
 use editor::cache::{Change, ElementId, ElementRef};
+use editor::consts::*;
+use editor::states::{AppState, AuthenticatorState, CacheFlag, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
 use editor::visual::FillMode;
-use editor::Editor;
-use editor::{consts::*, states::*, EditMode, EditOperation};
+use editor::{consume_key, EditMode, EditOperation, Editor};
 use eframe::egui;
+use eframe::egui::{ComboBox, Grid};
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, TextEdit, Theme, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
@@ -24,22 +27,6 @@ use walkers::{Map, MapMemory, Position};
 use windows::{DataViewerModal, MapWindowResult};
 use windows::{TagsEditKind, Window};
 use worker::{Request, Response, Worker, WorkerHandle};
-
-/// State related to the application itself
-#[derive(Default)]
-pub struct AppState {
-	pub view: View,
-	pub target_server_ui: TargetServer,
-	pub open_modals: u8,
-}
-
-#[derive(Default, PartialEq, Eq)]
-pub enum View {
-	#[default]
-	Edit,
-	Upload,
-	Auth,
-}
 
 pub struct MyApp {
 	worker_handle: WorkerHandle,
@@ -255,7 +242,6 @@ impl MyApp {
 			}
 			View::Upload => {
 				CentralPanel::default().show(ctx, |ui| {
-					use osmchange::Tag;
 					use egui_extras::syntax_highlighting;
 
 					ui.heading("Upload to OpenStreetMap");
@@ -271,45 +257,51 @@ impl MyApp {
 					// todo: simple function to check whether authentication exists
 					if self.authenticator_state.token.get(&self.state.target_server_ui).is_some_and(Result::is_ok) {
 						ui.add_space(10.0);
-						if ui.button("Create Changeset").clicked() {
-							// todo: figure out why tags do not show up on OSM
-							let tags = vec![Tag { k: "created_by".into(), v: crate::USER_AGENT.into() }];
-							self.worker_handle.send_message(Request::CreateChangeset(tags));
+
+						// todo: list changes
+
+						let upload_idle = matches!(self.uploader_state.changeset_upload.state, ChangesetUploadState::Idle);
+						let can_upload = upload_idle && !self.uploader_state.osmchange.is_empty() || self.uploader_state.changeset_upload.creation.is_none();
+
+						let changeset_comment_mut = self.uploader_state.changeset_upload.tags.entry("comment".into()).or_default();
+						let textedit = TextEdit::singleline(changeset_comment_mut)
+							.hint_text("Describe your changes")
+							.char_limit(255)
+							.desired_rows(4)
+							.clip_text(false);
+						ui.add_enabled(upload_idle, textedit);
+
+						if ui.add_enabled(can_upload, Button::new((prepare_icon(ctx, icons::UPLOAD, ICON_SIZE), "Upload changes"))).clicked() {
+							self.uploader_state.osmchange_text = self.uploader_state.osmchange.to_string_pretty().unwrap();
+							self.worker_handle.send_message(Request::UploadChanges {
+								tags: Box::new(self.uploader_state.changeset_upload.tags.clone()),
+								osmchange: Box::new(self.uploader_state.osmchange.clone())
+							});
+							self.uploader_state.changeset_upload.state = ChangesetUploadState::Creating;
 						}
 
-						if let Some(result) = &self.uploader_state.changeset_creation {
-							match result {
-								Ok(id) => {
-									ui.horizontal(|ui| {
-										ui.label("Changeset: ");
-										ui.hyperlink_to(id.to_string(), format!("https://{}/changeset/{}", self.state.target_server_ui.base_url(), id));
-									});
-
-									if ui.add_enabled(!self.uploader_state.request_pending, Button::new("Upload")).clicked() {
-										self.uploader_state.request_pending = true;
-										self.worker_handle.send_message(Request::UploadDiff(*id, self.uploader_state.osmchange_text.clone()));
-									}
-
-									if ui.add_enabled(!self.uploader_state.request_pending, Button::new("Close Changeset")).clicked() {
-										self.uploader_state.request_pending = true;
-										self.worker_handle.send_message(Request::CloseChangeset(*id));
-									}
-								}
-								Err(e) => {
-									ui.label(RichText::new(format!("Failed to create changeset:\n{e}")).color(ui.visuals().error_fg_color));
-								}
-							}
+						if !upload_idle {
+							ui.horizontal(|ui| {
+								ui.spinner();
+								ui.label(format!("{}...", self.uploader_state.changeset_upload.state));
+							});
 						}
 
-						if let Some(result) = &self.uploader_state.diff_upload {
-							match result {
-								Ok(resp) => {
-									// todo: remove debug info
-									ui.collapsing("Upload API response", |ui| { ui.monospace(resp); });
-								}
-								Err(e) => {
-									ui.label(RichText::new(format!("Failed to upload:\n{e}")).color(ui.visuals().error_fg_color));
-								}
+						if let Some(creation_result) = &self.uploader_state.changeset_upload.creation {
+							ui.monospace(format!("Create changeset: {creation_result:?}"));
+						}
+						if let Some(diff_result) = &self.uploader_state.changeset_upload.diff_upload {
+							ui.collapsing("Diff upload response", |ui| {
+								ScrollArea::vertical().show(ui, |ui| {
+									ui.monospace(format!("Diff upload: {diff_result:?}"));
+								});
+							});
+						}
+						if let Some(close_result) = &self.uploader_state.changeset_upload.close {
+							ui.monospace(format!("Close changeset: {close_result:?}"));
+
+							if ui.button((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), "Clear")).clicked() {
+								self.uploader_state.changeset_upload.clear();
 							}
 						}
 					} else {
@@ -325,9 +317,7 @@ impl MyApp {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading("Authenticate to OpenStreetMap");
 
-					let prev_server = self.state.target_server_ui;
-					server_selector(ui, &mut self.state.target_server_ui);
-					if prev_server != self.state.target_server_ui {
+					if server_selector(ui, &mut self.state.target_server_ui) {
 						// update target server for OsmClient of worker
 						self.worker_handle.send_message(Request::SetTargetServer(self.state.target_server_ui));
 					}
@@ -474,17 +464,21 @@ impl MyApp {
 				self.authenticator_state.token.insert(target_server, token);
 				self.authenticator_state.request_pending = false;
 			}
-			Response::CreatedChangeset(result) => {
-				self.uploader_state.changeset_creation = Some(result);
-				self.uploader_state.request_pending = false;
-			}
-			Response::DiffUploaded(result) => {
-				self.uploader_state.diff_upload = Some(result);
-				self.uploader_state.request_pending = false;
-			}
-			Response::ClosedChangeset(result) => {
-				self.uploader_state.changeset_closure = Some(result);
-				self.uploader_state.request_pending = false;
+			Response::UploadChangesProgress(progress) => {
+				match progress {
+					UploadChangesProgress::ChangesetCreated(result) => {
+						self.uploader_state.changeset_upload.creation = Some(result);
+						self.uploader_state.changeset_upload.state = ChangesetUploadState::Uploading;
+					}
+					UploadChangesProgress::DiffUploaded(result) => {
+						self.uploader_state.changeset_upload.diff_upload = Some(result);
+						self.uploader_state.changeset_upload.state = ChangesetUploadState::Closing;
+					}
+					UploadChangesProgress::ChangesetClosed(result) => {
+						self.uploader_state.changeset_upload.close = Some(result);
+						self.uploader_state.changeset_upload.state = ChangesetUploadState::Idle;
+					}
+				}
 			}
 		}
 	}
@@ -549,8 +543,8 @@ fn title_bar_button<'a>(text: &str, img: Image<'a>) -> Button<'a> {
 	}
 }
 
-fn server_selector(ui: &mut Ui, value: &mut TargetServer) {
-	use egui::{ComboBox, Grid};
+fn server_selector(ui: &mut Ui, value: &mut TargetServer) -> bool {
+	let mut changed = false;
 
 	ui.horizontal(|ui| {
 		ui.label("Server");
@@ -559,11 +553,15 @@ fn server_selector(ui: &mut Ui, value: &mut TargetServer) {
 			.show_ui(ui, |ui| {
 				Grid::new(ui.id()).num_columns(TargetServer::ITER.len()).show(ui, |ui| {
 					for server in TargetServer::ITER {
-						ui.selectable_value(value, server, server.description());
+						if ui.selectable_value(value, server, server.description()).changed() {
+							changed = true;
+						}
 						ui.hyperlink(format!("https://{}", server.base_url()));
 						ui.end_row();
 					}
 				});
 			});
 	});
+
+	changed
 }

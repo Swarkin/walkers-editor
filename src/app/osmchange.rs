@@ -7,7 +7,7 @@ pub type Id = i64;
 pub type ChangesetId = u64;
 pub type VersionId = u32;
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct OsmChange {
 	#[serde(rename = "@generator")]
 	pub generator: String,
@@ -16,7 +16,7 @@ pub struct OsmChange {
 	pub delete: Option<Delete>,
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Create {
 	pub node: Vec<Node>,
 	pub way: Vec<Way>,
@@ -28,7 +28,7 @@ impl Create {
 	}
 }
 
-#[derive(Default, Serialize, Deserialize)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Modify {
 	pub node: Vec<Node>,
 	pub way: Vec<Way>,
@@ -40,7 +40,7 @@ impl Modify {
 	}
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize)]
 pub struct Delete {
 	#[serde(rename = "@if-unused")]
 	if_unused: bool,
@@ -60,12 +60,12 @@ impl Delete {
 	}
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Node {
 	#[serde(rename = "@id")]
 	pub id: Id,
-	// #[serde(rename = "@changeset", skip_serializing)]
-	// pub changeset: ChangesetId,
+	#[serde(rename = "@changeset")]
+	pub changeset: ChangesetId,
 	#[serde(rename = "@version")]
 	pub version: VersionId,
 	#[serde(rename = "@lon")]
@@ -82,7 +82,7 @@ impl From<&osm_parser::Node> for Node {
 	fn from(value: &osm_parser::Node) -> Self {
 		Self {
 			id: value.id,
-			// changeset: value.changeset,
+			changeset: value.changeset,
 			version: value.version,
 			lon: value.pos.lon,
 			lat: value.pos.lat,
@@ -91,7 +91,7 @@ impl From<&osm_parser::Node> for Node {
 	}
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct DeletedNode {
 	#[serde(rename = "@id")]
 	pub id: Id,
@@ -111,12 +111,12 @@ impl From<&osm_parser::Node> for DeletedNode {
 	}
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Way {
 	#[serde(rename = "@id")]
 	pub id: Id,
-	// #[serde(rename = "@changeset", skip_serializing)]
-	// pub changeset: ChangesetId,
+	#[serde(rename = "@changeset")]
+	pub changeset: ChangesetId,
 	#[serde(rename = "@version")]
 	pub version: VersionId,
 	#[serde(rename = "nd")]
@@ -129,7 +129,7 @@ impl From<&osm_parser::Way> for Way {
 	fn from(value: &osm_parser::Way) -> Self {
 		Self {
 			id: value.id,
-			// changeset: value.changeset,
+			changeset: value.changeset,
 			version: value.version,
 			nd: value.nodes.iter().map(|&r#ref| Nd { r#ref }).collect(),
 			tags: value.tags.iter().map(Into::into).collect(),
@@ -137,7 +137,7 @@ impl From<&osm_parser::Way> for Way {
 	}
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Tag {
 	#[serde(rename = "@k")]
 	pub k: String,
@@ -151,7 +151,7 @@ impl From<(&String, &String)> for Tag {
 	}
 }
 
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct Nd {
 	#[serde(rename = "@ref")]
 	r#ref: Id,
@@ -204,11 +204,30 @@ impl OsmChange {
 		}
 	}
 
+	pub fn prepare_upload(&mut self, changeset_id: ChangesetId) {
+		if let Some(create) = &mut self.create {
+			for node in &mut create.node { node.changeset = changeset_id; }
+			for way in &mut create.way { way.changeset = changeset_id; }
+		}
+		if let Some(modify) = &mut self.modify {
+			for node in &mut modify.node { node.changeset = changeset_id; }
+			for way in &mut modify.way { way.changeset = changeset_id; }
+		}
+		if let Some(delete) = &mut self.delete {
+			for node in &mut delete.node { node.changeset = changeset_id; }
+			for way in &mut delete.way { way.changeset = changeset_id; }
+		}
+	}
+
 	pub fn clear(&mut self) {
 		self.generator.clear();
 		self.create = None;
 		self.modify = None;
 		self.delete = None;
+	}
+
+	pub const fn is_empty(&self) -> bool {
+		self.create.is_none() && self.modify.is_none() && self.delete.is_none()
 	}
 
 	pub fn to_string_pretty(&self) -> Result<String, SeError> {
