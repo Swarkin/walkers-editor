@@ -8,10 +8,8 @@ use crate::app::{
 	osmchange::OsmChange,
 	providers::Provider,
 };
-use std::{
-	collections::HashMap,
-	fmt::{Display, Formatter},
-};
+use crate::HashMap;
+use std::fmt::{Display, Formatter};
 use walkers::MapMemory;
 
 #[derive(Default)]
