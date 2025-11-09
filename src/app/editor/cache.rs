@@ -80,30 +80,30 @@ impl Display for Change {
 		match self {
 			Self::CreateNode(id, node) => {
 				if let Some(name) = node.tags.get("name") {
-					write!(f, "Added {name}")
+					write!(f, "Created {name}")
 				} else {
-					write!(f, "Added Node {id}")
+					write!(f, "Created Node {id}")
 				}
 			}
 			Self::ModifyNode(id, node) => {
 				if let Some(name) = node.tags.get("name") {
-					write!(f, "Updated {name}")
+					write!(f, "Modified {name}")
 				} else {
-					write!(f, "Updated Node {id}")
+					write!(f, "Modified Node {id}")
 				}
 			}
 			Self::CreateWay(id, way) => {
 				if let Some(name) = way.tags.get("name") {
-					write!(f, "Added {name}")
+					write!(f, "Created {name}")
 				} else {
-					write!(f, "Added Way {id}")
+					write!(f, "Created Way {id}")
 				}
 			}
 			Self::ModifyWay(id, way) => {
 				if let Some(name) = way.tags.get("name") {
-					write!(f, "Updated {name}")
+					write!(f, "Modified {name}")
 				} else {
-					write!(f, "Updated Way {id}")
+					write!(f, "Modified Way {id}")
 				}
 			}
 			Self::DeleteNode(id, _) => {
@@ -118,6 +118,13 @@ impl Change {
 		match self {
 			Self::CreateNode(id, _) | Self::ModifyNode(id, _) | Self::DeleteNode(id, _) => ElementId::Node(*id),
 			Self::CreateWay(id, _) | Self::ModifyWay(id, _) => ElementId::Way(*id),
+		}
+	}
+
+	pub const fn element_ref(&'_ self) -> ElementRef<'_> {
+		match self {
+			Self::CreateNode(_, node) | Self::ModifyNode(_, node) | Self::DeleteNode(_, node) => ElementRef::Node(node),
+			Self::CreateWay(_, way) | Self::ModifyWay(_, way) => ElementRef::Way(way),
 		}
 	}
 }
