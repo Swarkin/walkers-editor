@@ -129,7 +129,7 @@ impl MyApp {
 					self.map(ui);
 
 					// todo: textbox mode like in iD
-					if self.editor_state.editor.window_flags & Window::Tags as u8 == 0	{
+					if self.editor_state.editor.window_flags & Window::Tags as u8 == 0 {
 						if let Some(focused_element) = self.editor_state.editor.selected.as_ref().or_else(|| self.editor_state.editor.hovered.first()) {
 							let element = self.editor_state.editor.osm_data.get(focused_element.id_ref()).expect("id not found");
 							if let Some((editing_id, editing_tags)) = &mut self.editor_state.editor.edit_window {
@@ -325,19 +325,6 @@ impl MyApp {
 
 						if !self.uploader_state.changeset_upload.is_empty() {
 							CollapsingHeader::new("Technical info").default_open(cfg!(feature = "debug")).show(ui, |ui| {
-								fn status_message<T>(ui: &mut Ui, result: Option<&OsmResult<T>>, msg: &str) {
-									ui.horizontal(|ui| {
-										if result.is_none() {
-											Spinner::new().size(ICON_SIZE).ui(ui);
-										} else if result.as_ref().is_some_and(|x| x.is_ok()) {
-											ui.add(prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN));
-										} else {
-											ui.add(prepare_icon_with_tint(icons::CROSS, ICON_SIZE, Color32::LIGHT_RED));
-										}
-										ui.label(msg);
-									});
-								}
-
 								ui.group(|ui| {
 									let result = &self.uploader_state.changeset_upload.creation;
 									status_message(ui, result.as_ref(), "Creating changeset");
@@ -357,9 +344,9 @@ impl MyApp {
 											}
 											Err(e) => {
 												let text = e.to_string();
-												ui.monospace(text);
+												ui.monospace(&text);
 
-												if ui.button("Copy Error").clicked() { ctx.copy_text(e.to_string()); }
+												if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
 											}
 										}
 									}
@@ -375,12 +362,14 @@ impl MyApp {
 										match result {
 											Ok(resp) => {
 												ScrollArea::vertical().max_height(128.).show(ui, |ui| ui.monospace(resp));
+
+												if ui.button("Copy Response").clicked() { ctx.copy_text(resp.clone()); }
 											}
 											Err(e) => {
 												let text = e.to_string();
-												ui.monospace(text);
+												ui.monospace(&text);
 
-												if ui.button("Copy Error").clicked() { ctx.copy_text(e.to_string()); }
+												if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
 											}
 										}
 									}
@@ -396,9 +385,9 @@ impl MyApp {
 											Ok(()) => {}
 											Err(e) => {
 												let text = e.to_string();
-												ui.monospace(text);
+												ui.monospace(&text);
 
-												if ui.button("Copy Error").clicked() { ctx.copy_text(e.to_string()); }
+												if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
 											}
 										}
 									}
@@ -462,34 +451,91 @@ impl MyApp {
 						self.worker_handle.send_message(Request::SetTargetServer(self.app_state.target_server_ui));
 					}
 
-					ui.add_space(10.0);
+					ui.add_space(10.);
 
 					if self.app_state.target_server_ui == TargetServer::OpenStreetMap {
 						ui.strong(format!("The main OpenStreetMap instance is not available for editing in {} as of now.", env!("CARGO_PKG_NAME")));
 					} else {
-						ui.label("1. Open this URL and follow the authorization process:");
-						ui.add(Hyperlink::new(osm::client_auth_url(self.app_state.target_server_ui)).open_in_new_tab(true));
+						let mut logout = false;
 
-						ui.add_space(10.0);
-						ui.label("2. Paste the resulting code into the field below:");
-						let widget = TextEdit::singleline(&mut self.authenticator_state.authorization_code);
-						if ui.add_enabled(!self.authenticator_state.request_pending, widget).lost_focus()
-							&& consume_key(ctx, Key::Enter, Modifiers::NONE)
-							&& !self.authenticator_state.authorization_code.is_empty()
-						{
-							self.worker_handle.send_message(Request::FetchToken(self.authenticator_state.authorization_code.clone()));
-							self.authenticator_state.request_pending = true;
-						}
+						if let Some(result) = self.authenticator_state.token.get(&self.app_state.target_server_ui) {
+							CollapsingHeader::new("Technical info").default_open(cfg!(feature = "debug")).show(ui, |ui| {
+								status_message(ui, Some(result), "Fetch token");
 
-						if self.authenticator_state.request_pending {
-							ui.horizontal(|ui| {
-								ui.spinner();
-								ui.strong("Request in progress...");
+								match result {
+									Ok(token) => {
+										let text = format!("{token:?}");
+										ui.monospace(&text);
+
+										if ui.button("Copy Token").clicked() { ctx.copy_text(text); }
+									}
+									Err(e) => {
+										let text = e.to_string();
+										ui.monospace(&text);
+
+										if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+									}
+								}
 							});
+
+							if result.is_ok() {
+								ui.horizontal(|ui| {
+									ui.add(prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN));
+									ui.colored_label(Color32::LIGHT_GREEN, "Login successful!");
+								});
+
+								ui.add_space(10.);
+								if ui.add(Button::new((prepare_icon(ctx, icons::LOGOUT, ICON_SIZE), "Log out")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+									logout = true;
+								}
+							} else {
+								ui.horizontal(|ui| {
+									ui.add(prepare_icon_with_tint(icons::CROSS, ICON_SIZE, Color32::LIGHT_RED));
+									ui.colored_label(Color32::LIGHT_RED, "Authentication failed");
+								});
+
+								ui.add_space(10.);
+								if ui.add(Button::new((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), "Clear")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+									logout = true;
+								}
+							}
+						} else {
+							ui.label("1. Open this URL and follow the authorization process:");
+							ui.add(Hyperlink::new(osm::client_auth_url(self.app_state.target_server_ui)).open_in_new_tab(true));
+
+							ui.add_space(10.);
+							ui.label("2. Paste the resulting code into the field below:");
+
+							let request_pending = self.authenticator_state.request_pending;
+							let auth_code_empty = self.authenticator_state.authorization_code.is_empty();
+
+							let auth_textedit = TextEdit::singleline(&mut self.authenticator_state.authorization_code).hint_text("Authorization Code").password(true);
+							let auth_textedit_resp = ui.add_enabled(!request_pending, auth_textedit);
+
+							ui.add_space(10.);
+							ui.label("3. Authenticate:");
+
+							let login_button = Button::new((prepare_icon(ctx, icons::LOGIN, ICON_SIZE), "Log in")).min_size(WIDE_BUTTON_SIZE);
+							let login_button_resp = ui.add_enabled(!request_pending && !auth_code_empty, login_button);
+
+							if login_button_resp.clicked() || (auth_textedit_resp.lost_focus() && consume_key(ctx, Key::Enter, Modifiers::NONE)) {
+								self.worker_handle.send_message(Request::FetchToken(self.authenticator_state.authorization_code.clone()));
+								self.authenticator_state.request_pending = true;
+							}
+
+							if self.authenticator_state.request_pending {
+								ui.add_space(10.);
+								ui.horizontal(|ui| {
+									ui.spinner();
+									ui.strong("Logging in...");
+								});
+							}
 						}
 
-						// todo: ui should change based on the result of the authentication
-						// todo: logout button
+						if logout {
+							self.authenticator_state.authorization_code.clear();
+							let _ = self.authenticator_state.token.remove(&self.app_state.target_server_ui).unwrap();
+						}
 					}
 				});
 			}
@@ -627,7 +673,7 @@ impl MyApp {
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
 		for msg in self.worker_handle.recv_messages() {
-		    self.handle_message(msg, ctx);
+			self.handle_message(msg, ctx);
 		}
 
 		self.top_bar(ctx);
@@ -704,4 +750,17 @@ fn server_selector(ui: &mut Ui, value: &mut TargetServer) -> bool {
 	});
 
 	changed
+}
+
+fn status_message<T>(ui: &mut Ui, result: Option<&OsmResult<T>>, msg: &str) {
+	ui.horizontal(|ui| {
+		if result.is_none() {
+			Spinner::new().size(ICON_SIZE).ui(ui);
+		} else if result.as_ref().is_some_and(|x| x.is_ok()) {
+			ui.add(prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN));
+		} else {
+			ui.add(prepare_icon_with_tint(icons::CROSS, ICON_SIZE, Color32::LIGHT_RED));
+		}
+		ui.label(msg);
+	});
 }
