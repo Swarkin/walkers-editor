@@ -1,7 +1,7 @@
+use crate::HashMap;
 use eframe::egui::Context;
 use osm_parser::convert::{Convert, Projection};
 use osm_parser::Coordinate;
-use std::collections::HashMap;
 use std::path::PathBuf;
 use walkers::sources::{Attribution, TileSource};
 use walkers::{HttpOptions, HttpTiles, MaxParallelDownloads, TileId, Tiles};
