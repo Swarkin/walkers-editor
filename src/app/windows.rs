@@ -3,6 +3,7 @@ use super::icons;
 use super::providers::Provider;
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
+use eframe::egui::Hyperlink;
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
@@ -86,18 +87,18 @@ pub fn attribution(ui: &Ui, attribution: Attribution, simple: bool) {
 		.show(ui.ctx(), |ui| {
 			egui::CollapsingHeader::new("Attribution").default_open(true).show(ui, |ui| {
 				if simple {
-					ui.hyperlink_to("© OpenStreetMap", ATTRIBUTION_URL);
+					ui.add(Hyperlink::from_label_and_url("© OpenStreetMap", ATTRIBUTION_URL).open_in_new_tab(true));
 				} else {
 					ui.horizontal(|ui| {
 						let resp = ui.label("Imagery:");
 						if let Some(logo) = attribution.logo_light {
 							ui.add(Image::new(logo).max_height(resp.rect.height()).max_width(80.0));
 						}
-						ui.hyperlink_to(attribution.text, attribution.url);
+						ui.add(Hyperlink::from_label_and_url(attribution.text, attribution.url).open_in_new_tab(true));
 					});
 					ui.horizontal(|ui| {
 						ui.label("Map data:");
-						ui.hyperlink_to("© OpenStreetMap", ATTRIBUTION_URL);
+						ui.add(Hyperlink::from_label_and_url("© OpenStreetMap", ATTRIBUTION_URL).open_in_new_tab(true));
 					});
 				}
 			});
@@ -483,7 +484,7 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 			ui.heading("Packages");
 			ui.horizontal(|ui| {
 				ui.spacing_mut().item_spacing = Vec2::ZERO;
-				ui.hyperlink_to(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY"));
+				ui.add(Hyperlink::from_label_and_url(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY")).open_in_new_tab(true));
 				ui.label(" has been made possible by the following awesome open-source libraries:");
 			});
 			ui.collapsing("View package tree", |ui| {
@@ -506,9 +507,9 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 			ui.horizontal(|ui| {
 				ui.spacing_mut().item_spacing = Vec2::ZERO;
 				ui.label("All icons under ");
-				ui.hyperlink_to("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui", ));
+				ui.add(Hyperlink::from_label_and_url("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui")).open_in_new_tab(true));
 				ui.label(" are from ");
-				ui.hyperlink_to("tabler-icons", "https://github.com/tabler/tabler-icons");
+				ui.add(Hyperlink::from_label_and_url("tabler-icons", "https://github.com/tabler/tabler-icons").open_in_new_tab(true));
 				ui.label(", licensed under the MIT license.");
 			});
 			ui.collapsing("View tabler-icons License", |ui| {
@@ -662,17 +663,17 @@ impl DataViewerModal {
 										});
 										ui.horizontal(|ui| {
 											ui.add(prepare_icon(ctx, icons::HASHTAG, ICON_SIZE)).on_hover_text_at_pointer("Changeset ID");
-											ui.hyperlink_to(
+											ui.add(Hyperlink::from_label_and_url(
 												WidgetText::Text(element.changeset().to_string()).monospace(),
 												format!("https://{}/{}", TargetServer::OpenStreetMap.base_changeset_url(), element.changeset())
-											);
+											).open_in_new_tab(true));
 										});
 										ui.horizontal(|ui| {
 											ui.add(prepare_icon(ctx, icons::USER, ICON_SIZE)).on_hover_text_at_pointer("Username");
-											ui.hyperlink_to(
+											ui.add(Hyperlink::from_label_and_url(
 												WidgetText::Text(element.user().to_string()).monospace(),
 												format!("https://{}/{}", TargetServer::OpenStreetMap.base_user_url(), element.user())
-											);
+											).open_in_new_tab(true));
 										});
 										ui.horizontal(|ui| {
 											ui.add(prepare_icon(ctx, icons::CLOCK, ICON_SIZE)).on_hover_text_at_pointer("Timestamp");
