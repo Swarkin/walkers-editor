@@ -288,15 +288,20 @@ impl MyApp {
 						ui.add_space(10.);
 
 						let upload_state_idle = matches!(self.uploader_state.changeset_upload.state, ChangesetUploadState::Idle);
-						let can_upload = upload_state_idle && !self.app_state.top_bar_disabled && !self.uploader_state.osmchange.is_empty();
+						let mut can_upload = upload_state_idle && !self.app_state.top_bar_disabled && !self.uploader_state.osmchange.is_empty();
 
 						let changeset_comment_mut = self.uploader_state.changeset_upload.tags.entry("comment".into()).or_default();
 						let textedit = TextEdit::singleline(changeset_comment_mut)
 							.hint_text("Describe your changes")
-							.char_limit(255)
 							.desired_rows(4)
 							.clip_text(false);
 						ui.add_enabled(upload_state_idle, textedit);
+
+						if changeset_comment_mut.chars().count() > 255 {
+							ui.colored_label(Color32::LIGHT_RED, "Changeset comment exceeds 255 characters!");
+							can_upload = false;
+						}
+
 						ui.add_space(5.);
 						if ui.add_enabled(can_upload, Button::new((prepare_icon(ctx, icons::UPLOAD, ICON_SIZE), "Upload")).min_size(WIDE_BUTTON_SIZE)).clicked() {
 							self.app_state.top_bar_disabled = true;
