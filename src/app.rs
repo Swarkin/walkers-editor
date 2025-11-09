@@ -16,9 +16,10 @@ use editor::states::{AppState, AuthenticatorState, CacheFlag, EditorState, MapDo
 use editor::visual::FillMode;
 use editor::{consume_key, EditMode, EditOperation, Editor};
 use eframe::egui;
-use eframe::egui::{CollapsingHeader, ComboBox, Grid, Hyperlink, Spinner, Widget};
+use eframe::egui::{CollapsingHeader, ComboBox, Grid, Hyperlink, SidePanel, Spinner, Widget};
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, TextEdit, Theme, TopBottomPanel, Ui, Vec2};
+use egui_extras::{Column, TableBuilder};
 use indexmap::IndexMap;
 use osm::{OsmClient, TargetServer};
 use osmchange::OsmChange;
@@ -186,10 +187,6 @@ impl MyApp {
 						}
 					}
 
-					if self.editor_state.editor.window_flags & Window::History as u8 == 0 {
-						windows::history(ui, &self.editor_state.editor.osm_data.changes);
-					}
-
 					if self.editor_state.editor.window_flags & Window::Map as u8 == 0 {
 						let prev_fill_mode = self.editor_state.editor.map_state.selected_fill_mode;
 
@@ -245,6 +242,34 @@ impl MyApp {
 				}
 			}
 			View::Upload => {
+				SidePanel::right("changes").show(ctx, |ui| {
+					ui.heading("Changes");
+					ui.separator();
+					TableBuilder::new(ui)
+						.resizable(true)
+						.striped(true)
+						.min_scrolled_height(32.)
+						.column(Column::initial(ICON_SIZE).clip(true))
+						.column(Column::remainder().clip(true))
+						.body(|body| {
+							body.rows(ICON_SIZE, self.editor_state.editor.osm_data.changes.len(), |mut row| {
+								let i = row.index();
+								let change = &self.editor_state.editor.osm_data.changes[i];
+
+								row.col(|ui| {
+									ui.add(prepare_icon(ctx, match change.element_ref() {
+										ElementRef::Node(_) => icons::PRIMITIVE_NODE_ICON,
+										ElementRef::Way(_) => icons::PRIMITIVE_WAY_ICON,
+									}, ICON_SIZE));
+								});
+								row.col(|ui| {
+									ui.horizontal_centered(|ui| {
+										ui.label(change.to_string());
+									});
+								});
+							});
+						});
+				});
 				CentralPanel::default().show(ctx, |ui| {
 					use egui_extras::syntax_highlighting;
 
@@ -261,8 +286,6 @@ impl MyApp {
 					// todo: simple function to check whether authentication exists
 					if self.authenticator_state.token.get(&self.app_state.target_server_ui).is_some_and(Result::is_ok) {
 						ui.add_space(10.);
-
-						// todo: list changes (sidebar?)
 
 						let upload_state_idle = matches!(self.uploader_state.changeset_upload.state, ChangesetUploadState::Idle);
 						let can_upload = upload_state_idle && !self.app_state.top_bar_disabled && !self.uploader_state.osmchange.is_empty();

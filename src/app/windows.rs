@@ -1,9 +1,9 @@
-use super::editor::{cache::{Change, ElementRef}, consts::{osm::*, *}, consume_key, states::{MapDownloadState, MapState, SelectionFlag}, visual::{FillMode, Visualization}, EditMode, EditOperation};
+use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, states::{MapDownloadState, MapState, SelectionFlag}, visual::{FillMode, Visualization}, EditMode, EditOperation};
 use super::icons;
 use super::providers::Provider;
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
-use eframe::egui::Hyperlink;
+use eframe::egui::{Hyperlink, Label};
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
@@ -36,9 +36,8 @@ pub type WindowBitflag = u8;
 pub enum Window {
 	Tags = 1 << 0,
 	Map = 1 << 1,
-	History = 1 << 2,
-	Toolbar = 1 << 3,
-	Location = 1 << 4,
+	Toolbar = 1 << 2,
+	Location = 1 << 3,
 	#[cfg(feature = "debug")]
 	Debug = 1 << 7,
 }
@@ -48,7 +47,6 @@ impl std::fmt::Display for Window {
 		write!(f, "{}", match self {
 			Self::Tags => "Tags",
 			Self::Map => "Controls",
-			Self::History => "History",
 			Self::Toolbar => "Toolbar",
 			Self::Location => "Location",
 			#[cfg(feature = "debug")]
@@ -59,9 +57,9 @@ impl std::fmt::Display for Window {
 
 impl Window {
 	#[cfg(not(feature = "debug"))]
-	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Location];
+	pub const ITER: [Self; 4] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location];
 	#[cfg(feature = "debug")]
-	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::History, Self::Toolbar, Self::Location, Self::Debug];
+	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location, Self::Debug];
 }
 
 fn themed_frame(theme: egui::Theme) -> Frame {
@@ -138,13 +136,13 @@ pub fn tag_editor_ui(ui: &mut Ui, editing_tags: &OrderedTags, edit_enabled: bool
 		.resizable(true)
 		.column(Column::initial(100.0).clip(true))
 		.column(Column::remainder().clip(true))
-		.header(16.0, |mut header| {
+		.header(16., |mut header| {
 			header.col(|ui| { ui.strong("Key"); });
 			header.col(|ui| { ui.strong("Value"); });
 		})
 		.body(|body| {
 			if edit_enabled {
-				body.rows(20.0, editing_tags.len() + 1, |mut row| {
+				body.rows(20., editing_tags.len() + 1, |mut row| {
 					let i = row.index();
 
 					if i == editing_tags.len() {
@@ -263,26 +261,6 @@ pub fn map<'a>(
 		});
 
 	result
-}
-
-pub fn history(ui: &Ui, history: &Vec<Change>) {
-	egui::Window::new("History")
-		.default_size([80.0, 150.0])
-		.max_height(256.0)
-		.anchor(Align2::RIGHT_TOP, [-10., 42.])
-		.frame(themed_frame(ui.ctx().theme()))
-		.show(ui.ctx(), |ui| {
-			if history.is_empty() {
-				ui.weak("Empty");
-			} else {
-				egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| {
-					for change in history {
-						ui.label(format!("{change}"));
-					}
-				});
-			}
-			ui.take_available_space();
-		});
 }
 
 // Returns whether a download was triggered
@@ -611,15 +589,15 @@ impl DataViewerModal {
 						.body(|body| {
 							body.rows(18.0, self.cached_id_list.len(), |mut row| {
 								let i = row.index();
-								let element_id = self.cached_id_list.get(i).unwrap();
+								let element_id = &self.cached_id_list[i];
 
 								row.col(|ui| {
-									egui::Label::new(element_id.type_str())
+									Label::new(element_id.type_str())
 										.sense(Sense::empty())
 										.ui(ui);
 								});
 								row.col(|ui| {
-									egui::Label::new(WidgetText::Text(element_id.id_ref().to_string()).monospace())
+									Label::new(WidgetText::Text(element_id.id_ref().to_string()).monospace())
 										.sense(Sense::empty())
 										.ui(ui);
 								});
