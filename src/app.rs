@@ -16,7 +16,7 @@ use editor::states::{AppState, AuthenticatorState, CacheFlag, EditorState, MapDo
 use editor::visual::FillMode;
 use editor::{consume_key, EditMode, EditOperation, Editor};
 use eframe::egui;
-use eframe::egui::{CollapsingHeader, ComboBox, Grid, Spinner, Widget};
+use eframe::egui::{CollapsingHeader, ComboBox, Grid, Hyperlink, Spinner, Widget};
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, TextEdit, Theme, TopBottomPanel, Ui, Vec2};
 use indexmap::IndexMap;
@@ -386,7 +386,7 @@ impl MyApp {
 
 							ui.horizontal(|ui| {
 								ui.add(prepare_icon(ctx, icons::EXTERNAL, ICON_SIZE));
-								ui.hyperlink_to("View on OSM", format!("https://{}/changeset/{}", self.uploader_state.changeset_upload.target_server.base_url(), self.uploader_state.changeset_upload.creation.as_ref().unwrap().as_ref().unwrap()));
+								ui.add(Hyperlink::from_label_and_url("View on OSM", format!("https://{}/changeset/{}", self.uploader_state.changeset_upload.target_server.base_url(), self.uploader_state.changeset_upload.creation.as_ref().unwrap().as_ref().unwrap())).open_in_new_tab(true));
 							});
 						} else if self.uploader_state.changeset_upload.any_unsuccessful() {
 							ui.horizontal(|ui| {
@@ -440,7 +440,7 @@ impl MyApp {
 						ui.strong(format!("The main OpenStreetMap instance is not available for editing in {} as of now.", env!("CARGO_PKG_NAME")));
 					} else {
 						ui.label("1. Open this URL and follow the authorization process:");
-						ui.hyperlink(osm::client_auth_url(self.app_state.target_server_ui));
+						ui.add(Hyperlink::new(osm::client_auth_url(self.app_state.target_server_ui)).open_in_new_tab(true));
 
 						ui.add_space(10.0);
 						ui.label("2. Paste the resulting code into the field below:");
@@ -668,7 +668,7 @@ fn server_selector(ui: &mut Ui, value: &mut TargetServer) -> bool {
 						if ui.selectable_value(value, server, server.description()).changed() {
 							changed = true;
 						}
-						ui.hyperlink(format!("https://{}", server.base_url()));
+						ui.add(Hyperlink::new(format!("https://{}", server.base_url())).open_in_new_tab(true));
 						ui.end_row();
 					}
 				});
