@@ -689,7 +689,7 @@ impl eframe::App for MyApp {
 			if self.app_state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
 				&& windows::firefox_modal(ctx)
 			{
-				self.app_state.open_modals &= ModalFlag::FirefoxNotice as u8;
+				self.app_state.open_modals &= !(ModalFlag::FirefoxNotice as u8);
 			}
 		}
 
