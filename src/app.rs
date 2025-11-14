@@ -614,6 +614,12 @@ impl MyApp {
 			worker_handle,
 			app_state,
 			editor_state: EditorState {
+				#[cfg(feature = "debug")]
+				editor: Editor {
+					osm_data: EditorOsmData::default().init_debug(),
+					..Default::default()
+				},
+				#[cfg(not(feature = "debug"))]
 				editor: Editor::default(),
 				map_memory: MapMemory::default(),
 				tile_providers: providers(&cc.egui_ctx, cache_dir),
@@ -672,6 +678,9 @@ impl MyApp {
 
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
+		#[cfg(feature = "debug_redraw_continuously")]
+		ctx.request_repaint();
+
 		for msg in self.worker_handle.recv_messages() {
 			self.handle_message(msg, ctx);
 		}
