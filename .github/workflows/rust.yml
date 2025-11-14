@@ -109,9 +109,9 @@ jobs:
       - name: Clippy (${{ runner.os }}, ${{ matrix.build-type }})
         run: |
           if [ "${{ matrix.build-type }}" = "release" ]; then
-            cargo clippy --release $NATIVE_BUILD_FLAGS -- $CLIPPY_FLAGS
+            cargo clippy --release $NATIVE_BUILD_FLAGS --features renderer_glow -- $CLIPPY_FLAGS
           else
-            cargo clippy $NATIVE_BUILD_FLAGS -- $CLIPPY_FLAGS
+            cargo clippy $NATIVE_BUILD_FLAGS --features renderer_glow -- $CLIPPY_FLAGS
           fi
         shell: bash
 
