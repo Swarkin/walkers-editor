@@ -265,6 +265,12 @@ impl Editor {
 impl Editor {
 	#[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
 	pub fn run(&mut self, ui: &Ui, response: &Response, projector: &Projector, map_memory: &MapMemory) {
+		 #[cfg(feature = "debug")] /* update frame timing */ {
+			let (i, vec) = &mut self.osm_data.frame_timing;
+			vec[*i] = ui.input(|i| i.unstable_dt);
+			*i = (*i + 1) % vec.len();
+		}
+
 		let curr_zoom = map_memory.zoom();
 
 		// todo: https://github.com/Swarkin/walkers-editor/issues/20

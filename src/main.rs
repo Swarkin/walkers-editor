@@ -32,7 +32,18 @@ fn main() -> Result<(), eframe::Error> {
 		.with_icon(from_png_bytes(include_bytes!("../assets/icon/64.png"))
 			.expect("failed to load icon"));
 
-	let options = eframe::NativeOptions { viewport, ..Default::default() };
+	let options = eframe::NativeOptions {
+		viewport,
+		dithering: false,
+		vsync: cfg!(feature = "renderer_enable_vsync"),
+		#[cfg(feature = "renderer_wgpu_dx12")]
+		wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
+			present_mode: wgpu::PresentMode::Immediate,
+			desired_maximum_frame_latency: None,
+			..Default::default()
+		},
+		..Default::default()
+	};
 
 	eframe::run_native(
 		"walkers-editor",
