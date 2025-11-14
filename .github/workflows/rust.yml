@@ -9,7 +9,8 @@ env:
   CARGO_TERM_COLOR: "always"
   RUSTFLAGS: "-Dwarnings"
   CLIPPY_FLAGS: "-W clippy::all -W clippy::pedantic -W clippy::nursery"
-  BUILD_FLAGS: "--all-targets --all-features"
+  NATIVE_BUILD_FLAGS: "--all-targets --no-default-features"
+  WASM_BUILD_FLAGS: "--all-targets"
   TRUNK_ARTIFACT_NAME: "trunk-output"
 
 jobs:
@@ -19,6 +20,7 @@ jobs:
       matrix:
         os: [ubuntu-latest, windows-latest]
         build-type: [debug, release]
+        renderer: [glow, wgpu_dx12]
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -29,21 +31,28 @@ jobs:
             target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}
+          key: ${{ runner.os }}-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}-${{ matrix.renderer }}
 
       - name: Build (${{ runner.os }}, ${{ matrix.build-type }})
-        run: |
-          if [ "${{ matrix.build-type }}" = "release" ]; then
-            cargo build --release --verbose $BUILD_FLAGS
-          else
-            cargo build --verbose $BUILD_FLAGS
-          fi
         shell: bash
+        run: |
+          # Use Vulkan on Linux instead of DX12
+          if [ "${{ runner.os }}" = "Linux" ] && [ "${{ matrix.renderer }}" = "wgpu_dx12" ]; then
+            RENDERER_FEATURE="renderer_wgpu_vulkan"
+          else
+            RENDERER_FEATURE="renderer_${{ matrix.renderer }}"
+          fi
+
+          if [ "${{ matrix.build-type }}" = "release" ]; then
+            cargo build --release --verbose $NATIVE_BUILD_FLAGS --features "$RENDERER_FEATURE"
+          else
+            cargo build --verbose $NATIVE_BUILD_FLAGS --features "$RENDERER_FEATURE"
+          fi
 
       - name: Upload artifact (${{ matrix.build-type }})
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-${{ matrix.os }}-${{ matrix.build-type }}
+          name: ${{ github.event.repository.name }}-${{ matrix.os }}-${{ matrix.build-type }}-${{ matrix.renderer }}
           path: target/${{ matrix.build-type }}/${{ github.event.repository.name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   build-wasm:
@@ -69,9 +78,9 @@ jobs:
       - name: Build (wasm, ${{ matrix.build-type }})
         run: |
           if [ "${{ matrix.build-type }}" = "release" ]; then
-            cargo build --target wasm32-unknown-unknown --release --verbose $BUILD_FLAGS
+            cargo build --target wasm32-unknown-unknown --release --verbose $WASM_BUILD_FLAGS
           else
-            cargo build --target wasm32-unknown-unknown --verbose $BUILD_FLAGS
+            cargo build --target wasm32-unknown-unknown --verbose $WASM_BUILD_FLAGS
           fi
         shell: bash
 
@@ -100,9 +109,9 @@ jobs:
       - name: Clippy (${{ runner.os }}, ${{ matrix.build-type }})
         run: |
           if [ "${{ matrix.build-type }}" = "release" ]; then
-            cargo clippy --release $BUILD_FLAGS -- $CLIPPY_FLAGS
+            cargo clippy --release $NATIVE_BUILD_FLAGS -- $CLIPPY_FLAGS
           else
-            cargo clippy $BUILD_FLAGS -- $CLIPPY_FLAGS
+            cargo clippy $NATIVE_BUILD_FLAGS -- $CLIPPY_FLAGS
           fi
         shell: bash
 
@@ -133,9 +142,9 @@ jobs:
       - name: Clippy (wasm, ${{ matrix.build-type }})
         run: |
           if [ "${{ matrix.build-type }}" = "release" ]; then
-            cargo clippy --target wasm32-unknown-unknown --release $BUILD_FLAGS -- $CLIPPY_FLAGS
+            cargo clippy --target wasm32-unknown-unknown --release $WASM_BUILD_FLAGS -- $CLIPPY_FLAGS
           else
-            cargo clippy --target wasm32-unknown-unknown $BUILD_FLAGS -- $CLIPPY_FLAGS
+            cargo clippy --target wasm32-unknown-unknown $WASM_BUILD_FLAGS -- $CLIPPY_FLAGS
           fi
         shell: bash
 
