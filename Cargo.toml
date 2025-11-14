@@ -13,7 +13,7 @@ categories = ["gui", "graphics", "wasm"]
 build = "build.rs"
 
 [features]
-default = ["renderer_enable_vsync", "renderer_glow"]
+default = ["renderer_glow"]
 debug = []
 debug_redraw_continuously = []
 kiosk = []
@@ -21,7 +21,7 @@ renderer_glow = ["eframe/glow"]
 renderer_wgpu_gles = ["eframe/wgpu", "dep:wgpu", "wgpu/gles"]
 renderer_wgpu_vulkan = ["eframe/wgpu", "dep:wgpu", "wgpu/vulkan"]
 renderer_wgpu_dx12 = ["eframe/wgpu", "dep:wgpu", "wgpu/dx12"]
-renderer_enable_vsync = []
+renderer_disable_vsync = []
 
 [dependencies]
 walkers = { version = "0.49.0", default-features = false }
