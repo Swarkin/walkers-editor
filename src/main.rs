@@ -36,7 +36,7 @@ fn main() -> Result<(), eframe::Error> {
 		viewport,
 		dithering: false,
 		vsync: cfg!(feature = "renderer_enable_vsync"),
-		#[cfg(feature = "renderer_wgpu_dx12")]
+		#[cfg(any(feature = "renderer_wgpu_dx12", feature = "renderer_wgpu_vulkan", feature = "renderer_wgpu_gles"))]
 		wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
 			present_mode: wgpu::PresentMode::Immediate,
 			desired_maximum_frame_latency: None,
