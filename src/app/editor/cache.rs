@@ -138,14 +138,17 @@ pub struct EditorOsmData {
 	pub view_start: Position,
 	pub nodes_in_view: Vec<Id>,
 	pub ways_in_view: Vec<Id>,
-	#[cfg(feature = "debug")]
-	pub view_timing: u32,
 	pub refresh_in_view_flag: bool,
 
 	pub changes: Vec<Change>,
 	pub cache_flags: u8,
+
 	#[cfg(feature = "debug")]
 	pub cache_debug: CacheDebug,
+	#[cfg(feature = "debug")]
+	pub view_timing: u32,
+	#[cfg(feature = "debug")]
+	pub frame_timing: (usize, Vec<f32>),
 
 	// caches
 	projected_nodes: ProjectedNodeCache,
@@ -162,6 +165,14 @@ pub struct EditorOsmData {
 	pub mesh_offset_move: Vec2,
 	pub node_offset_resize: Vec2,
 	pub mesh_offset_resize: Vec2,
+}
+
+#[cfg(feature = "debug")]
+impl EditorOsmData {
+	pub fn init_debug(mut self) -> Self {
+		self.frame_timing = (0, vec![0f32; 100]);
+		self
+	}
 }
 
 #[derive(Debug, Clone)]

@@ -410,7 +410,14 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 		.resizable(false)
 		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
-			ui.heading(format!("Δt: {:.4} ms", ui.input(|i| i.unstable_dt) * 1000.0));
+			let (frame_i, frame_times) = &editor_osm_data.frame_timing;
+
+			ui.heading(format!("Δt: {:.4} ms", frame_times[*frame_i] * 1000.0));
+
+			#[allow(clippy::cast_precision_loss)]
+			let avg_timing = frame_times.iter().sum::<f32>() / frame_times.len() as f32;
+			ui.label(format!("Avg Δt: {:.4} ms", avg_timing * 1000.0));
+
 			if let Some(p) = provider {
 				let super::providers::TilesKind::Http(http_tiles) = p;
 				let stats = http_tiles.stats();
@@ -427,7 +434,7 @@ pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&su
 			});
 
 			ui.collapsing("Cache Timings", |ui| {
-				ui.label(format!("View Timing: {} ns", editor_osm_data.view_timing));
+				ui.label(format!("Refresh View: {} ns", editor_osm_data.view_timing));
 				TableBuilder::new(ui)
 					.striped(true)
 					.columns(Column::auto(), 3)
