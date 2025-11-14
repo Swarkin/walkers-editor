@@ -1,11 +1,11 @@
 fn main() {
 	assert!(
-		!(cfg!(feature = "renderer_glow") && cfg!(feature = "renderer_wgpu_dx12")),
+		!(cfg!(feature = "renderer_glow") && (cfg!(feature = "renderer_wgpu_dx12") || cfg!(feature = "renderer_wgpu_vulkan") || cfg!(feature = "renderer_wgpu_gles"))),
 		"only one of the renderers must be enabled at the same time"
 	);
 
 	assert!(
-		cfg!(feature = "renderer_glow") || cfg!(feature = "renderer_wgpu_dx12"),
+		cfg!(any(feature = "renderer_glow", feature = "renderer_wgpu_dx12", feature = "renderer_wgpu_vulkan", feature = "renderer_wgpu_gles")),
 		"one of the renderers must be enabled"
 	);
 
