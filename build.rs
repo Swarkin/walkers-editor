@@ -1,4 +1,14 @@
 fn main() {
+	assert!(
+		!(cfg!(feature = "renderer_glow") && cfg!(feature = "renderer_wgpu_dx12")),
+		"only one of the renderers must be enabled at the same time"
+	);
+
+	assert!(
+		cfg!(feature = "renderer_glow") || cfg!(feature = "renderer_wgpu_dx12"),
+		"one of the renderers must be enabled"
+	);
+
 	if std::env::var("PROFILE").unwrap() != "release" {
 		return;
 	}
