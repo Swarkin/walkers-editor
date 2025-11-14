@@ -3,9 +3,8 @@ use super::icons;
 use super::providers::Provider;
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
-use eframe::egui::{Hyperlink, Label};
 use egui::text::LayoutJob;
-use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Image, ImageSource, InnerResponse, Key, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
+use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
 use osm_parser::OsmData;
 use walkers::sources::Attribution;
@@ -515,8 +514,8 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 }
 
 #[cfg(target_family = "wasm")]
-pub fn update_modal(ctx: &egui::Context) -> bool {
-	egui::Modal::new("update".into()).show(ctx, |ui| {
+pub fn update_modal(ctx: &Context) -> bool {
+	Modal::new("update".into()).show(ctx, |ui| {
 		ui.heading("Update Available");
 		ui.label("Your browser has detected a new version of walkers-editor.");
 		ui.separator();
@@ -530,8 +529,8 @@ pub fn update_modal(ctx: &egui::Context) -> bool {
 }
 
 #[cfg(target_family = "wasm")]
-pub fn firefox_modal(ctx: &egui::Context) -> bool {
-	egui::Modal::new("firefox".into()).show(ctx, |ui| {
+pub fn firefox_modal(ctx: &Context) -> bool {
+	Modal::new("firefox".into()).show(ctx, |ui| {
 		ui.heading("Firefox Warning");
 		ui.label("You are using Firefox.");
 		ui.separator();

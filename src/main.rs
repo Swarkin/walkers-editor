@@ -18,27 +18,25 @@ fn main() -> Result<(), eframe::Error> {
 	use eframe::icon_data::from_png_bytes;
 	use eframe::egui::ViewportBuilder;
 
-	#[cfg(not(feature = "kiosk"))]
-	let viewport = ViewportBuilder::default()
+	let mut viewport = ViewportBuilder::default();
+	viewport = viewport
 		.with_inner_size([980.0, 720.0])
 		.with_min_inner_size([300.0, 200.0])
 		.with_clamp_size_to_monitor_size(true)
 		.with_icon(from_png_bytes(include_bytes!("../assets/icon/64.png"))
 			.expect("failed to load icon"));
 
-	#[cfg(feature = "kiosk")]
-	let viewport = ViewportBuilder::default()
-		.with_fullscreen(true)
-		.with_icon(from_png_bytes(include_bytes!("../assets/icon/64.png"))
-			.expect("failed to load icon"));
+	#[cfg(feature = "kiosk")] {
+		viewport = viewport.with_fullscreen(true);
+	}
 
 	let options = eframe::NativeOptions {
 		viewport,
 		dithering: false,
-		vsync: cfg!(feature = "renderer_enable_vsync"),
-		#[cfg(feature = "renderer_wgpu_dx12")]
+		vsync: !cfg!(feature = "renderer_disable_vsync"),
+		#[cfg(any(feature = "renderer_wgpu_dx12", feature = "renderer_wgpu_vulkan", feature = "renderer_wgpu_gles"))]
 		wgpu_options: eframe::egui_wgpu::WgpuConfiguration {
-			present_mode: wgpu::PresentMode::Immediate,
+			present_mode: wgpu::PresentMode::AutoNoVsync,
 			desired_maximum_frame_latency: None,
 			..Default::default()
 		},
