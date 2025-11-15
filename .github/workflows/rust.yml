@@ -25,24 +25,28 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+
+      - name: Set renderer feature
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ] && [ "${{ matrix.renderer }}" = "wgpu_dx12" ]; then
+            echo "RENDERER_FEATURE=renderer_wgpu_vulkan" >> "$GITHUB_ENV"
+          else
+            echo "RENDERER_FEATURE=renderer_${{ matrix.renderer }}" >> "$GITHUB_ENV"
+          fi
+          echo "Resolved RENDERER_FEATURE=$RENDERER_FEATURE"
+
       - uses: actions/cache@v4
         with:
           path: |
             target
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}-${{ matrix.renderer }}
+          key: ${{ runner.os }}-${{ matrix.build-type }}-cargo-${{ hashFiles('Cargo.toml') }}-${{ env.RENDERER_FEATURE }}
 
       - name: Build (${{ runner.os }}, ${{ matrix.build-type }})
         shell: bash
         run: |
-          # Use Vulkan on Linux instead of DX12
-          if [ "${{ runner.os }}" = "Linux" ] && [ "${{ matrix.renderer }}" = "wgpu_dx12" ]; then
-            RENDERER_FEATURE="renderer_wgpu_vulkan"
-          else
-            RENDERER_FEATURE="renderer_${{ matrix.renderer }}"
-          fi
-
           if [ "${{ matrix.build-type }}" = "release" ]; then
             cargo build --release --verbose $NATIVE_BUILD_FLAGS --features "$RENDERER_FEATURE"
           else
@@ -52,7 +56,7 @@ jobs:
       - name: Upload artifact (${{ matrix.build-type }})
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ github.event.repository.name }}-${{ matrix.os }}-${{ matrix.build-type }}-${{ matrix.renderer }}
+          name: ${{ github.event.repository.name }}-${{ matrix.os }}-${{ matrix.build-type }}-${{ env.RENDERER_FEATURE }}
           path: target/${{ matrix.build-type }}/${{ github.event.repository.name }}${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   build-wasm:
