@@ -1,7 +1,10 @@
 use super::attribute2d::{Attribute2D, TagValue};
 use super::cache::Change;
 use super::consts::osm::*;
+use crate::app::editor::consts::prepare_icon_with_tint;
+use crate::app::icons;
 use eframe::egui;
+use eframe::egui::{ImageSource, Widget};
 use eframe::epaint::{PathShape, Stroke};
 use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
@@ -138,11 +141,12 @@ pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 
 			ui.horizontal(|ui| {
 				ui.vertical(|ui| {
-					ui.strong(format!("Left: {:?}", attr.left));
+					// ui.strong(format!("Left: {:?}", attr.left));
 					if attribute2d_selectable_value(ui, &mut attr.left) { edited = true; }
 				});
+				ui.separator();
 				ui.vertical(|ui| {
-					ui.strong(format!("Right: {:?}", attr.right));
+					// ui.strong(format!("Right: {:?}", attr.right));
 					if attribute2d_selectable_value(ui, &mut attr.right) { edited = true; }
 				});
 			});
@@ -162,11 +166,37 @@ pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 		})?.inner?
 }
 
-fn attribute2d_selectable_value(ui: &mut Ui, selected: &mut TagValue) -> bool {
-	let original = *selected;
-	ui.selectable_value(selected, TagValue::Yes, format!("{:?}", TagValue::Yes));
-	ui.selectable_value(selected, TagValue::No, format!("{:?}", TagValue::No));
-	ui.selectable_value(selected, TagValue::Separate, format!("{:?}", TagValue::Separate));
-	ui.selectable_value(selected, TagValue::Unknown, format!("{:?}", TagValue::Unknown));
-	original != *selected
+fn attribute2d_selectable_value(ui: &mut Ui, current: &mut TagValue) -> bool {
+	let original = *current;
+
+	ui.horizontal(|ui| {
+		sidewalk_overlay_button(ui, current, TagValue::Yes, icons::SIDEWALK_YES);
+		sidewalk_overlay_button(ui, current, TagValue::No, icons::SIDEWALK_NO);
+
+	});
+	ui.horizontal(|ui| {
+		sidewalk_overlay_button(ui, current, TagValue::Separate, icons::SIDEWALK_SEPARATE);
+		sidewalk_overlay_button(ui, current, TagValue::Unknown, icons::SIDEWALK_UNKNOWN);
+	});
+
+	original != *current
+}
+
+fn sidewalk_overlay_button(ui: &mut Ui, current: &mut TagValue, new: TagValue, icon: ImageSource) {
+	// ui.group(|ui| {
+	// 	ui.vertical(|ui| {
+			ui.visuals_mut().selection.bg_fill = new.into();
+
+			let resp = egui::Button::image(prepare_icon_with_tint(icon, 48., Color32::WHITE))
+				.min_size(egui::Vec2::splat(56.))
+				.stroke(Stroke::new(2., new))
+				.selected(*current == new)
+				.ui(ui);
+			// ui.label(new.to_string());
+
+			if resp.clicked() {
+				*current = new;
+			}
+		// });
+	// });
 }

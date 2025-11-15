@@ -20,3 +20,8 @@ pub const SQUARE_X: ImageSource = include_image!("../../assets/ui/square_x.svg")
 pub const SUN: ImageSource = include_image!("../../assets/ui/sun.svg");
 pub const UPLOAD: ImageSource = include_image!("../../assets/ui/upload.svg");
 pub const USER: ImageSource = include_image!("../../assets/ui/user.svg");
+
+pub const SIDEWALK_YES: ImageSource = include_image!("../../assets/overlays/sidewalk/yes.svg");
+pub const SIDEWALK_NO: ImageSource = include_image!("../../assets/overlays/sidewalk/no.svg");
+pub const SIDEWALK_SEPARATE: ImageSource = include_image!("../../assets/overlays/sidewalk/separate.svg");
+pub const SIDEWALK_UNKNOWN: ImageSource = include_image!("../../assets/overlays/sidewalk/unknown.svg");
