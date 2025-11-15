@@ -1,5 +1,6 @@
 use super::visual::{SIDEWALK_NO_COLOR, SIDEWALK_SEPARATE_COLOR, SIDEWALK_UNKNOWN_COLOR, SIDEWALK_YES_COLOR};
-use eframe::egui::Color32;
+use crate::app::icons;
+use eframe::egui::{Color32, ImageSource};
 use osm_parser::Tags;
 use std::fmt::{Display, Formatter};
 
@@ -136,6 +137,17 @@ impl Into<Color32> for TagValue {
 	}
 }
 
+#[allow(clippy::from_over_into)]
+impl Into<ImageSource<'_>> for TagValue {
+	fn into(self) -> ImageSource<'static> {
+		match self {
+			Self::Yes => icons::SIDEWALK_YES,
+			Self::No => icons::SIDEWALK_NO,
+			Self::Separate => icons::SIDEWALK_SEPARATE,
+			Self::Unknown => icons::SIDEWALK_UNKNOWN,
+		}
+	}
+}
 
 // tag suffix, sidewalk:*=yes
 #[derive(Debug, Default, Copy, Clone, PartialEq, Eq)]

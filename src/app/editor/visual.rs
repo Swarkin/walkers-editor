@@ -1,10 +1,11 @@
 use super::attribute2d::{Attribute2D, TagValue};
 use super::cache::Change;
 use super::consts::osm::*;
-use crate::app::editor::consts::prepare_icon_with_tint;
+use crate::app::editor::consts::{prepare_icon, prepare_icon_with_tint};
+use crate::app::editor::consume_key;
 use crate::app::icons;
 use eframe::egui;
-use eframe::egui::{ImageSource, Widget};
+use eframe::egui::{Image, ImageSource, Key, Modifiers, Rect, Vec2, Widget};
 use eframe::epaint::{PathShape, Stroke};
 use egui::{Color32, Pos2, Shape, Ui, Window};
 use osm_parser::types::merge_tags;
@@ -140,15 +141,13 @@ pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 			let mut attr = Attribute2D::new(&way.tags, TAG);
 
 			ui.horizontal(|ui| {
-				ui.vertical(|ui| {
-					// ui.strong(format!("Left: {:?}", attr.left));
-					if attribute2d_selectable_value(ui, &mut attr.left) { edited = true; }
-				});
+				if ui.vertical(|ui|
+					attribute2d_selectable_value(ui, &mut attr.left, true, 2)
+				).inner { edited = true; }
 				ui.separator();
-				ui.vertical(|ui| {
-					// ui.strong(format!("Right: {:?}", attr.right));
-					if attribute2d_selectable_value(ui, &mut attr.right) { edited = true; }
-				});
+				if ui.vertical(|ui|
+					attribute2d_selectable_value(ui, &mut attr.right, false, 2)
+				).inner { edited = true; }
 			});
 
 			if edited {
@@ -166,37 +165,60 @@ pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 		})?.inner?
 }
 
-fn attribute2d_selectable_value(ui: &mut Ui, current: &mut TagValue) -> bool {
+fn attribute2d_selectable_value(ui: &mut Ui, current: &mut TagValue, flip: bool, buttons_per_row: u8) -> bool {
+	const DATA: &[(TagValue, ImageSource, ImageSource, (Key, Key))] = &[
+		(TagValue::Yes, icons::SIDEWALK_YES, icons::MISC_CHECK, (Key::Num1, Key::Q)),
+		(TagValue::No, icons::SIDEWALK_NO, icons::MISC_CROSS, (Key::Num2, Key::W)),
+		(TagValue::Separate, icons::SIDEWALK_SEPARATE, icons::MISC_ARROW, (Key::Num3, Key::E)),
+		(TagValue::Unknown, icons::SIDEWALK_UNKNOWN, icons::MISC_QUESTION_MARK, (Key::Num4, Key::R)),
+	];
+
 	let original = *current;
+	let mut button_i = 0u8;
 
-	ui.horizontal(|ui| {
-		sidewalk_overlay_button(ui, current, TagValue::Yes, icons::SIDEWALK_YES);
-		sidewalk_overlay_button(ui, current, TagValue::No, icons::SIDEWALK_NO);
+	let uid = *current as u8 + u8::from(flip) * 69;
+	egui::Grid::new(uid).show(ui, |ui| {
+		for (tag_value, icon_bg, icon_fg, key) in DATA {
+			let color = (*tag_value).into();
+			let mut image = prepare_icon(ui.ctx(), icon_bg.clone(), 48.);
 
-	});
-	ui.horizontal(|ui| {
-		sidewalk_overlay_button(ui, current, TagValue::Separate, icons::SIDEWALK_SEPARATE);
-		sidewalk_overlay_button(ui, current, TagValue::Unknown, icons::SIDEWALK_UNKNOWN);
+			if flip {
+				image = image.rotate(std::f32::consts::TAU / 2., Vec2::splat(0.5));
+			}
+
+			let overlay = prepare_icon_with_tint(icon_fg.clone(), 16., color);
+
+			sidewalk_overlay_button(ui, current, *tag_value, image, &overlay, flip);
+			if consume_key(ui.ctx(), if flip { key.0 } else { key.1 }, Modifiers::NONE) { *current = *tag_value; }
+
+			button_i += 1;
+			if button_i.is_multiple_of(buttons_per_row) {
+				ui.end_row();
+			}
+		}
 	});
 
 	original != *current
 }
 
-fn sidewalk_overlay_button(ui: &mut Ui, current: &mut TagValue, new: TagValue, icon: ImageSource) {
-	// ui.group(|ui| {
-	// 	ui.vertical(|ui| {
-			ui.visuals_mut().selection.bg_fill = new.into();
+fn sidewalk_overlay_button(ui: &mut Ui, current: &mut TagValue, new: TagValue, image: Image, overlay: &Image, flip: bool) {
+	ui.visuals_mut().selection.bg_fill = new.into();
 
-			let resp = egui::Button::image(prepare_icon_with_tint(icon, 48., Color32::WHITE))
-				.min_size(egui::Vec2::splat(56.))
-				.stroke(Stroke::new(2., new))
-				.selected(*current == new)
-				.ui(ui);
-			// ui.label(new.to_string());
+	let resp = egui::Button::image(image)
+		.min_size(Vec2::splat(56.))
+		.stroke(Stroke::new(2., new))
+		.selected(*current == new)
+		.ui(ui);
 
-			if resp.clicked() {
-				*current = new;
-			}
-		// });
-	// });
+	let center = if flip {
+		resp.rect.left_center() + Vec2::new(14., 0.)
+	} else {
+		resp.rect.right_center() - Vec2::new(13., 0.)
+	};
+
+	overlay.paint_at(ui, Rect::from_center_size(center, Vec2::splat(16.)));
+
+	if resp.clicked() {
+		*current = new;
+	}
 }
