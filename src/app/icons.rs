@@ -21,6 +21,11 @@ pub const SUN: ImageSource = include_image!("../../assets/ui/sun.svg");
 pub const UPLOAD: ImageSource = include_image!("../../assets/ui/upload.svg");
 pub const USER: ImageSource = include_image!("../../assets/ui/user.svg");
 
+pub const MISC_ARROW: ImageSource = include_image!("../../assets/misc/arrow.svg");
+pub const MISC_CHECK: ImageSource = include_image!("../../assets/misc/check.svg");
+pub const MISC_CROSS: ImageSource = include_image!("../../assets/misc/cross.svg");
+pub const MISC_QUESTION_MARK: ImageSource = include_image!("../../assets/misc/question_mark.svg");
+
 pub const SIDEWALK_YES: ImageSource = include_image!("../../assets/overlays/sidewalk/yes.svg");
 pub const SIDEWALK_NO: ImageSource = include_image!("../../assets/overlays/sidewalk/no.svg");
 pub const SIDEWALK_SEPARATE: ImageSource = include_image!("../../assets/overlays/sidewalk/separate.svg");
