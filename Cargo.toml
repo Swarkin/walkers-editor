@@ -15,7 +15,6 @@ build = "build.rs"
 [features]
 default = ["renderer_glow"]
 debug = []
-debug_redraw_continuously = []
 kiosk = []
 renderer_glow = ["eframe/glow"]
 renderer_wgpu_gles = ["eframe/wgpu", "dep:wgpu", "wgpu/gles"]
@@ -30,6 +29,7 @@ wgpu = { version = "*", default-features = false, features = ["std", "parking_lo
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
 serde = { version = "1", features = ["derive"] }
 quick-xml = { version = "0.38", features = ["serialize"] }
+toml = "0.9"
 crossbeam-channel = "0.5"
 osm-parser = { version = "=5.0", features = ["rustc_hash"], git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"

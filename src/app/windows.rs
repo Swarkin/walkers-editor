@@ -1,6 +1,9 @@
-use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, states::{MapDownloadState, MapState, SelectionFlag}, visual::{FillMode, Visualization}, EditMode, EditOperation};
+use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, visual::{FillMode, Visualization}, EditMode, EditOperation};
 use super::icons;
 use super::providers::Provider;
+use crate::app::editor::cache::ElementId;
+use crate::app::osm::{Bbox, OrderedTags, TargetServer};
+use crate::app::states::{MapDownloadState, MapState, SelectionFlag, SettingsIOResult};
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
@@ -330,10 +333,10 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, ed
 
 							let button_resp = if let Some((status, prev_time)) = status && time - prev_time < DOWNLOAD_FEEDBACK_SECONDS {
 								let text = egui::RichText::new(if status.is_ok() { "✔" } else { "✘" }).strong();
-								ui.add_enabled(enabled, Button::new(text).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE)).corner_radius(4))
+								ui.add_enabled(enabled, Button::new(text).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE.y)).corner_radius(4))
 							} else { // todo: global error modal / success toast
 								let image = prepare_icon(ui.ctx(), icons::DOWNLOAD, ICON_SIZE);
-								ui.add_enabled(enabled, Button::new(image).corner_radius(4))
+								ui.add_enabled(enabled, Button::new(image).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE.y)).corner_radius(4))
 							};
 
 							// Return whether a download was triggered
@@ -345,7 +348,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, ed
 							}))
 						}
 						MapDownloadState::Downloading => {
-							let resp = ui.add_enabled(false, Button::new(()).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE)));
+							let resp = ui.add_enabled(false, Button::new(()).min_size(Vec2::splat(TOP_BAR_BUTTON_SIZE.y)).corner_radius(4));
 							ui.put(resp.rect, egui::Spinner::new());
 
 							false
@@ -398,13 +401,10 @@ pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 		})?.inner?
 }
 
-use crate::app::editor::cache::ElementId;
 #[cfg(feature = "debug")]
-use crate::app::editor::{cache::EditorOsmData, states::CacheFlag};
-use crate::app::osm::{Bbox, OrderedTags, TargetServer};
+pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &crate::app::editor::cache::EditorOsmData) {
+	use crate::app::states::CacheFlag;
 
-#[cfg(feature = "debug")]
-pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &EditorOsmData) {
 	egui::Window::new("Debug")
 		.resizable(false)
 		.frame(themed_frame(ui.ctx().theme()))
@@ -468,7 +468,7 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 			ui.heading("Packages");
 			ui.horizontal(|ui| {
 				ui.spacing_mut().item_spacing = Vec2::ZERO;
-				ui.add(Hyperlink::from_label_and_url(env!("CARGO_CRATE_NAME"), env!("CARGO_PKG_REPOSITORY")).open_in_new_tab(true));
+				ui.add(Hyperlink::from_label_and_url(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_REPOSITORY")).open_in_new_tab(true));
 				ui.label(" has been made possible by the following awesome open-source libraries:");
 			});
 			ui.collapsing("View package tree", |ui| {
@@ -707,6 +707,69 @@ impl DataViewerModal {
 			ui.button("Close").clicked()
 		}).inner
 	}
+}
+
+pub enum SettingsIOErrorModalResult {
+	Quit,
+	Retry,
+	Continue,
+}
+
+pub fn settings_io_error_modal(ctx: &Context, result: &SettingsIOResult, verb: &str, buttons: &[&str]) -> Option<SettingsIOErrorModalResult> {
+	Modal::new("settings_io_error".into()).show(ctx, |ui| {
+		let max_width = ctx.content_rect().width() * 0.8;
+		ui.set_max_width(max_width);
+
+		ui.horizontal(|ui| {
+			prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_RED).ui(ui);
+			ui.heading(format!("{verb}ing settings failed"));
+		});
+		ui.label(format!("There was an error {}ing your settings:", verb.to_ascii_lowercase()));
+
+		ui.add_space(4.);
+		ui.group(|ui| {
+			ui.heading("Config");
+			if let Some(e) = &result.0 {
+				let text = e.to_string();
+				ui.monospace(&text);
+				if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+			} else {
+				ui.horizontal(|ui| {
+					prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN).ui(ui);
+					ui.label(format!("{verb}ed successfully."));
+				});
+			}
+		});
+
+		ui.add_space(4.);
+		ui.group(|ui| {
+			ui.heading("Theme");
+			if let Some(e) = &result.1 {
+				let text = e.to_string();
+				ui.monospace(&text);
+				if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+			} else {
+				ui.horizontal(|ui| {
+					prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN).ui(ui);
+					ui.label(format!("{verb}ed successfully."));
+				});
+			}
+		});
+
+		ui.add_space(4.);
+		ui.horizontal(|ui| {
+			if let Some(text) = buttons.first() && Button::new((prepare_icon(ui.ctx(), icons::CROSS, ICON_SIZE), *text)).min_size(WIDE_BUTTON_SIZE).ui(ui).clicked() {
+				return Some(SettingsIOErrorModalResult::Quit);
+			}
+			if let Some(text) = buttons.get(1) && Button::new((prepare_icon(ui.ctx(), icons::RELOAD, ICON_SIZE), *text)).min_size(WIDE_BUTTON_SIZE).ui(ui).clicked() {
+				return Some(SettingsIOErrorModalResult::Retry);
+			}
+			if let Some(text) = buttons.get(2) && Button::new((prepare_icon(ui.ctx(), icons::CHECK, ICON_SIZE), *text)).min_size(WIDE_BUTTON_SIZE).ui(ui).clicked() {
+				return Some(SettingsIOErrorModalResult::Continue);
+			}
+			None
+		}).inner
+	}).inner
 }
 
 pub enum OverlapSelectorResult<'a> {

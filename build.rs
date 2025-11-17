@@ -78,27 +78,36 @@ fn generate_translations() -> std::io::Result<()> {
 
 	s.push_str("pub type Translation = [&'static str];\n\n");
 
-	s.push_str("#[derive(Debug)]\n");
+	s.push_str("#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]\n");
 	s.push_str("pub enum TranslationID {");
 	for id_name in &id_names {
 		s.push_str("\n\t");
-		s.push_str(id_name);
+
+		let mut chars = id_name.chars();
+		let first = chars.next().unwrap();
+		s.push(first.to_ascii_uppercase());
+		s.push_str(chars.as_str());
+
 		s.push(',');
 	}
 	s.push_str("\n}\n\n");
 
-	s.push_str("impl TranslationID {\n");
-	write!(s, "\tpub const ITER: [TranslationID; {}] = [", id_names.len()).unwrap();
+	// s.push_str("impl TranslationID {\n");
+	// write!(s, "\tpub const ITER: [Self; {}] = [", id_names.len()).unwrap();
+	// for id_name in &id_names {
+	// 	s.push_str("Self::");
+	//
+	// 	let mut chars = id_name.chars();
+	// 	let first = chars.next().unwrap();
+	// 	s.push(first.to_ascii_uppercase());
+	// 	s.push_str(chars.as_str());
+	//
+	// 	s.push_str(", ");
+	// }
+	// s.push_str("];\n}\n\n");
 
-	for id_name in &id_names {
-		s.push_str("TranslationID::");
-		s.push_str(id_name);
-		s.push_str(", ");
-	}
-	s.push_str("];\n}\n\n");
-
-	s.push_str("#[derive(Debug, Default)]\n");
-	s.push_str("pub enum TranslationLanguage {");
+	s.push_str("#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]\n");
+	s.push_str("pub enum Language {");
 	s.push_str("\n\t#[default] EN,");
 	for translation in &tr_file_names {
 		if translation == "en" { continue; }
@@ -124,10 +133,10 @@ fn generate_translations() -> std::io::Result<()> {
 		s.push_str("];\n");
 	}
 
-	s.push_str("\npub fn get_translation(lang: TranslationLanguage) -> &'static Translation {\n");
+	s.push_str("\npub fn get_translation(lang: Language) -> &'static Translation {\n");
 	s.push_str("\tmatch lang {");
 	for translation in &tr_file_names {
-		s.push_str("\n\t\tTranslationLanguage::");
+		s.push_str("\n\t\tLanguage::");
 		s.push_str(&translation.to_ascii_uppercase());
 		s.push_str(" => ");
 		s.push_str(&translation.to_ascii_uppercase());
@@ -149,7 +158,7 @@ fn read_main_language_translations(parser: &PoParser, translations_dir: &Path) -
 	let mut id_names = vec![];
 
 	for unit in main_language_file.map(|x| x.unwrap()) {
-		id_names.push(unit.message().get_id().to_ascii_uppercase());
+		id_names.push(unit.message().get_id().to_owned());
 	}
 
 	id_names
