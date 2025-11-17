@@ -1,0 +1,8 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: walkers-editor\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: en\n"
+
+msgid "example"
+msgstr "Hello world"
