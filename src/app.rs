@@ -1,35 +1,30 @@
-mod windows;
-mod editor;
-mod providers;
-mod osm;
-mod osmchange;
+pub mod windows;
+pub mod editor;
+pub mod providers;
+pub mod osm;
+pub mod osmchange;
 pub mod worker;
 pub mod icons;
+pub mod states;
+pub mod translations;
 
-use crate::app::editor::cache::EditorOsmData;
-use crate::app::editor::states::ChangesetUploadState;
-use crate::app::osm::OsmResult;
-use crate::app::worker::UploadChangesProgress;
-use editor::cache::{Change, ElementId, ElementRef};
+use editor::cache::{Change, EditorOsmData, ElementId, ElementRef};
 use editor::consts::*;
-use editor::states::{AppState, AuthenticatorState, CacheFlag, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
 use editor::visual::FillMode;
 use editor::{consume_key, EditMode, EditOperation, Editor};
 use eframe::egui;
-use eframe::egui::{CollapsingHeader, ComboBox, Grid, Hyperlink, SidePanel, Spinner, Widget};
 use egui::containers::menu::{MenuButton, MenuConfig};
-use egui::{Button, CentralPanel, Color32, Context, DragPanButtons, Frame, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, TextEdit, Theme, TopBottomPanel, Ui, Vec2};
+use egui::{Button, CentralPanel, CollapsingHeader, Color32, ComboBox, Context, DragPanButtons, Frame, Grid, Hyperlink, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, SidePanel, Spinner, TextEdit, TopBottomPanel, Ui, Vec2, ViewportCommand, Widget};
 use egui_extras::{Column, TableBuilder};
 use indexmap::IndexMap;
-use osm::{OsmClient, TargetServer};
+use osm::{OsmClient, OsmResult, TargetServer};
 use osmchange::OsmChange;
-use providers::providers;
-use providers::Provider;
+use providers::{providers, Provider};
 use rustc_hash::FxHashSet;
+use states::{settings, AppState, AuthenticatorState, BootState, CacheFlag, ChangesetUploadState, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
 use walkers::{Map, MapMemory, Position};
-use windows::{DataViewerModal, MapWindowResult};
-use windows::{TagsEditKind, Window};
-use worker::{Request, Response, Worker, WorkerHandle};
+use windows::{DataViewerModal, MapWindowResult, SettingsIOErrorModalResult, TagsEditKind, Window};
+use worker::{Request, Response, UploadChangesProgress, Worker, WorkerHandle};
 
 pub struct MyApp {
 	worker_handle: WorkerHandle,
@@ -37,6 +32,7 @@ pub struct MyApp {
 	editor_state: EditorState,
 	uploader_state: UploaderState,
 	authenticator_state: AuthenticatorState,
+	boot_state: BootState,
 }
 
 // ui components
@@ -56,14 +52,17 @@ impl MyApp {
 					egui::Sides::new().show(ui,
 						|ui| {
 							if self.app_state.top_bar_disabled { ui.disable(); }
+							let tr = translations::get_translation(self.app_state.language);
 
-							let btn = title_bar_button("Editor", prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));
+							let txt = tr[translations::TranslationID::Edit as usize];
+							let btn = title_bar_button(txt, prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));
 							if ui.add_enabled(self.app_state.view != View::Edit, btn).clicked() {
 								self.app_state.view = View::Edit;
 								self.uploader_state.clear_osmchange();
 							}
 
-							let btn = title_bar_button("Upload", prepare_icon(ctx, icons::UPLOAD, ICON_SIZE));
+							let txt = tr[translations::TranslationID::Upload as usize];
+							let btn = title_bar_button(txt, prepare_icon(ctx, icons::UPLOAD, ICON_SIZE));
 							if ui.add_enabled(self.app_state.view != View::Upload, btn).clicked() {
 								self.app_state.view = View::Upload;
 								self.uploader_state.osmchange = OsmChange::from(&self.editor_state.editor.osm_data.changes);
@@ -71,7 +70,8 @@ impl MyApp {
 								self.uploader_state.osmchange_text = self.uploader_state.osmchange.to_string_pretty().unwrap();
 							}
 
-							let btn = title_bar_button("Auth", prepare_icon(ctx, icons::USER, ICON_SIZE));
+							let txt = tr[translations::TranslationID::Login as usize];
+							let btn = title_bar_button(txt, prepare_icon(ctx, icons::USER, ICON_SIZE));
 							if ui.add_enabled(self.app_state.view != View::Auth, btn).clicked() {
 								self.app_state.view = View::Auth;
 								self.uploader_state.clear_osmchange();
@@ -90,8 +90,8 @@ impl MyApp {
 									}
 								});
 
-							let (new_theme, theme_icon) = if ctx.theme() == Theme::Dark { (Theme::Light, icons::MOON) } else { (Theme::Dark, icons::SUN) };
-							let btn = title_bar_button("", prepare_icon(ctx, theme_icon, ICON_SIZE));
+							let (new_theme, theme_icon) = if ctx.theme() == egui::Theme::Dark { (egui::Theme::Light, icons::MOON) } else { (egui::Theme::Dark, icons::SUN) };
+							let btn = Button::new(prepare_icon(ctx, theme_icon, ICON_SIZE));
 							if ui.add(btn).clicked() {
 								ctx.set_theme(new_theme);
 							}
@@ -435,7 +435,7 @@ impl MyApp {
 						}
 					} else {
 						ui.horizontal(|ui| {
-							ui.strong("Please authenticate to OSM using the");
+							ui.strong("Please login to OSM using the");
 							if ui.small_button("Auth").clicked() { self.app_state.view = View::Auth; }
 							ui.strong("tab.");
 						});
@@ -444,7 +444,7 @@ impl MyApp {
 			}
 			View::Auth => {
 				CentralPanel::default().show(ctx, |ui| {
-					ui.heading("Authenticate to OpenStreetMap");
+					ui.heading("Login to OpenStreetMap");
 
 					if server_selector(ui, &mut self.app_state.target_server_ui) {
 						// update target server for OsmClient of worker
@@ -513,7 +513,7 @@ impl MyApp {
 							let auth_textedit_resp = ui.add_enabled(!request_pending, auth_textedit);
 
 							ui.add_space(10.);
-							ui.label("3. Authenticate:");
+							ui.label("3. Login:");
 
 							let login_button = Button::new((prepare_icon(ctx, icons::LOGIN, ICON_SIZE), "Log in")).min_size(WIDE_BUTTON_SIZE);
 							let login_button_resp = ui.add_enabled(!request_pending && !auth_code_empty, login_button);
@@ -558,8 +558,43 @@ impl MyApp {
 				self.editor_state.editor.run(ui, response, projector, map_memory);
 			})
 	}
+
+	fn modals(&mut self, ctx: &Context) {
+		#[cfg(target_family = "wasm")] {
+			if crate::UPDATE_FLAG.load(std::sync::atomic::Ordering::Relaxed)
+				&& windows::update_modal(ctx)
+			{
+				crate::set_update_flag(false);
+			}
+
+			if self.app_state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
+				&& windows::firefox_modal(ctx)
+			{
+				self.app_state.open_modals &= !(ModalFlag::FirefoxNotice as u8);
+			}
+		}
+
+		if self.app_state.open_modals & ModalFlag::Licenses as u8 != 0
+			&& windows::licenses_modal(ctx)
+		{
+			self.app_state.open_modals &= !(ModalFlag::Licenses as u8);
+		}
+
+		if self.app_state.open_modals & ModalFlag::DataViewer as u8 != 0 {
+			if self.editor_state.editor.data_viewer.is_none() {
+				self.editor_state.editor.data_viewer = Some(DataViewerModal::new(&self.editor_state.editor.osm_data.data));
+			} else {
+				let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
+				if data_viewer.show(ctx, &self.editor_state.editor.osm_data.data) {
+					self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
+					self.editor_state.editor.data_viewer = None;
+				}
+			}
+		}
+	}
 }
 
+// logic
 impl MyApp {
 	pub fn new(cc: &eframe::CreationContext) -> Self {
 		#[cfg(not(target_family = "wasm"))]
@@ -572,43 +607,25 @@ impl MyApp {
 		let (request_sender, request_receiver) = channel::unbounded::<Request>();
 		let (response_sender, response_receiver) = channel::unbounded::<Response>();
 
-		let mut worker = Worker {
+		let worker_handle = Worker {
 			osm_client: OsmClient::new(TargetServer::default()),
 			sender: response_sender,
-		};
+		}.spawn(request_sender, request_receiver, response_receiver);
 
-		#[cfg(not(target_family = "wasm"))]
-		let worker_handle = WorkerHandle {
-			thread: std::thread::spawn(move || worker.run(request_receiver)),
-			sender: request_sender,
-			receiver: response_receiver,
-		};
-
-		#[cfg(target_family = "wasm")]
-		wasm_bindgen_futures::spawn_local(async move {
-			worker.run(request_receiver).await;
-		});
-
-		#[cfg(target_family = "wasm")]
-		let worker_handle = WorkerHandle {
-			sender: request_sender,
-			receiver: response_receiver,
-		};
+		worker_handle.send_message(Request::LoadSettings);
 
 		#[cfg(not(target_family = "wasm"))]
 		let cache_dir = Some(std::env::temp_dir().join(env!("CARGO_PKG_NAME")));
-
 		#[cfg(target_family = "wasm")]
 		let cache_dir = None;
 
+		#[cfg(not(target_family = "wasm"))]
+		let app_state = AppState::default();
 		#[cfg(target_family = "wasm")]
 		let app_state = AppState {
 			open_modals: if cc.integration_info.web_info.user_agent.to_lowercase().contains("firefox") { ModalFlag::FirefoxNotice as u8 } else { Default::default() },
 			..Default::default()
 		};
-
-		#[cfg(not(target_family = "wasm"))]
-		let app_state = AppState::default();
 
 		Self {
 			worker_handle,
@@ -626,11 +643,40 @@ impl MyApp {
 			},
 			uploader_state: UploaderState::default(),
 			authenticator_state: AuthenticatorState::default(),
+
+			boot_state: BootState::default(),
 		}
 	}
 
 	fn handle_message(&mut self, msg: Response, ctx: &Context) {
 		match msg {
+			Response::LoadedSettings(config, theme) => {
+				let mut setting_load_result = (None, None);
+
+				match config {
+					Ok(config) => self.apply_config(config),
+					Err(e) => setting_load_result.0 = Some(e),
+				}
+				match theme {
+					Ok(theme) => self.apply_theme(theme, ctx),
+					Err(e) => setting_load_result.1 = Some(e),
+				}
+
+				if setting_load_result.0.is_none() && setting_load_result.1.is_none() {
+					self.boot_state = BootState::Idle;
+				} else {
+					self.app_state.settings_load_result = Some(setting_load_result);
+				}
+			}
+			Response::SavedSettings(config_err, theme_err) => {
+				if config_err.is_none() && theme_err.is_none() {
+					self.boot_state = BootState::Finished;
+					ctx.send_viewport_cmd(ViewportCommand::Close);
+				} else {
+					self.app_state.settings_save_result = Some((config_err, theme_err));
+				}
+			}
+
 			Response::Map(result) => {
 				let result = result.map(|mut data| {
 					let mut local_changes = FxHashSet::default();
@@ -674,56 +720,140 @@ impl MyApp {
 			}
 		}
 	}
+
+	const fn apply_config(&mut self, settings::Config {
+		language, window_flags, scale_factor, zoom_with_ctrl, debug_redraw_continuously
+	}: settings::Config) {
+		self.app_state.language = language;
+		self.editor_state.editor.window_flags = window_flags;
+		self.editor_state.editor.map_state.zoom_with_ctrl = zoom_with_ctrl;
+		self.editor_state.editor.map_state.scale_factor = scale_factor;
+		self.app_state.debug_redraw_continuously = debug_redraw_continuously;
+	}
+
+	#[allow(clippy::unused_self)]
+	fn apply_theme(&self, settings::Theme {
+		theme
+	}: settings::Theme, ctx: &Context) {
+		ctx.set_theme(theme);
+	}
+
+	const fn collect_config(&self) -> settings::Config {
+		settings::Config {
+			language: self.app_state.language,
+			window_flags: self.editor_state.editor.window_flags,
+			scale_factor: self.editor_state.editor.map_state.scale_factor,
+			zoom_with_ctrl: self.editor_state.editor.map_state.zoom_with_ctrl,
+			debug_redraw_continuously: self.app_state.debug_redraw_continuously,
+		}
+	}
+
+	#[allow(clippy::unused_self)]
+	fn collect_theme(&self, ctx: &Context) -> settings::Theme {
+		settings::Theme {
+			theme: ctx.options(|x| x.theme_preference).into(),
+		}
+	}
 }
 
 impl eframe::App for MyApp {
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
-		#[cfg(feature = "debug_redraw_continuously")]
-		ctx.request_repaint();
+		if self.app_state.debug_redraw_continuously {
+			ctx.request_repaint();
+		}
 
 		for msg in self.worker_handle.recv_messages() {
 			self.handle_message(msg, ctx);
 		}
 
-		self.top_bar(ctx);
-		self.content(ctx);
-
-		#[cfg(target_family = "wasm")] {
-			if crate::UPDATE_FLAG.load(std::sync::atomic::Ordering::Relaxed)
-				&& windows::update_modal(ctx)
-			{
-				crate::set_update_flag(false);
+		match &self.boot_state {
+			BootState::Starting => {
+				CentralPanel::default().show(ctx, |ui| {
+					if let Some(result) = &mut self.app_state.settings_load_result {
+						if result.0.is_none() && result.1.is_none() {
+							self.boot_state = BootState::Idle;
+							self.app_state.settings_load_result = None;
+						} else if let Some(resp) = windows::settings_io_error_modal(ctx, result, "Load", &["Quit", "Retry", "Use defaults"]) {
+							match resp {
+								SettingsIOErrorModalResult::Quit => {
+									self.boot_state = BootState::Finished;
+									ctx.send_viewport_cmd(ViewportCommand::Close);
+								}
+								SettingsIOErrorModalResult::Retry => {
+									self.worker_handle.send_message(Request::LoadSettings);
+									self.app_state.settings_load_result = None;
+								}
+								SettingsIOErrorModalResult::Continue => {
+									self.boot_state = BootState::Idle;
+									self.app_state.settings_load_result = None;
+								},
+							}
+						}
+					} else {
+						ui.horizontal_centered(|ui| {
+							ui.spinner();
+							ui.strong("Loading settings...");
+						});
+					}
+				});
 			}
+			BootState::Idle => {
+				self.top_bar(ctx);
+				self.content(ctx);
+				self.modals(ctx);
 
-			if self.app_state.open_modals & ModalFlag::FirefoxNotice as u8 != 0
-				&& windows::firefox_modal(ctx)
-			{
-				self.app_state.open_modals &= !(ModalFlag::FirefoxNotice as u8);
-			}
-		}
+				if ctx.input(|x| x.viewport().close_requested()) {
+					ctx.send_viewport_cmd(ViewportCommand::CancelClose);
 
-		if self.app_state.open_modals & ModalFlag::Licenses as u8 != 0
-			&& windows::licenses_modal(ctx)
-		{
-			self.app_state.open_modals &= !(ModalFlag::Licenses as u8);
-		}
-
-		if self.app_state.open_modals & ModalFlag::DataViewer as u8 != 0 {
-			if self.editor_state.editor.data_viewer.is_none() {
-				self.editor_state.editor.data_viewer = Some(DataViewerModal::new(&self.editor_state.editor.osm_data.data));
-			} else {
-				let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
-				if data_viewer.show(ctx, &self.editor_state.editor.osm_data.data) {
-					self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
-					self.editor_state.editor.data_viewer = None;
+					let config = Box::new(self.collect_config());
+					let theme = Box::new(self.collect_theme(ctx));
+					self.worker_handle.send_message(Request::SaveSettings(Some(config), Some(theme)));
+					self.boot_state = BootState::Saving;
 				}
+			}
+			BootState::Saving => {
+				if ctx.input(|x| x.viewport().close_requested()) {
+					ctx.send_viewport_cmd(ViewportCommand::CancelClose);
+				}
+
+				CentralPanel::default().show(ctx, |ui| {
+					if let Some(result) = &self.app_state.settings_save_result {
+						if let Some(resp) = windows::settings_io_error_modal(ctx, result, "Sav", &["Quit without saving", "Retry saving", "Cancel"]) {
+							match resp {
+								SettingsIOErrorModalResult::Quit => {
+									self.boot_state = BootState::Finished;
+									ctx.send_viewport_cmd(ViewportCommand::Close);
+								}
+								SettingsIOErrorModalResult::Retry => {
+									self.worker_handle.send_message(Request::SaveSettings(None, None));
+									self.app_state.settings_save_result = None;
+								}
+								SettingsIOErrorModalResult::Continue => {
+									self.boot_state = BootState::Idle;
+									self.app_state.settings_save_result = None;
+								},
+							}
+						}
+					} else {
+						ui.horizontal_centered(|ui| {
+							ui.spinner();
+							ui.strong("Saving settings...");
+						});
+					}
+				});
+			}
+			BootState::Finished => {
+				CentralPanel::default().show(ctx, |ui| {
+					ui.centered_and_justified(|ui| ui.strong("Closing..."));
+				});
+				return;
 			}
 		}
 
 		#[cfg(not(feature = "kiosk"))]
 		if ctx.input_mut(|i| i.consume_shortcut(shortcuts::FULLSCREEN)) {
 			let state = ctx.input(|i| i.viewport().fullscreen.unwrap_or(true));
-			ctx.send_viewport_cmd(egui::ViewportCommand::Fullscreen(!state));
+			ctx.send_viewport_cmd(ViewportCommand::Fullscreen(!state));
 		}
 	}
 }
@@ -731,10 +861,10 @@ impl eframe::App for MyApp {
 fn title_bar_button<'a>(text: &str, img: Image<'a>) -> Button<'a> {
 	if text.is_empty() {
 		Button::image(img)
-			.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
+			.min_size(TOP_BAR_BUTTON_SIZE)
 	} else {
 		Button::image_and_text(img, RichText::new(format!("{text} ")).strong().size(TOP_BAR_FONT_SIZE))
-			.min_size(Vec2::new(0.0, TOP_BAR_BUTTON_SIZE))
+			.min_size(TOP_BAR_BUTTON_SIZE)
 	}
 }
 
