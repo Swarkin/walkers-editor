@@ -1,0 +1,22 @@
+msgid ""
+msgstr ""
+"PO-Revision-Date: 2025-11-17 17:51+0000\n"
+"Last-Translator: Priit Jõerüüt <jrthwlate@users.noreply.hosted.weblate.org>\n"
+"Language: et\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.15-dev\n"
+
+msgid "example"
+msgstr "Tere maailm"
+
+msgid "editor"
+msgstr "Kaardi muutmisvaade"
+
+msgid "upload"
+msgstr "Laadi üles"
+
+msgid "login"
+msgstr "Logi sisse"
