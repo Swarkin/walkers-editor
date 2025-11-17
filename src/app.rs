@@ -21,9 +21,13 @@ use osm::{OsmClient, OsmResult, TargetServer};
 use osmchange::OsmChange;
 use providers::{providers, Provider};
 use rustc_hash::FxHashSet;
-use states::{settings, AppState, AuthenticatorState, BootState, CacheFlag, ChangesetUploadState, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
+#[cfg(not(target_family = "wasm"))]
+use states::{settings, BootState};
+use states::{AppState, AuthenticatorState, CacheFlag, ChangesetUploadState, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
 use walkers::{Map, MapMemory, Position};
-use windows::{DataViewerModal, MapWindowResult, SettingsIOErrorModalResult, TagsEditKind, Window};
+#[cfg(not(target_family = "wasm"))]
+use windows::SettingsIOErrorModalResult;
+use windows::{DataViewerModal, MapWindowResult, TagsEditKind, Window};
 use worker::{Request, Response, UploadChangesProgress, Worker, WorkerHandle};
 
 pub struct MyApp {
@@ -32,6 +36,7 @@ pub struct MyApp {
 	editor_state: EditorState,
 	uploader_state: UploaderState,
 	authenticator_state: AuthenticatorState,
+	#[cfg(not(target_family = "wasm"))]
 	boot_state: BootState,
 }
 
@@ -612,6 +617,7 @@ impl MyApp {
 			sender: response_sender,
 		}.spawn(request_sender, request_receiver, response_receiver);
 
+		#[cfg(not(target_family = "wasm"))]
 		worker_handle.send_message(Request::LoadSettings);
 
 		#[cfg(not(target_family = "wasm"))]
@@ -644,12 +650,14 @@ impl MyApp {
 			uploader_state: UploaderState::default(),
 			authenticator_state: AuthenticatorState::default(),
 
+			#[cfg(not(target_family = "wasm"))]
 			boot_state: BootState::default(),
 		}
 	}
 
 	fn handle_message(&mut self, msg: Response, ctx: &Context) {
 		match msg {
+			#[cfg(not(target_family = "wasm"))]
 			Response::LoadedSettings(config, theme) => {
 				let mut setting_load_result = (None, None);
 
@@ -668,6 +676,7 @@ impl MyApp {
 					self.app_state.settings_load_result = Some(setting_load_result);
 				}
 			}
+			#[cfg(not(target_family = "wasm"))]
 			Response::SavedSettings(config_err, theme_err) => {
 				if config_err.is_none() && theme_err.is_none() {
 					self.boot_state = BootState::Finished;
@@ -721,6 +730,7 @@ impl MyApp {
 		}
 	}
 
+	#[cfg(not(target_family = "wasm"))]
 	const fn apply_config(&mut self, settings::Config {
 		language, window_flags, scale_factor, zoom_with_ctrl, debug_redraw_continuously
 	}: settings::Config) {
@@ -731,6 +741,7 @@ impl MyApp {
 		self.app_state.debug_redraw_continuously = debug_redraw_continuously;
 	}
 
+	#[cfg(not(target_family = "wasm"))]
 	#[allow(clippy::unused_self)]
 	fn apply_theme(&self, settings::Theme {
 		theme
@@ -738,6 +749,7 @@ impl MyApp {
 		ctx.set_theme(theme);
 	}
 
+	#[cfg(not(target_family = "wasm"))]
 	const fn collect_config(&self) -> settings::Config {
 		settings::Config {
 			language: self.app_state.language,
@@ -749,6 +761,7 @@ impl MyApp {
 	}
 
 	#[allow(clippy::unused_self)]
+	#[cfg(not(target_family = "wasm"))]
 	fn collect_theme(&self, ctx: &Context) -> settings::Theme {
 		settings::Theme {
 			theme: ctx.options(|x| x.theme_preference).into(),
@@ -766,6 +779,7 @@ impl eframe::App for MyApp {
 			self.handle_message(msg, ctx);
 		}
 
+		#[cfg(not(target_family = "wasm"))]
 		match &self.boot_state {
 			BootState::Starting => {
 				CentralPanel::default().show(ctx, |ui| {
@@ -848,6 +862,12 @@ impl eframe::App for MyApp {
 				});
 				return;
 			}
+		}
+
+		#[cfg(target_family = "wasm")] {
+			self.top_bar(ctx);
+			self.content(ctx);
+			self.modals(ctx);
 		}
 
 		#[cfg(not(feature = "kiosk"))]

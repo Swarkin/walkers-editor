@@ -16,11 +16,13 @@ pub const LAYOUT: ImageSource = include_image!("../../assets/ui/layout.svg");
 pub const LOGIN: ImageSource = include_image!("../../assets/ui/login.svg");
 pub const LOGOUT: ImageSource = include_image!("../../assets/ui/logout.svg");
 pub const MOON: ImageSource = include_image!("../../assets/ui/moon.svg");
+#[cfg(not(target_family = "wasm"))]
 pub const RELOAD: ImageSource = include_image!("../../assets/ui/reload.svg");
 pub const SQUARE_X: ImageSource = include_image!("../../assets/ui/square_x.svg");
 pub const SUN: ImageSource = include_image!("../../assets/ui/sun.svg");
 pub const UPLOAD: ImageSource = include_image!("../../assets/ui/upload.svg");
 pub const USER: ImageSource = include_image!("../../assets/ui/user.svg");
+#[cfg(not(target_family = "wasm"))]
 pub const WARNING: ImageSource = include_image!("../../assets/ui/warning.svg");
 
 pub const MISC_ARROW: ImageSource = include_image!("../../assets/misc/arrow.svg");
