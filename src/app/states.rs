@@ -13,6 +13,7 @@ use crate::HashMap;
 use std::fmt::{Display, Formatter};
 use walkers::MapMemory;
 
+#[cfg(not(target_family = "wasm"))]
 pub type SettingsIOResult = (Option<std::io::Error>, Option<std::io::Error>);
 
 #[derive(Default)]
@@ -22,7 +23,9 @@ pub struct AppState {
 	pub target_server_ui: TargetServer,
 	pub open_modals: u8,
 	pub top_bar_disabled: bool,
+	#[cfg(not(target_family = "wasm"))]
 	pub settings_load_result: Option<SettingsIOResult>,
+	#[cfg(not(target_family = "wasm"))]
 	pub settings_save_result: Option<SettingsIOResult>,
 	pub debug_redraw_continuously: bool,
 }
@@ -222,6 +225,7 @@ pub struct AuthenticatorState {
 	pub request_pending: bool,
 }
 
+#[cfg(not(target_family = "wasm"))]
 #[derive(Default)]
 pub enum BootState {
 	#[default] Starting,
@@ -230,6 +234,7 @@ pub enum BootState {
 	Finished,
 }
 
+#[cfg(not(target_family = "wasm"))]
 pub mod settings {
 	use crate::app::translations;
 	use crate::app::windows::WindowBitflag;

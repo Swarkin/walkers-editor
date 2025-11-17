@@ -3,7 +3,9 @@ use super::icons;
 use super::providers::Provider;
 use crate::app::editor::cache::ElementId;
 use crate::app::osm::{Bbox, OrderedTags, TargetServer};
-use crate::app::states::{MapDownloadState, MapState, SelectionFlag, SettingsIOResult};
+#[cfg(not(target_family = "wasm"))]
+use crate::app::states::SettingsIOResult;
+use crate::app::states::{MapDownloadState, MapState, SelectionFlag};
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
@@ -709,12 +711,14 @@ impl DataViewerModal {
 	}
 }
 
+#[cfg(not(target_family = "wasm"))]
 pub enum SettingsIOErrorModalResult {
 	Quit,
 	Retry,
 	Continue,
 }
 
+#[cfg(not(target_family = "wasm"))]
 pub fn settings_io_error_modal(ctx: &Context, result: &SettingsIOResult, verb: &str, buttons: &[&str]) -> Option<SettingsIOErrorModalResult> {
 	Modal::new("settings_io_error".into()).show(ctx, |ui| {
 		let max_width = ctx.content_rect().width() * 0.8;

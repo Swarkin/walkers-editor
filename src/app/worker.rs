@@ -1,9 +1,7 @@
 use super::osm::{Bbox, OrderedTags, OsmClient, OsmResult, OsmToken, TargetServer};
 use super::osmchange::{ChangesetId, OsmChange, Tag};
-use super::states::settings;
 use osm_parser::OsmData;
 
-use crate::app::states::settings::{Config, Theme};
 #[cfg(target_family = "wasm")]
 use futures::{
 	channel::mpsc::{UnboundedReceiver as Receiver, UnboundedSender as Sender},
@@ -11,12 +9,16 @@ use futures::{
 };
 #[cfg(not(target_family = "wasm"))]
 use {
+	super::settings,
+	super::settings::{Config, Theme},
 	crossbeam_channel::{Receiver, Sender},
 	std::thread::JoinHandle,
 };
 
 pub enum Request { // box is used to keep enum size small
+	#[cfg(not(target_family = "wasm"))]
 	LoadSettings,
+	#[cfg(not(target_family = "wasm"))]
 	SaveSettings(Option<Box<Config>>, Option<Box<Theme>>),
 
 	GetMap(Box<Bbox>),
@@ -26,7 +28,9 @@ pub enum Request { // box is used to keep enum size small
 }
 
 pub enum Response {
+	#[cfg(not(target_family = "wasm"))]
 	LoadedSettings(std::io::Result<Config>, std::io::Result<Theme>),
+	#[cfg(not(target_family = "wasm"))]
 	SavedSettings(Option<std::io::Error>, Option<std::io::Error>),
 
 	Map(OsmResult<OsmData>),
@@ -49,7 +53,7 @@ impl Worker {
 	pub fn spawn(mut self, req_send: Sender<Request>, req_recv: Receiver<Request>, resp_recv: Receiver<Response>) -> WorkerHandle {
 		#[cfg(target_family = "wasm")]
 		wasm_bindgen_futures::spawn_local(async move {
-			worker.run(req_recv).await;
+			self.run(req_recv).await;
 		});
 
 		WorkerHandle {
