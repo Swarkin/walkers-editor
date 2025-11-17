@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-17 12:36+0000\n"
+"PO-Revision-Date: 2025-11-17 16:10+0000\n"
 "Last-Translator: Swarkin <***REMOVED***>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -11,3 +11,12 @@ msgstr ""
 
 msgid "example"
 msgstr "Hallo Welt"
+
+msgid "editor"
+msgstr "Editor"
+
+msgid "upload"
+msgstr "Hochladen"
+
+msgid "login"
+msgstr "Einloggen"
