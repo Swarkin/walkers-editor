@@ -1,7 +1,7 @@
 use super::is_way_closed;
 use super::r_star::*;
-use super::states::CacheFlag;
 use crate::app::icons::*;
+use crate::app::states::CacheFlag;
 use crate::{HashMap, HashSet};
 use eframe::egui::{Color32, ImageSource, Mesh, Pos2, TextureId, Vec2};
 use eframe::epaint::{Vertex, WHITE_UV};

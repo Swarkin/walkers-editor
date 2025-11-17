@@ -1,20 +1,26 @@
 use super::osm::{Bbox, OrderedTags, OsmClient, OsmResult, OsmToken, TargetServer};
+use super::osmchange::{ChangesetId, OsmChange, Tag};
 use osm_parser::OsmData;
 
-#[cfg(not(target_family = "wasm"))]
-use {
-	crossbeam_channel::{Receiver, Sender},
-	std::thread::JoinHandle,
-};
-
-use crate::app::osmchange::{ChangesetId, OsmChange, Tag};
 #[cfg(target_family = "wasm")]
 use futures::{
 	channel::mpsc::{UnboundedReceiver as Receiver, UnboundedSender as Sender},
 	stream::StreamExt,
 };
+#[cfg(not(target_family = "wasm"))]
+use {
+	super::settings,
+	super::settings::{Config, Theme},
+	crossbeam_channel::{Receiver, Sender},
+	std::thread::JoinHandle,
+};
 
 pub enum Request { // box is used to keep enum size small
+	#[cfg(not(target_family = "wasm"))]
+	LoadSettings,
+	#[cfg(not(target_family = "wasm"))]
+	SaveSettings(Option<Box<Config>>, Option<Box<Theme>>),
+
 	GetMap(Box<Bbox>),
 	SetTargetServer(TargetServer),
 	FetchToken(String),
@@ -22,6 +28,11 @@ pub enum Request { // box is used to keep enum size small
 }
 
 pub enum Response {
+	#[cfg(not(target_family = "wasm"))]
+	LoadedSettings(std::io::Result<Config>, std::io::Result<Theme>),
+	#[cfg(not(target_family = "wasm"))]
+	SavedSettings(Option<std::io::Error>, Option<std::io::Error>),
+
 	Map(OsmResult<OsmData>),
 	Token(OsmResult<OsmToken>, TargetServer),
 	UploadChangesProgress(UploadChangesProgress),
@@ -39,6 +50,20 @@ pub struct Worker {
 }
 
 impl Worker {
+	pub fn spawn(mut self, req_send: Sender<Request>, req_recv: Receiver<Request>, resp_recv: Receiver<Response>) -> WorkerHandle {
+		#[cfg(target_family = "wasm")]
+		wasm_bindgen_futures::spawn_local(async move {
+			self.run(req_recv).await;
+		});
+
+		WorkerHandle {
+			#[cfg(not(target_family = "wasm"))]
+			thread: std::thread::spawn(move || self.run(req_recv)),
+			sender: req_send,
+			receiver: resp_recv,
+		}
+	}
+
 	pub fn send_message(&self, msg: Response) {
 		#[cfg(not(target_family = "wasm"))]
 		self.sender.send(msg).unwrap();
@@ -85,6 +110,43 @@ impl Worker {
 	#[cfg(not(target_family = "wasm"))]
 	fn handle_message(&mut self, request: Request) {
 		match request {
+			Request::LoadSettings => {
+				let settings_dir = dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")));
+				if let Some(dir) = settings_dir {
+					if let Err(e) = std::fs::create_dir_all(&dir) {
+						self.send_message(Response::LoadedSettings(
+							Err(std::io::Error::other(format!("Failed to create config directory: {e}"))),
+							Err(std::io::Error::other(format!("Failed to create config directory: {e}"))),
+						));
+					} else {
+						let config = settings::load_config(&dir);
+						let theme = settings::load_theme(&dir);
+						self.send_message(Response::LoadedSettings(config, theme));
+					}
+				}
+			}
+			Request::SaveSettings(config, theme) => {
+				if config.is_none() && theme.is_none() {
+					self.send_message(Response::SavedSettings(None, None));
+					return;
+				}
+
+				let settings_dir = dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")));
+				let mut config_result = Ok(());
+				let mut theme_result = Ok(());
+
+				if let Some(dir) = settings_dir {
+					if let Some(config) = config {
+						config_result = settings::save_config(&dir, &config);
+					}
+					if let Some(theme) = theme {
+						theme_result = settings::save_theme(&dir, &theme);
+					}
+				}
+
+				self.send_message(Response::SavedSettings(config_result.err(), theme_result.err()));
+			}
+
 			Request::GetMap(bbox) => {
 				let result = self.osm_client.get_map(&bbox);
 				self.send_message(Response::Map(result));

@@ -1,9 +1,10 @@
+use super::translations;
 use crate::app::editor::Editor;
 use crate::app::osm::OrderedTags;
 use crate::app::osmchange::ChangesetId;
 use crate::app::providers::TilesKind;
 use crate::app::{
-	editor::{FillMode, Visualization},
+	editor::visual::{FillMode, Visualization},
 	osm::{OsmResult, OsmToken, TargetServer},
 	osmchange::OsmChange,
 	providers::Provider,
@@ -12,12 +13,21 @@ use crate::HashMap;
 use std::fmt::{Display, Formatter};
 use walkers::MapMemory;
 
+#[cfg(not(target_family = "wasm"))]
+pub type SettingsIOResult = (Option<std::io::Error>, Option<std::io::Error>);
+
 #[derive(Default)]
 pub struct AppState {
 	pub view: View,
+	pub language: translations::Language,
 	pub target_server_ui: TargetServer,
 	pub open_modals: u8,
 	pub top_bar_disabled: bool,
+	#[cfg(not(target_family = "wasm"))]
+	pub settings_load_result: Option<SettingsIOResult>,
+	#[cfg(not(target_family = "wasm"))]
+	pub settings_save_result: Option<SettingsIOResult>,
+	pub debug_redraw_continuously: bool,
 }
 
 #[derive(Default, PartialEq, Eq)]
@@ -213,4 +223,105 @@ pub struct AuthenticatorState {
 	pub token: HashMap<TargetServer, OsmResult<OsmToken>>,
 	pub authorization_code: String,
 	pub request_pending: bool,
+}
+
+#[cfg(not(target_family = "wasm"))]
+#[derive(Default)]
+pub enum BootState {
+	#[default] Starting,
+	Idle,
+	Saving,
+	Finished,
+}
+
+#[cfg(not(target_family = "wasm"))]
+pub mod settings {
+	use crate::app::translations;
+	use crate::app::windows::WindowBitflag;
+	use eframe::egui;
+	use serde::{Deserialize, Serialize};
+	use std::path::Path;
+
+	const CONFIG_FILE_NAME: &str = "config.toml";
+	const THEME_FILE_NAME: &str = "theme.toml";
+
+	#[derive(Default, Clone, Serialize, Deserialize)]
+	pub struct Config {
+		pub language: translations::Language,
+		pub window_flags: WindowBitflag,
+		pub scale_factor: f32,
+		pub zoom_with_ctrl: bool,
+		pub debug_redraw_continuously: bool,
+	}
+
+	#[derive(Default, Clone, Serialize, Deserialize)]
+	#[serde(rename_all = "lowercase")]
+	pub enum ThemeSetting {
+		Dark,
+		Light,
+		#[default] System,
+	}
+
+	impl From<egui::ThemePreference> for ThemeSetting {
+		fn from(value: egui::ThemePreference) -> Self {
+			match value {
+				egui::ThemePreference::Dark => Self::Dark,
+				egui::ThemePreference::Light => Self::Light,
+				egui::ThemePreference::System => Self::System,
+			}
+		}
+	}
+
+	impl From<ThemeSetting> for egui::ThemePreference {
+		fn from(value: ThemeSetting) -> Self {
+			match value {
+				ThemeSetting::Dark => Self::Dark,
+				ThemeSetting::Light => Self::Light,
+				ThemeSetting::System => Self::System,
+			}
+		}
+	}
+
+	#[derive(Default, Clone, Serialize, Deserialize)]
+	pub struct Theme {
+		pub theme: ThemeSetting,
+	}
+
+	pub fn load_config(path: &Path) -> std::io::Result<Config> {
+		let path = path.join(CONFIG_FILE_NAME);
+		let content = match std::fs::read_to_string(path) {
+			Ok(c) => c,
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Config::default()),
+			Err(e) => return Err(e),
+		};
+
+		toml::from_str(&content)
+			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+	}
+
+	pub fn load_theme(path: &Path) -> std::io::Result<Theme> {
+		let path = path.join(THEME_FILE_NAME);
+		let content = match std::fs::read_to_string(path) {
+			Ok(c) => c,
+			Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Theme::default()),
+			Err(e) => return Err(e),
+		};
+
+		toml::from_str(&content)
+			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
+	}
+
+	pub fn save_config(path: &Path, config: &Config) -> std::io::Result<()> {
+		let path = path.join(CONFIG_FILE_NAME);
+		let content = toml::to_string(config)
+			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+		std::fs::write(path, content)
+	}
+
+	pub fn save_theme(path: &Path, theme: &Theme) -> std::io::Result<()> {
+		let path = path.join(THEME_FILE_NAME);
+		let content = toml::to_string(theme)
+			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
+		std::fs::write(path, content)
+	}
 }

@@ -15,7 +15,6 @@ build = "build.rs"
 [features]
 default = ["renderer_glow"]
 debug = []
-debug_redraw_continuously = []
 kiosk = []
 renderer_glow = ["eframe/glow"]
 renderer_wgpu_gles = ["eframe/wgpu", "dep:wgpu", "wgpu/gles"]
@@ -44,6 +43,7 @@ eframe = { version = "*", default-features = false, features = ["default_fonts",
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 ureq = { version = "3.1", default-features = false, features = ["rustls", "json", "gzip"] }
 dirs = "6.0"
+toml = "0.9"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 ehttp = { version = "0.5", default-features = false, features = ["json"] }
@@ -55,6 +55,7 @@ log = "0.4"
 
 [build-dependencies]
 winresource = "0.1"
+poreader = "1.1.2"
 
 [profile.release]
 opt-level = 3
