@@ -9,11 +9,8 @@ msgstr ""
 "X-Generator: Weblate 5.15-dev\n"
 "Content-Transfer-Encoding: 8bit\n"
 
-msgid "example"
-msgstr "Hello world"
-
-msgid "editor"
-msgstr "Editor"
+msgid "edit"
+msgstr "Edit"
 
 msgid "upload"
 msgstr "Upload"

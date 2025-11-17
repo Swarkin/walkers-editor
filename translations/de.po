@@ -9,11 +9,8 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Weblate 5.15-dev\n"
 
-msgid "example"
-msgstr "Hallo Welt"
-
-msgid "editor"
-msgstr "Editor"
+msgid "edit"
+msgstr "Bearbeiten"
 
 msgid "upload"
 msgstr "Hochladen"
