@@ -1,8 +1,22 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"Content-Type: text/plain; charset=UTF-8\n"
+"PO-Revision-Date: 2025-11-17 16:10+0000\n"
+"Last-Translator: Swarkin <***REMOVED***>\n"
 "Language: en\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.15-dev\n"
+"Content-Transfer-Encoding: 8bit\n"
 
 msgid "example"
 msgstr "Hello world"
+
+msgid "editor"
+msgstr "Editor"
+
+msgid "upload"
+msgstr "Upload"
+
+msgid "login"
+msgstr "Login"
