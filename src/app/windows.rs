@@ -5,7 +5,7 @@ use crate::app::editor::cache::ElementId;
 use crate::app::osm::{Bbox, OrderedTags, TargetServer};
 #[cfg(not(target_family = "wasm"))]
 use crate::app::states::SettingsIOResult;
-use crate::app::states::{MapDownloadState, MapState, SelectionFlag};
+use crate::app::states::{settings, MapDownloadState, MapState, SelectionFlag};
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
@@ -42,6 +42,7 @@ pub enum Window {
 	Map = 1 << 1,
 	Toolbar = 1 << 2,
 	Location = 1 << 3,
+	Settings = 1 << 6,
 	#[cfg(feature = "debug")]
 	Debug = 1 << 7,
 }
@@ -53,6 +54,7 @@ impl std::fmt::Display for Window {
 			Self::Map => "Controls",
 			Self::Toolbar => "Toolbar",
 			Self::Location => "Location",
+			Self::Settings => "Settings",
 			#[cfg(feature = "debug")]
 			Self::Debug => "Debug",
 		})
@@ -61,13 +63,13 @@ impl std::fmt::Display for Window {
 
 impl Window {
 	#[cfg(not(feature = "debug"))]
-	pub const ITER: [Self; 4] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location];
+	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location, Self::Settings];
 	#[cfg(feature = "debug")]
-	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location, Self::Debug];
+	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location, Self::Settings, Self::Debug];
 }
 
-fn themed_frame(theme: egui::Theme) -> Frame {
-	if theme == egui::Theme::Dark {
+const fn themed_frame(theme: egui::Theme) -> Frame {
+	if matches!(theme, egui::Theme::Dark) {
 		TRANSPARENT_FRAME_DARK
 	} else {
 		TRANSPARENT_FRAME_LIGHT
@@ -258,7 +260,7 @@ pub fn map<'a>(
 					result = Some(MapWindowResult::ShowDataViewer);
 				}
 
-				if ui.button("Open-source Licenses").clicked() {
+				if ui.button("Open-Source Licenses").clicked() {
 					result = Some(MapWindowResult::ShowLicenses);
 				}
 			});
@@ -401,6 +403,46 @@ pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 
 			if edit_pos == pos { None } else { Some(edit_pos) }
 		})?.inner?
+}
+
+pub fn settings(ui: &Ui, app: &mut crate::app::MyApp) {
+	use super::translations;
+
+	egui::Window::new("Settings")
+		.frame(themed_frame(ui.ctx().theme()))
+		.default_size(Vec2::new(300., 200.))
+		.scroll(true)
+		.show(ui.ctx(), |ui| {
+			egui::ComboBox::from_label("Language")
+				.selected_text(format!("{:?}", &app.app_state.language))
+				.show_ui(ui, |ui| {
+					for lang in translations::Language::ITER {
+						ui.selectable_value(&mut app.app_state.language, lang, format!("{lang:?}"));
+					}
+				});
+
+			ui.separator();
+
+			ui.horizontal(|ui| {
+				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), "Reset Config"))
+					.min_size(WIDE_BUTTON_SIZE)
+					.ui(ui)
+					.clicked()
+				{
+					#[cfg(not(target_family = "wasm"))]
+					app.apply_config(settings::Config::default());
+				}
+
+				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), "Reset Theme"))
+					.min_size(WIDE_BUTTON_SIZE)
+					.ui(ui)
+					.clicked()
+				{
+					#[cfg(not(target_family = "wasm"))]
+					app.apply_theme(settings::Theme::default(), ui.ctx());
+				}
+			});
+		});
 }
 
 #[cfg(feature = "debug")]
