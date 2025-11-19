@@ -1,8 +1,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-18 22:22+0000\n"
-"Last-Translator: Swarkin <***REMOVED***>\n"
+"PO-Revision-Date: 2025-11-19 00:59+0000\n"
+"Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -35,3 +35,9 @@ msgstr "Location"
 
 msgid "debug"
 msgstr "Debug"
+
+msgid "attribution"
+msgstr "Attribution"
+
+msgid "position"
+msgstr "Position"
