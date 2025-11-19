@@ -1,11 +1,12 @@
+use super::editor::cache::ElementId;
 use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, visual::{FillMode, Visualization}, EditMode, EditOperation};
 use super::icons;
+use super::osm::{Bbox, OrderedTags, TargetServer};
 use super::providers::Provider;
-use crate::app::editor::cache::ElementId;
-use crate::app::osm::{Bbox, OrderedTags, TargetServer};
 #[cfg(not(target_family = "wasm"))]
-use crate::app::states::SettingsIOResult;
-use crate::app::states::{settings, MapDownloadState, MapState, SelectionFlag};
+use super::states::{settings, SettingsIOResult};
+use super::states::{MapDownloadState, MapState, SelectionFlag};
+use super::translations::{Translation, TranslationID};
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
@@ -41,31 +42,29 @@ pub enum Window {
 	Tags = 1 << 0,
 	Map = 1 << 1,
 	Toolbar = 1 << 2,
-	Location = 1 << 3,
+	Position = 1 << 3,
 	Settings = 1 << 6,
 	#[cfg(feature = "debug")]
 	Debug = 1 << 7,
 }
 
-impl std::fmt::Display for Window {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", match self {
-			Self::Tags => "Tags",
-			Self::Map => "Controls",
-			Self::Toolbar => "Toolbar",
-			Self::Location => "Location",
-			Self::Settings => "Settings",
-			#[cfg(feature = "debug")]
-			Self::Debug => "Debug",
-		})
-	}
-}
-
 impl Window {
 	#[cfg(not(feature = "debug"))]
-	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location, Self::Settings];
+	pub const ITER: [Self; 5] = [Self::Tags, Self::Map, Self::Toolbar, Self::Position, Self::Settings];
 	#[cfg(feature = "debug")]
-	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::Toolbar, Self::Location, Self::Settings, Self::Debug];
+	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::Toolbar, Self::Position, Self::Settings, Self::Debug];
+
+	pub const fn tr_key(self) -> TranslationID {
+		match self {
+			Self::Tags => TranslationID::Tags,
+			Self::Map => TranslationID::Map,
+			Self::Toolbar => TranslationID::Toolbar,
+			Self::Position => TranslationID::Position,
+			Self::Settings => TranslationID::Settings,
+			#[cfg(feature = "debug")]
+			Self::Debug => TranslationID::Debug,
+		}
+	}
 }
 
 const fn themed_frame(theme: egui::Theme) -> Frame {
@@ -76,8 +75,8 @@ const fn themed_frame(theme: egui::Theme) -> Frame {
 	}
 }
 
-pub fn attribution(ui: &Ui, attribution: Attribution, simple: bool) {
-	egui::Window::new("Acknowledge")
+pub fn attribution(ui: &Ui, tr: &Translation, attribution: Attribution, simple: bool) {
+	egui::Window::new("attribution")
 		.title_bar(false)
 		.auto_sized()
 		.order(Order::Background)
@@ -89,7 +88,7 @@ pub fn attribution(ui: &Ui, attribution: Attribution, simple: bool) {
 			.stroke(Stroke::NONE)
 		)
 		.show(ui.ctx(), |ui| {
-			egui::CollapsingHeader::new("Attribution").default_open(true).show(ui, |ui| {
+			egui::CollapsingHeader::new(tr[TranslationID::Attribution as usize]).default_open(true).show(ui, |ui| {
 				if simple {
 					ui.add(Hyperlink::from_label_and_url("© OpenStreetMap", ATTRIBUTION_URL).open_in_new_tab(true));
 				} else {
@@ -117,8 +116,9 @@ pub enum TagsEditKind {
 	End,
 }
 
-pub fn tags(ui: &Ui, editing_tags: &OrderedTags, edit_enabled: bool) -> Option<TagsEditKind> {
-	let resp = egui::Window::new("Tags")
+pub fn tags(ui: &Ui, tr: &Translation, editing_tags: &OrderedTags, edit_enabled: bool) -> Option<TagsEditKind> {
+	let resp = egui::Window::new(tr[TranslationID::Tags as usize])
+		.id("tags".into())
 		.collapsible(true)
 		.default_size([300., 200.])
 		.default_pos([WINDOW_MARGIN, WINDOW_MARGIN.mul_add(2., TOP_BAR_HEIGHT) + 42.])
@@ -214,7 +214,7 @@ pub fn map<'a>(
 ) -> Option<MapWindowResult> {
 	let mut result = None;
 
-	egui::Window::new("Map")
+	egui::Window::new("map")
 		.collapsible(false)
 		.resizable(false)
 		.title_bar(false)
@@ -363,8 +363,9 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, ed
 		}).unwrap().inner.unwrap()
 }
 
-pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
-	egui::Window::new("Location")
+pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<Position> {
+	egui::Window::new(tr[TranslationID::Position as usize])
+		.id("position".into())
 		.default_pos(Pos2::new(ui.available_width() / 2.0, TOP_BAR_HEIGHT + WINDOW_MARGIN))
 		.frame(themed_frame(ui.ctx().theme()))
 		.resizable(false)
@@ -405,10 +406,11 @@ pub fn location(ui: &Ui, pos: Position, zoom: f64) -> Option<Position> {
 		})?.inner?
 }
 
-pub fn settings(ui: &Ui, app: &mut crate::app::MyApp) {
+pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
 	use super::translations;
 
-	egui::Window::new("Settings")
+	egui::Window::new(tr[TranslationID::Settings as usize])
+		.id("settings".into())
 		.frame(themed_frame(ui.ctx().theme()))
 		.default_size(Vec2::new(300., 200.))
 		.scroll(true)
@@ -446,10 +448,11 @@ pub fn settings(ui: &Ui, app: &mut crate::app::MyApp) {
 }
 
 #[cfg(feature = "debug")]
-pub fn debug(ui: &Ui, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &crate::app::editor::cache::EditorOsmData) {
+pub fn debug(ui: &Ui, tr: &Translation, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &crate::app::editor::cache::EditorOsmData) {
 	use crate::app::states::CacheFlag;
 
-	egui::Window::new("Debug")
+	egui::Window::new(tr[TranslationID::Debug as usize])
+		.id("debug".into())
 		.resizable(false)
 		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {

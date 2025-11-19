@@ -30,9 +30,6 @@ msgstr "Map"
 msgid "toolbar"
 msgstr "Toolbar"
 
-msgid "location"
-msgstr "Location"
-
 msgid "debug"
 msgstr "Debug"
 

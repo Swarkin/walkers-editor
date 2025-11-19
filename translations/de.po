@@ -24,9 +24,6 @@ msgstr "Eigenschaften"
 msgid "debug"
 msgstr "Debug"
 
-msgid "location"
-msgstr ""
-
 msgid "toolbar"
 msgstr "Symbolleiste"
 

@@ -24,9 +24,6 @@ msgstr ""
 msgid "debug"
 msgstr ""
 
-msgid "location"
-msgstr ""
-
 msgid "toolbar"
 msgstr ""
 
