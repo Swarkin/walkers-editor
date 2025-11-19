@@ -1,4 +1,5 @@
 use poreader::{PoParser, PoReader};
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -18,11 +19,14 @@ fn main() {
 		"one of the renderers must be enabled"
 	);
 
+	dotenvy::dotenv().unwrap();
+
 	generate_translations().unwrap();
 
-	if std::env::var("PROFILE").unwrap() != "release" {
-		return;
-	}
+	if std::env::var("PROFILE").unwrap() != "release" { return; }
+
+	#[cfg(not(feature = "build_offline"))]
+	load_translation_credits().unwrap();
 
 	/* generate licenses text */ {
 		let output = std::process::Command::new("cargo")
@@ -64,8 +68,6 @@ fn main() {
 }
 
 fn generate_translations() -> std::io::Result<()> {
-	println!("cargo:rerun-if-changed=src/translations/");
-
 	let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
 	let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 	let tr_dir = manifest_dir.join("translations");
@@ -188,4 +190,46 @@ fn read_translation_file_names(translations_dir: &Path) -> std::io::Result<Vec<S
 	}
 
 	Ok(names)
+}
+
+fn load_translation_credits() -> Result<(), ureq::Error> {
+	#[derive(Debug, serde::Deserialize)]
+	struct User {
+		username: String,
+		change_count: u32,
+	}
+
+	let result = ureq::get("https://hosted.weblate.org/api/projects/walkers-editor/credits/")
+		.query("start", "1970-01-01T00:00:00.000Z")
+		.query("end", "2038-01-19T03:14:07.000Z")
+		.header("authorization", &format!("Bearer {}", std::env::var("WEBLATE_TOKEN").unwrap()))
+		.config().https_only(true).max_redirects(0)
+		.build().call()?
+		.into_body().read_json::<Vec<HashMap<String, Vec<User>>>>()?
+		.into_iter().map(|x| {
+			let (lang, mut users) = x.into_iter().next().unwrap();
+			if lang != "German" && lang != "English" {
+				users.retain(|x| x.username != "Swarkin");
+				users.sort_unstable_by(|x, y| y.change_count.cmp(&x.change_count));
+			}
+			(lang, users)
+		}).collect::<Vec<_>>();
+
+	let mut text = String::new();
+
+	for (lang, users) in result {
+		text.push_str(&lang);
+		text.push_str(":\n");
+		for user in users {
+			writeln!(text, " {} ({} Contributions)\n", user.username, user.change_count).unwrap();
+		}
+	}
+
+	let out_dir = std::env::var("OUT_DIR")
+		.expect("failed to get environment variable");
+
+	std::fs::write(format!("{out_dir}/translation_credits.txt"), text)
+		.expect("failed to write file");
+
+	Ok(())
 }

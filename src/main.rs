@@ -13,6 +13,9 @@ const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VE
 #[cfg(not(debug_assertions))]
 const LICENSES_TEXT: &str = include_str!(concat!(env!("OUT_DIR"), "/deps.txt"));
 
+#[cfg(not(debug_assertions))]
+const TRANSLATION_CREDITS: &str = include_str!(concat!(env!("OUT_DIR"), "/translation_credits.txt"));
+
 #[cfg(not(target_family = "wasm"))]
 fn main() -> Result<(), eframe::Error> {
 	use eframe::icon_data::from_png_bytes;

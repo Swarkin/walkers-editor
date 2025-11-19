@@ -515,7 +515,7 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 			ui.heading("Packages");
 			ui.horizontal(|ui| {
 				ui.spacing_mut().item_spacing = Vec2::ZERO;
-				ui.add(Hyperlink::from_label_and_url(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_REPOSITORY")).open_in_new_tab(true));
+				Hyperlink::from_label_and_url(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_REPOSITORY")).open_in_new_tab(true).ui(ui);
 				ui.label(" has been made possible by the following awesome open-source libraries:");
 			});
 			ui.collapsing("View package tree", |ui| {
@@ -538,9 +538,9 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 			ui.horizontal(|ui| {
 				ui.spacing_mut().item_spacing = Vec2::ZERO;
 				ui.label("All icons under ");
-				ui.add(Hyperlink::from_label_and_url("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui")).open_in_new_tab(true));
+				Hyperlink::from_label_and_url("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui")).open_in_new_tab(true).ui(ui);
 				ui.label(" are from ");
-				ui.add(Hyperlink::from_label_and_url("tabler-icons", "https://github.com/tabler/tabler-icons").open_in_new_tab(true));
+				Hyperlink::from_label_and_url("tabler-icons", "https://github.com/tabler/tabler-icons").open_in_new_tab(true).ui(ui);
 				ui.label(", licensed under the MIT license.");
 			});
 			ui.collapsing("View tabler-icons License", |ui| {
@@ -549,9 +549,28 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 					let text = include_str!("../../assets/ui/LICENSE");
 
 					#[cfg(debug_assertions)]
-					let text = "\nLicense not loaded in a debug build.\n";
+					let text = "\nLicense is not loaded in a debug build.\n";
 
 					ui.monospace(text);
+				});
+			});
+			ui.separator();
+			ui.heading("Translations");
+			ui.horizontal(|ui| {
+				ui.spacing_mut().item_spacing = Vec2::ZERO;
+				ui.label("New and existing translations are contributed to by volunteers on ");
+				Hyperlink::from_label_and_url("Weblate", "https://hosted.weblate.org/projects/walkers-editor").open_in_new_tab(true).ui(ui);
+				ui.label(".");
+			});
+			ui.collapsing("View translation statistics", |ui| {
+				egui::ScrollArea::vertical().show(ui, |ui| {
+					#[cfg(not(debug_assertions))]
+					let text = crate::TRANSLATION_CREDITS;
+
+					#[cfg(debug_assertions)]
+					let text = "\nTranslation credits are not loaded in a debug build.\n";
+
+					ui.label(text);
 				});
 			});
 		});

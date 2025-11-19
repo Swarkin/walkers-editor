@@ -233,7 +233,7 @@ impl MyApp {
 							let tiles = self.editor_state.editor.map_state.selected_provider.as_ref()
 								.map(|a| self.editor_state.tile_providers.get(a).unwrap());
 
-							windows::debug(ui, self.editor_state.editor.map_state.selected_provider.as_ref(), tiles, &self.editor_state.editor.osm_data);
+							windows::debug(ui, tr, self.editor_state.editor.map_state.selected_provider.as_ref(), tiles, &self.editor_state.editor.osm_data);
 						}
 					}
 
