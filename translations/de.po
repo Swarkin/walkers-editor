@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-17 16:10+0000\n"
-"Last-Translator: Swarkin <***REMOVED***>\n"
+"PO-Revision-Date: 2025-11-19 00:59+0000\n"
+"Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -17,3 +17,24 @@ msgstr "Hochladen"
 
 msgid "login"
 msgstr "Einloggen"
+
+msgid "tags"
+msgstr "Eigenschaften"
+
+msgid "debug"
+msgstr "Debug"
+
+msgid "toolbar"
+msgstr "Symbolleiste"
+
+msgid "settings"
+msgstr "Einstellungen"
+
+msgid "map"
+msgstr "Karte"
+
+msgid "attribution"
+msgstr "Attribution"
+
+msgid "position"
+msgstr "Position"

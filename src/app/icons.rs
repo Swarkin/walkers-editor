@@ -22,7 +22,6 @@ pub const SQUARE_X: ImageSource = include_image!("../../assets/ui/square_x.svg")
 pub const SUN: ImageSource = include_image!("../../assets/ui/sun.svg");
 pub const UPLOAD: ImageSource = include_image!("../../assets/ui/upload.svg");
 pub const USER: ImageSource = include_image!("../../assets/ui/user.svg");
-#[cfg(not(target_family = "wasm"))]
 pub const WARNING: ImageSource = include_image!("../../assets/ui/warning.svg");
 
 pub const MISC_ARROW: ImageSource = include_image!("../../assets/misc/arrow.svg");

@@ -1,4 +1,4 @@
-use poreader::{PoParser, PoReader, State};
+use poreader::{PoParser, PoReader};
 use std::fmt::Write;
 use std::fs::File;
 use std::path::{Path, PathBuf};
@@ -71,19 +71,21 @@ fn generate_translations() -> std::io::Result<()> {
 	let tr_dir = manifest_dir.join("translations");
 
 	let parser = PoParser::new();
-	let id_names = read_main_language_translations(&parser, &tr_dir);
+	let main_lang_file = open_translation_file(&parser, &tr_dir, MAIN_LANGUAGE_FILE);
+	let main_lang_id_names = read_translation_file_entries(main_lang_file);
+
 	let tr_file_names = read_translation_file_names(&tr_dir)?;
 
 	let mut s = String::new();
 
 	s.push_str("pub type Translation = [&'static str];\n\n");
 
-	s.push_str("#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize)]\n");
+	s.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]\n");
 	s.push_str("pub enum TranslationID {");
-	for id_name in &id_names {
+	for (key, _) in &main_lang_id_names {
 		s.push_str("\n\t");
 
-		let mut chars = id_name.chars();
+		let mut chars = key.chars();
 		let first = chars.next().unwrap();
 		s.push(first.to_ascii_uppercase());
 		s.push_str(chars.as_str());
@@ -92,41 +94,52 @@ fn generate_translations() -> std::io::Result<()> {
 	}
 	s.push_str("\n}\n\n");
 
-	// s.push_str("impl TranslationID {\n");
-	// write!(s, "\tpub const ITER: [Self; {}] = [", id_names.len()).unwrap();
-	// for id_name in &id_names {
-	// 	s.push_str("Self::");
-	//
-	// 	let mut chars = id_name.chars();
-	// 	let first = chars.next().unwrap();
-	// 	s.push(first.to_ascii_uppercase());
-	// 	s.push_str(chars.as_str());
-	//
-	// 	s.push_str(", ");
-	// }
-	// s.push_str("];\n}\n\n");
-
-	s.push_str("#[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]\n");
+	s.push_str("#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]\n");
 	s.push_str("pub enum Language {");
-	s.push_str("\n\t#[default] EN,");
-	for translation in &tr_file_names {
-		if translation == "en" { continue; }
+	for tr_name in &tr_file_names {
 		s.push_str("\n\t");
-		s.push_str(&translation.to_ascii_uppercase());
+		if tr_name == "en" { s.push_str("#[default] "); }
+		s.push_str(&tr_name.to_ascii_uppercase());
 		s.push(',');
 	}
-	s.push_str("\n}\n");
+	s.push_str("\n}\n\n");
+
+	s.push_str("impl Language {\n");
+	write!(s, "\tpub const ITER: [Self; {}] = [", tr_file_names.len()).unwrap();
+	for tr_name in &tr_file_names {
+		s.push_str("Self::");
+		s.push_str(&tr_name.to_ascii_uppercase());
+		s.push_str(", ");
+	}
+	s.push_str("];\n}\n\n");
+
+	s.push_str("pub static EN: &Translation = &[\n");
+	for (_, text) in &main_lang_id_names {
+		s.push_str("\t\"");
+		s.push_str(&text.replace('\"', "\\\""));
+		s.push_str("\",\n");
+	}
+	s.push_str("];\n");
 
 	for tr_name in &tr_file_names {
+		if tr_name == "en" { continue; }
+
 		write!(s, "\npub static {}: &Translation = &[\n", tr_name.to_ascii_uppercase()).unwrap();
 		let tr_file = open_translation_file(&parser, &tr_dir, &format!("{tr_name}.po"));
 
+		let mut words = main_lang_id_names.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
+
 		for unit in tr_file.map(|x| x.unwrap()) {
+			if unit.state() != poreader::State::Final { continue; }
+
+			let i = main_lang_id_names.iter().position(|(k, _)| k == unit.message().get_id()).unwrap();
+			let tr = unit.message().get_text().replace('\"', "\\\"");
+			words[i] = tr;
+		}
+
+		for word in words {
 			s.push_str("\t\"");
-			if unit.state() == State::Final {
-				let tr = unit.message().get_text().replace('\"', "\\\"");
-				s.push_str(&tr);
-			}
+			s.push_str(&word);
 			s.push_str("\",\n");
 		}
 
@@ -153,12 +166,11 @@ fn open_translation_file<'a>(parser: &'a PoParser, translations_dir: &Path, name
 	parser.parse(file).unwrap()
 }
 
-fn read_main_language_translations(parser: &PoParser, translations_dir: &Path) -> Vec<String> {
-	let main_language_file = open_translation_file(parser, translations_dir, MAIN_LANGUAGE_FILE);
+fn read_translation_file_entries(language_file: PoReader<File>) -> Vec<(String, String)> {
 	let mut id_names = vec![];
 
-	for unit in main_language_file.map(|x| x.unwrap()) {
-		id_names.push(unit.message().get_id().to_owned());
+	for unit in language_file.map(|x| x.unwrap()) {
+		id_names.push((unit.message().get_id().to_owned(), unit.message().get_text().to_owned()));
 	}
 
 	id_names

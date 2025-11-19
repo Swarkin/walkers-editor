@@ -24,6 +24,7 @@ use rustc_hash::FxHashSet;
 #[cfg(not(target_family = "wasm"))]
 use states::{settings, BootState};
 use states::{AppState, AuthenticatorState, CacheFlag, ChangesetUploadState, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
+use translations::{Translation, TranslationID as TrID};
 use walkers::{Map, MapMemory, Position};
 #[cfg(not(target_family = "wasm"))]
 use windows::SettingsIOErrorModalResult;
@@ -42,7 +43,7 @@ pub struct MyApp {
 
 // ui components
 impl MyApp {
-	fn top_bar(&mut self, ctx: &Context) {
+	fn top_bar(&mut self, ctx: &Context, tr: &Translation) {
 		TopBottomPanel::top("bar")
 			.frame(Frame {
 				fill: Color32::from_gray(if ctx.style().visuals.dark_mode { 32 } else { 243 }),
@@ -56,18 +57,16 @@ impl MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
-							if self.app_state.top_bar_disabled { ui.disable(); }
-							let tr = translations::get_translation(self.app_state.language);
 
-							let txt = tr[translations::TranslationID::Edit as usize];
-							let btn = title_bar_button(txt, prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));
+							if self.app_state.top_bar_disabled { ui.disable(); }
+
+							let btn = title_bar_button(tr[TrID::Edit as usize], prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));
 							if ui.add_enabled(self.app_state.view != View::Edit, btn).clicked() {
 								self.app_state.view = View::Edit;
 								self.uploader_state.clear_osmchange();
 							}
 
-							let txt = tr[translations::TranslationID::Upload as usize];
-							let btn = title_bar_button(txt, prepare_icon(ctx, icons::UPLOAD, ICON_SIZE));
+							let btn = title_bar_button(tr[TrID::Upload as usize], prepare_icon(ctx, icons::UPLOAD, ICON_SIZE));
 							if ui.add_enabled(self.app_state.view != View::Upload, btn).clicked() {
 								self.app_state.view = View::Upload;
 								self.uploader_state.osmchange = OsmChange::from(&self.editor_state.editor.osm_data.changes);
@@ -75,21 +74,22 @@ impl MyApp {
 								self.uploader_state.osmchange_text = self.uploader_state.osmchange.to_string_pretty().unwrap();
 							}
 
-							let txt = tr[translations::TranslationID::Login as usize];
-							let btn = title_bar_button(txt, prepare_icon(ctx, icons::USER, ICON_SIZE));
+							let btn = title_bar_button(tr[TrID::Login as usize], prepare_icon(ctx, icons::USER, ICON_SIZE));
 							if ui.add_enabled(self.app_state.view != View::Auth, btn).clicked() {
 								self.app_state.view = View::Auth;
 								self.uploader_state.clear_osmchange();
 							}
 						},
 						|ui| {
+							let tr = translations::get_translation(self.app_state.language);
 							let icon = prepare_icon(ctx, icons::LAYOUT, ICON_SIZE);
 							MenuButton::new(icon)
 								.config(MenuConfig::default().close_behavior(PopupCloseBehavior::CloseOnClickOutside))
 								.ui(ui, |ui| {
+									ui.set_min_width(100.);
 									for window in Window::ITER {
 										let mut state = self.editor_state.editor.window_flags & window as u8 == 0;
-										if ui.toggle_value(&mut state, window.to_string()).changed() {
+										if ui.toggle_value(&mut state, tr[window.tr_key() as usize]).changed() {
 											self.editor_state.editor.window_flags ^= window as u8;
 										}
 									}
@@ -107,7 +107,7 @@ impl MyApp {
 	}
 
 	#[allow(clippy::too_many_lines)]
-	fn content(&mut self, ctx: &Context) {
+	fn content(&mut self, ctx: &Context, tr: &Translation) {
 		match self.app_state.view {
 			View::Edit => {
 				// regenerate cache on zoom or resize
@@ -131,7 +131,7 @@ impl MyApp {
 				} else { Color32::from_gray(32) };
 
 				CentralPanel::default().frame(Frame::default().fill(fill)).show(ctx, |ui| {
-					self.map(ui);
+					self.map(ui, tr);
 
 					// todo: textbox mode like in iD
 					if self.editor_state.editor.window_flags & Window::Tags as u8 == 0 {
@@ -152,7 +152,7 @@ impl MyApp {
 							let (_, editing_tags) = self.editor_state.editor.edit_window.as_mut().unwrap();
 							let edit_enabled = self.editor_state.editor.mode == EditMode::Edit;
 
-							if let Some(edit_kind) = windows::tags(ui, editing_tags, edit_enabled) {
+							if let Some(edit_kind) = windows::tags(ui, tr, editing_tags, edit_enabled) {
 								match edit_kind {
 									TagsEditKind::Key(i, k) => {
 										if let Some((_, value)) = editing_tags.get_index(i).map(|(k, v)| (k.clone(), v.clone())) {
@@ -217,11 +217,15 @@ impl MyApp {
 						}
 					}
 
-					if self.editor_state.editor.window_flags & Window::Location as u8 == 0 && let Some(pos) = self.editor_state.map_memory.detached() {
-						let pos = windows::location(ui, pos, self.editor_state.map_memory.zoom());
+					if self.editor_state.editor.window_flags & Window::Position as u8 == 0 && let Some(pos) = self.editor_state.map_memory.detached() {
+						let pos = windows::position(ui, tr, pos, self.editor_state.map_memory.zoom());
 						if let Some(pos) = pos {
 							self.editor_state.map_memory.center_at(pos);
 						}
+					}
+
+					if self.editor_state.editor.window_flags & Window::Settings as u8 == 0 {
+						windows::settings(ui, tr, self);
 					}
 
 					#[cfg(feature = "debug")] {
@@ -288,10 +292,10 @@ impl MyApp {
 						}
 					});
 
+					ui.add_space(10.);
+
 					// todo: simple function to check whether authentication exists
 					if self.authenticator_state.token.get(&self.app_state.target_server_ui).is_some_and(Result::is_ok) {
-						ui.add_space(10.);
-
 						let upload_state_idle = matches!(self.uploader_state.changeset_upload.state, ChangesetUploadState::Idle);
 						let mut can_upload = upload_state_idle && !self.app_state.top_bar_disabled && !self.uploader_state.osmchange.is_empty();
 
@@ -547,13 +551,13 @@ impl MyApp {
 		}
 	}
 
-	fn map(&mut self, ui: &mut Ui) -> egui::InnerResponse<()> {
+	fn map(&mut self, ui: &mut Ui, tr: &Translation) -> egui::InnerResponse<()> {
 		let tiles = self.editor_state.editor.map_state.selected_provider.map(|x| {
 			self.editor_state.tile_providers.get_mut(&x).unwrap().as_mut()
 		});
 
 		if let Some(tiles) = &tiles {
-			windows::attribution(ui, tiles.attribution(), self.editor_state.editor.map_state.selected_provider == Some(Provider::OpenStreetMap));
+			windows::attribution(ui, tr, tiles.attribution(), self.editor_state.editor.map_state.selected_provider == Some(Provider::OpenStreetMap));
 		}
 
 		Map::new(tiles, &mut self.editor_state.map_memory, Position::new(10.216_837, 50.059_561))
@@ -564,7 +568,7 @@ impl MyApp {
 			})
 	}
 
-	fn modals(&mut self, ctx: &Context) {
+	fn modals(&mut self, ctx: &Context, _tr: &Translation) {
 		#[cfg(target_family = "wasm")] {
 			if crate::UPDATE_FLAG.load(std::sync::atomic::Ordering::Relaxed)
 				&& windows::update_modal(ctx)
@@ -637,13 +641,12 @@ impl MyApp {
 			worker_handle,
 			app_state,
 			editor_state: EditorState {
-				#[cfg(feature = "debug")]
 				editor: Editor {
+					#[cfg(feature = "debug")]
 					osm_data: EditorOsmData::default().init_debug(),
+					window_flags: Window::Tags as u8 | Window::Map as u8 | Window::Toolbar as u8 | Window::Position as u8,
 					..Default::default()
 				},
-				#[cfg(not(feature = "debug"))]
-				editor: Editor::default(),
 				map_memory: MapMemory::default(),
 				tile_providers: providers(&cc.egui_ctx, cache_dir),
 			},
@@ -812,9 +815,11 @@ impl eframe::App for MyApp {
 				});
 			}
 			BootState::Idle => {
-				self.top_bar(ctx);
-				self.content(ctx);
-				self.modals(ctx);
+				let tr = translations::get_translation(self.app_state.language);
+
+				self.top_bar(ctx, tr);
+				self.content(ctx, tr);
+				self.modals(ctx, tr);
 
 				if ctx.input(|x| x.viewport().close_requested()) {
 					ctx.send_viewport_cmd(ViewportCommand::CancelClose);
@@ -865,9 +870,11 @@ impl eframe::App for MyApp {
 		}
 
 		#[cfg(target_family = "wasm")] {
-			self.top_bar(ctx);
-			self.content(ctx);
-			self.modals(ctx);
+			let tr = translations::get_translation(self.app_state.language);
+
+			self.top_bar(ctx, tr);
+			self.content(ctx, tr);
+			self.modals(ctx, tr);
 		}
 
 		#[cfg(not(feature = "kiosk"))]

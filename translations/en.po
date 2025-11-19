@@ -1,13 +1,13 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-17 16:10+0000\n"
-"Last-Translator: Swarkin <***REMOVED***>\n"
+"PO-Revision-Date: 2025-11-19 00:59+0000\n"
+"Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
 "X-Generator: Weblate 5.15-dev\n"
-"Content-Transfer-Encoding: 8bit\n"
 
 msgid "edit"
 msgstr "Edit"
@@ -17,3 +17,24 @@ msgstr "Upload"
 
 msgid "login"
 msgstr "Login"
+
+msgid "settings"
+msgstr "Settings"
+
+msgid "tags"
+msgstr "Tags"
+
+msgid "map"
+msgstr "Map"
+
+msgid "toolbar"
+msgstr "Toolbar"
+
+msgid "debug"
+msgstr "Debug"
+
+msgid "attribution"
+msgstr "Attribution"
+
+msgid "position"
+msgstr "Position"
