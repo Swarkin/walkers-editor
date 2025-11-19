@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 00:15+0000\n"
+"PO-Revision-Date: 2025-11-19 12:48+0000\n"
 "Last-Translator: Priit Jõerüüt <jrthwlate@users.noreply.hosted.weblate.org>\n"
 "Language: et\n"
 "MIME-Version: 1.0\n"
@@ -19,16 +19,22 @@ msgid "login"
 msgstr "Logi sisse"
 
 msgid "tags"
-msgstr ""
+msgstr "Sildid"
 
 msgid "debug"
-msgstr ""
+msgstr "Veaotsing"
 
 msgid "toolbar"
-msgstr ""
+msgstr "Tööriistariba"
 
 msgid "settings"
-msgstr ""
+msgstr "Seadistused"
 
 msgid "map"
-msgstr ""
+msgstr "Kaart"
+
+msgid "attribution"
+msgstr "Autoriõigused"
+
+msgid "position"
+msgstr "Asukoht"
