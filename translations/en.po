@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-19 00:59+0000\n"
+"PO-Revision-Date: 2025-11-19 15:02+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -38,3 +38,41 @@ msgstr "Attribution"
 
 msgid "position"
 msgstr "Position"
+
+msgid "open_source_licenses"
+msgstr "Open-Source Licenses"
+
+msgid "packages"
+msgstr "Packages"
+
+msgid "packages_notice"
+msgstr "This editor has been made possible by the following awesome open-source libraries:"
+
+msgid "packages_tree"
+msgstr "View package tree"
+
+msgid "packages_deduplication"
+msgstr ""
+"Packages marked with (*) have been \"de-duplicated\".\n"
+"The dependencies for the package have already been shown elsewhere in the graph, and so are not repeated."
+
+msgid "icons"
+msgstr "Icons"
+
+msgid "icons_notice"
+msgstr "All icons under {directory} are taken from {tabler_icons_url}, licensed under the MIT license."
+
+msgid "translations"
+msgstr "Translations"
+
+msgid "translations_notice"
+msgstr "Translations are managed and can be contributed to on {weblate_url}."
+
+msgid "icons_view_license"
+msgstr "View {name} license"
+
+msgid "translations_view_statistics"
+msgstr "View translation statistics"
+
+msgid "close"
+msgstr "Close"
