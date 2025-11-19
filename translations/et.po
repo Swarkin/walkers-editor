@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 15:02+0000\n"
+"PO-Revision-Date: 2025-11-19 16:41+0000\n"
 "Last-Translator: Priit Jõerüüt <jrthwlate@users.noreply.hosted.weblate.org>\n"
 "Language: et\n"
 "MIME-Version: 1.0\n"
@@ -44,3 +44,35 @@ msgstr "Avatud lähtekoodiga tarkvara litsentsid"
 
 msgid "packages"
 msgstr "Paketid"
+
+msgid "packages_notice"
+msgstr "See kaardihaldustarvik on saanud võimalikuks muu hulgas tänu nendele avatud lähtekoodiga teekidele:"
+
+msgid "packages_tree"
+msgstr "Vaata pakettide puud"
+
+msgid "packages_deduplication"
+msgstr ""
+"Tärniga (*) märgitud pakettide puhul on topeltread eemaldatud.\n"
+"Nende pakettide sõltuvused on näidatud selles andmestikus mujal ja pole siinkohal korratud."
+
+msgid "icons"
+msgstr "Ikoonid"
+
+msgid "icons_notice"
+msgstr "Kõik {directory} kausta ikoonid on pärit {tabler_icons_url} lehelt ja litsentseeritud MIT litsentsi alusel."
+
+msgid "translations"
+msgstr "Tõlked"
+
+msgid "translations_notice"
+msgstr "Tõlkeid hallatakse ja kaastööd on võimalik teha teenuses {weblate_url}."
+
+msgid "icons_view_license"
+msgstr "Vaata litsentsi: {name}"
+
+msgid "translations_view_statistics"
+msgstr "Vaata tõlgete statistikat"
+
+msgid "close"
+msgstr "Sulge"

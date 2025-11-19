@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 00:59+0000\n"
+"PO-Revision-Date: 2025-11-19 16:41+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -38,3 +38,47 @@ msgstr "Attribution"
 
 msgid "position"
 msgstr "Position"
+
+msgid "open_source_licenses"
+msgstr "Open-Source Lizenzen"
+
+msgid "packages"
+msgstr "Pakete"
+
+msgid "packages_notice"
+msgstr "Dieser Editor wurde durch die folgenden Code-Bibliotheken möglich gemacht:"
+
+msgid "packages_tree"
+msgstr "Codebibliothekenbaum anziegen"
+
+msgid "packages_deduplication"
+msgstr ""
+"Pakete markiert mit (*) wurden \"de-dupliziert\".\n"
+"Die Abhängigkeiten für dieses Paken wurden bereits woanders im Diagramm angezeigt, und werden deshalb nicht wiederholt."
+
+msgid "icons"
+msgstr "Symbole"
+
+msgid "icons_notice"
+msgstr "Alle Symbole unter {directory} sind von {tabler_icons_url}, lizensiert under der MIT-Lizenz."
+
+msgid "translations"
+msgstr "Übersetzungen"
+
+msgid "translations_notice"
+msgstr "Übersetzungen werden mithilfe von {weblate_url} verwaltet und können dort beigetragen werden."
+
+msgid "icons_view_license"
+msgstr "{name}-Lizenz anzeigen"
+
+msgid "translations_view_statistics"
+msgstr "Übersetzungsstatistiken anzeigen"
+
+msgid "close"
+msgstr "Schließen"
+
+msgid "imagery"
+msgstr "Bilder"
+
+msgid "map_data"
+msgstr "Kartendaten"
