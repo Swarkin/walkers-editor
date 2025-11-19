@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-19 15:02+0000\n"
+"PO-Revision-Date: 2025-11-19 16:41+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -76,3 +76,9 @@ msgstr "View translation statistics"
 
 msgid "close"
 msgstr "Close"
+
+msgid "imagery"
+msgstr "Imagery"
+
+msgid "map_data"
+msgstr "Map data"
