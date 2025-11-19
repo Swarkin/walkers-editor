@@ -74,7 +74,7 @@ fn generate_translations() -> std::io::Result<()> {
 
 	let parser = PoParser::new();
 	let main_lang_file = open_translation_file(&parser, &tr_dir, MAIN_LANGUAGE_FILE);
-	let main_lang_id_names = read_translation_file_entries(main_lang_file);
+	let main_lang_entries = read_translation_file_entries(main_lang_file);
 
 	let tr_file_names = read_translation_file_names(&tr_dir)?;
 
@@ -84,14 +84,9 @@ fn generate_translations() -> std::io::Result<()> {
 
 	s.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]\n");
 	s.push_str("pub enum TranslationID {");
-	for (key, _) in &main_lang_id_names {
+	for (key, _) in &main_lang_entries {
 		s.push_str("\n\t");
-
-		let mut chars = key.chars();
-		let first = chars.next().unwrap();
-		s.push(first.to_ascii_uppercase());
-		s.push_str(chars.as_str());
-
+		s.push_str(&snake_to_pascal_case(key));
 		s.push(',');
 	}
 	s.push_str("\n}\n\n");
@@ -116,9 +111,9 @@ fn generate_translations() -> std::io::Result<()> {
 	s.push_str("];\n}\n\n");
 
 	s.push_str("pub static EN: &Translation = &[\n");
-	for (_, text) in &main_lang_id_names {
+	for (_, text) in &main_lang_entries {
 		s.push_str("\t\"");
-		s.push_str(&text.replace('\"', "\\\""));
+		s.push_str(text);
 		s.push_str("\",\n");
 	}
 	s.push_str("];\n");
@@ -129,13 +124,13 @@ fn generate_translations() -> std::io::Result<()> {
 		write!(s, "\npub static {}: &Translation = &[\n", tr_name.to_ascii_uppercase()).unwrap();
 		let tr_file = open_translation_file(&parser, &tr_dir, &format!("{tr_name}.po"));
 
-		let mut words = main_lang_id_names.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
+		let mut words = main_lang_entries.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
 
 		for unit in tr_file.map(|x| x.unwrap()) {
 			if unit.state() != poreader::State::Final { continue; }
 
-			let i = main_lang_id_names.iter().position(|(k, _)| k == unit.message().get_id()).unwrap();
-			let tr = unit.message().get_text().replace('\"', "\\\"");
+			let i = main_lang_entries.iter().position(|(k, _)| k == unit.message().get_id()).unwrap();
+			let tr = sanitize_key(unit.message().get_text());
 			words[i] = tr;
 		}
 
@@ -172,7 +167,7 @@ fn read_translation_file_entries(language_file: PoReader<File>) -> Vec<(String, 
 	let mut id_names = vec![];
 
 	for unit in language_file.map(|x| x.unwrap()) {
-		id_names.push((unit.message().get_id().to_owned(), unit.message().get_text().to_owned()));
+		id_names.push((unit.message().get_id().to_owned(), sanitize_key(unit.message().get_text())));
 	}
 
 	id_names
@@ -191,6 +186,24 @@ fn read_translation_file_names(translations_dir: &Path) -> std::io::Result<Vec<S
 
 	Ok(names)
 }
+
+fn snake_to_pascal_case(s: &str) -> String {
+	let mut result = String::new();
+	let mut capitalize_next = true;
+
+	for c in s.chars() {
+		if c == '_' {
+			capitalize_next = true;
+		} else if capitalize_next {
+         result.push(c.to_ascii_uppercase());
+         capitalize_next = false;
+      } else {
+         result.push(c);
+      }
+	}
+	result
+}
+
 
 fn load_translation_credits() -> Result<(), ureq::Error> {
 	#[derive(Debug, serde::Deserialize)]
@@ -232,4 +245,8 @@ fn load_translation_credits() -> Result<(), ureq::Error> {
 		.expect("failed to write file");
 
 	Ok(())
+}
+
+fn sanitize_key(key: &str) -> String {
+	key.replace('\"', "\\\"").replace('\n', "\\n")
 }

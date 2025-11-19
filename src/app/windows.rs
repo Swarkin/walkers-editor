@@ -6,11 +6,11 @@ use super::providers::Provider;
 #[cfg(not(target_family = "wasm"))]
 use super::states::{settings, SettingsIOResult};
 use super::states::{MapDownloadState, MapState, SelectionFlag};
-use super::translations::{Translation, TranslationID};
+use super::translations::{Translation, TranslationID as TrID};
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
-use egui::{Align2, Area, AtomExt, Button, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
+use egui::{Align2, Area, AtomExt, Button, CollapsingHeader, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
 use osm_parser::OsmData;
 use walkers::sources::Attribution;
@@ -54,15 +54,15 @@ impl Window {
 	#[cfg(feature = "debug")]
 	pub const ITER: [Self; 6] = [Self::Tags, Self::Map, Self::Toolbar, Self::Position, Self::Settings, Self::Debug];
 
-	pub const fn tr_key(self) -> TranslationID {
+	pub const fn tr_key(self) -> TrID {
 		match self {
-			Self::Tags => TranslationID::Tags,
-			Self::Map => TranslationID::Map,
-			Self::Toolbar => TranslationID::Toolbar,
-			Self::Position => TranslationID::Position,
-			Self::Settings => TranslationID::Settings,
+			Self::Tags => TrID::Tags,
+			Self::Map => TrID::Map,
+			Self::Toolbar => TrID::Toolbar,
+			Self::Position => TrID::Position,
+			Self::Settings => TrID::Settings,
 			#[cfg(feature = "debug")]
-			Self::Debug => TranslationID::Debug,
+			Self::Debug => TrID::Debug,
 		}
 	}
 }
@@ -76,7 +76,7 @@ const fn themed_frame(theme: egui::Theme) -> Frame {
 }
 
 pub fn attribution(ui: &Ui, tr: &Translation, attribution: Attribution, simple: bool) {
-	egui::Window::new("attribution")
+	egui::Window::new("attribution_window")
 		.title_bar(false)
 		.auto_sized()
 		.order(Order::Background)
@@ -88,20 +88,20 @@ pub fn attribution(ui: &Ui, tr: &Translation, attribution: Attribution, simple: 
 			.stroke(Stroke::NONE)
 		)
 		.show(ui.ctx(), |ui| {
-			egui::CollapsingHeader::new(tr[TranslationID::Attribution as usize]).default_open(true).show(ui, |ui| {
+			CollapsingHeader::new(tr[TrID::Attribution as usize]).id_salt("attr").default_open(true).show(ui, |ui| {
 				if simple {
-					ui.add(Hyperlink::from_label_and_url("© OpenStreetMap", ATTRIBUTION_URL).open_in_new_tab(true));
+					Hyperlink::from_label_and_url("© OpenStreetMap", ATTRIBUTION_URL).open_in_new_tab(true).ui(ui);
 				} else {
 					ui.horizontal(|ui| {
-						let resp = ui.label("Imagery:");
+						let resp = ui.label(tr[TrID::Imagery as usize]);
 						if let Some(logo) = attribution.logo_light {
 							ui.add(Image::new(logo).max_height(resp.rect.height()).max_width(80.0));
 						}
-						ui.add(Hyperlink::from_label_and_url(attribution.text, attribution.url).open_in_new_tab(true));
+						Hyperlink::from_label_and_url(attribution.text, attribution.url).open_in_new_tab(true).ui(ui);
 					});
 					ui.horizontal(|ui| {
-						ui.label("Map data:");
-						ui.add(Hyperlink::from_label_and_url("© OpenStreetMap", ATTRIBUTION_URL).open_in_new_tab(true));
+						ui.label(tr[TrID::MapData as usize]);
+						Hyperlink::from_label_and_url("© OpenStreetMap", ATTRIBUTION_URL).open_in_new_tab(true).ui(ui);
 					});
 				}
 			});
@@ -117,7 +117,7 @@ pub enum TagsEditKind {
 }
 
 pub fn tags(ui: &Ui, tr: &Translation, editing_tags: &OrderedTags, edit_enabled: bool) -> Option<TagsEditKind> {
-	let resp = egui::Window::new(tr[TranslationID::Tags as usize])
+	let resp = egui::Window::new(tr[TrID::Tags as usize])
 		.id("tags".into())
 		.collapsible(true)
 		.default_size([300., 200.])
@@ -364,7 +364,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, ed
 }
 
 pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<Position> {
-	egui::Window::new(tr[TranslationID::Position as usize])
+	egui::Window::new(tr[TrID::Position as usize])
 		.id("position".into())
 		.default_pos(Pos2::new(ui.available_width() / 2.0, TOP_BAR_HEIGHT + WINDOW_MARGIN))
 		.frame(themed_frame(ui.ctx().theme()))
@@ -409,7 +409,7 @@ pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<P
 pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
 	use super::translations;
 
-	egui::Window::new(tr[TranslationID::Settings as usize])
+	egui::Window::new(tr[TrID::Settings as usize])
 		.id("settings".into())
 		.frame(themed_frame(ui.ctx().theme()))
 		.default_size(Vec2::new(300., 200.))
@@ -451,7 +451,7 @@ pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
 pub fn debug(ui: &Ui, tr: &Translation, selected_provider: Option<&Provider>, provider: Option<&super::providers::TilesKind>, editor_osm_data: &crate::app::editor::cache::EditorOsmData) {
 	use crate::app::states::CacheFlag;
 
-	egui::Window::new(tr[TranslationID::Debug as usize])
+	egui::Window::new(tr[TrID::Debug as usize])
 		.id("debug".into())
 		.resizable(false)
 		.frame(themed_frame(ui.ctx().theme()))
@@ -503,22 +503,18 @@ pub fn debug(ui: &Ui, tr: &Translation, selected_provider: Option<&Provider>, pr
 		});
 }
 
-pub fn licenses_modal(ctx: &Context) -> bool {
+pub fn licenses_modal(ctx: &Context, tr: &Translation) -> bool {
 	let screen = ctx.content_rect();
 	let area = Area::new("licenses_area".into())
 		.anchor(Align2::CENTER_CENTER, Vec2::new(0.0, TOP_BAR_HEIGHT / 2.0));
 
 	Modal::new("licenses".into()).area(area).show(ctx, |ui| {
-		ui.heading("Open-Source Licenses");
+		ui.heading(tr[TrID::OpenSourceLicenses as usize]);
 		ui.separator();
 		egui::ScrollArea::vertical().max_height(screen.height() * 0.8).show(ui, |ui| {
-			ui.heading("Packages");
-			ui.horizontal(|ui| {
-				ui.spacing_mut().item_spacing = Vec2::ZERO;
-				Hyperlink::from_label_and_url(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_REPOSITORY")).open_in_new_tab(true).ui(ui);
-				ui.label(" has been made possible by the following awesome open-source libraries:");
-			});
-			ui.collapsing("View package tree", |ui| {
+			ui.heading(tr[TrID::Packages as usize]);
+			ui.label(tr[TrID::PackagesNotice as usize]);
+			CollapsingHeader::new(tr[TrID::PackagesTree as usize]).id_salt("pkg_tree").show(ui, |ui| {
 				#[cfg(not(debug_assertions))]
 				let text = egui::RichText::new(crate::LICENSES_TEXT)
 					.text_style(egui::TextStyle::Monospace);
@@ -529,21 +525,25 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 				egui::ScrollArea::vertical().show(ui, |ui| {
 					ui.label(text);
 				});
-				ui.small("Packages marked with (*) have been \"de-duplicated\".\n\
-				    The dependencies for the package have already been shown elsewhere in the graph, \
-				    and so are not repeated.");
+				ui.small(tr[TrID::PackagesDeduplication as usize]);
 			});
 			ui.separator();
-			ui.heading("Icons");
+			ui.heading(tr[TrID::Icons as usize]);
 			ui.horizontal(|ui| {
 				ui.spacing_mut().item_spacing = Vec2::ZERO;
-				ui.label("All icons under ");
-				Hyperlink::from_label_and_url("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui")).open_in_new_tab(true).ui(ui);
-				ui.label(" are from ");
-				Hyperlink::from_label_and_url("tabler-icons", "https://github.com/tabler/tabler-icons").open_in_new_tab(true).ui(ui);
-				ui.label(", licensed under the MIT license.");
+				for t in crate::app::split_tr(tr[TrID::IconsNotice as usize]) {
+					match t {
+						"{directory}" => {
+							Hyperlink::from_label_and_url("/assets/ui", format!("{}{}", env!("CARGO_PKG_REPOSITORY"), "/tree/main/assets/ui")).open_in_new_tab(true).ui(ui);
+						}
+						"{tabler_icons_url}" => {
+							Hyperlink::from_label_and_url("tabler-icons", "https://github.com/tabler/tabler-icons").open_in_new_tab(true).ui(ui);
+						}
+						t => { ui.label(t); },
+					}
+				}
 			});
-			ui.collapsing("View tabler-icons License", |ui| {
+			CollapsingHeader::new(tr[TrID::IconsViewLicense as usize].replace("{name}", "tabler-icons")).id_salt("icons_license").show(ui, |ui| {
 				egui::ScrollArea::vertical().show(ui, |ui| {
 					#[cfg(not(debug_assertions))]
 					let text = include_str!("../../assets/ui/LICENSE");
@@ -555,14 +555,19 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 				});
 			});
 			ui.separator();
-			ui.heading("Translations");
+			ui.heading(tr[TrID::Translations as usize]);
 			ui.horizontal(|ui| {
 				ui.spacing_mut().item_spacing = Vec2::ZERO;
-				ui.label("New and existing translations are contributed to by volunteers on ");
-				Hyperlink::from_label_and_url("Weblate", "https://hosted.weblate.org/projects/walkers-editor").open_in_new_tab(true).ui(ui);
-				ui.label(".");
+				for t in crate::app::split_tr(tr[TrID::TranslationsNotice as usize]) {
+					match t {
+						"{weblate_url}" => {
+							Hyperlink::from_label_and_url("Weblate", "https://hosted.weblate.org/projects/walkers-editor").open_in_new_tab(true).ui(ui);
+						}
+						t => { ui.label(t); },
+					}
+				}
 			});
-			ui.collapsing("View translation statistics", |ui| {
+			CollapsingHeader::new(tr[TrID::TranslationsViewStatistics as usize]).id_salt("tr_stats").show(ui, |ui| {
 				egui::ScrollArea::vertical().show(ui, |ui| {
 					#[cfg(not(debug_assertions))]
 					let text = crate::TRANSLATION_CREDITS;
@@ -575,7 +580,7 @@ pub fn licenses_modal(ctx: &Context) -> bool {
 			});
 		});
 		ui.add_space(4.0);
-		ui.vertical_centered_justified(|ui| ui.button("Close").clicked()).inner
+		ui.vertical_centered_justified(|ui| ui.button(tr[TrID::Close as usize]).clicked()).inner
 	}).inner
 }
 
