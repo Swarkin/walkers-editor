@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 16:41+0000\n"
+"PO-Revision-Date: 2025-11-20 20:51+0000\n"
 "Last-Translator: Priit Jõerüüt <jrthwlate@users.noreply.hosted.weblate.org>\n"
 "Language: et\n"
 "MIME-Version: 1.0\n"
@@ -76,3 +76,9 @@ msgstr "Vaata tõlgete statistikat"
 
 msgid "close"
 msgstr "Sulge"
+
+msgid "imagery"
+msgstr "Piltide ülekate"
+
+msgid "map_data"
+msgstr "Kaardiandmed"
