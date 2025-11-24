@@ -23,7 +23,7 @@ renderer_wgpu_dx12 = ["eframe/wgpu", "dep:wgpu", "wgpu/dx12"]
 renderer_disable_vsync = []
 
 [dependencies]
-walkers = { version = "0.49.0", default-features = false }
+walkers = { version = "0.50.0", default-features = false }
 eframe = { version = "*", default-features = false, features = ["default_fonts"] }
 wgpu = { version = "*", default-features = false, features = ["std", "parking_lot"], optional = true }
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
