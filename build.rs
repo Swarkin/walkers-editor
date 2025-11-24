@@ -19,9 +19,11 @@ fn main() {
 		"one of the renderers must be enabled"
 	);
 
+	let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+	let env_path = manifest_dir.join(".env");
+
 	#[allow(clippy::unnecessary_literal_unwrap)]
-	let dotenv_result = dotenvy::dotenv()
-		.map(|_| ())
+	let dotenv_result = dotenvy::from_path(env_path)
 		.or_else(|e| if e.not_found() { Ok(()) } else { Err::<(), dotenvy::Error>(e).unwrap(); Err(()) });
 
 	generate_translations().unwrap();
