@@ -19,14 +19,17 @@ fn main() {
 		"one of the renderers must be enabled"
 	);
 
-	dotenvy::dotenv().unwrap();
+	let dotenv_result = dotenvy::dotenv()
+		.map(|_| ())
+		.or_else(|e| if e.not_found() { Ok(()) } else { Err::<(), dotenvy::Error>(e).unwrap(); Err(()) });
 
 	generate_translations().unwrap();
 
 	if std::env::var("PROFILE").unwrap() != "release" { return; }
 
-	#[cfg(not(feature = "build_offline"))]
-	load_translation_credits().unwrap();
+	if dotenv_result.is_ok() {
+		load_translation_credits(cfg!(feature = "build_offline")).unwrap();
+	}
 
 	/* generate licenses text */ {
 		let output = std::process::Command::new("cargo")
@@ -205,7 +208,17 @@ fn snake_to_pascal_case(s: &str) -> String {
 }
 
 
-fn load_translation_credits() -> Result<(), ureq::Error> {
+fn load_translation_credits(offline: bool) -> Result<(), ureq::Error> {
+	let out_dir = std::env::var("OUT_DIR")
+		.expect("failed to get environment variable");
+	let path = format!("{out_dir}/translation_credits.txt");
+
+	if offline {
+		std::fs::write(path, "Translation credits are not loaded in an offline build.")
+			.expect("failed to create translation credits file in offline mode");
+		return Ok(());
+	}
+
 	#[derive(Debug, serde::Deserialize)]
 	struct User {
 		username: String,
@@ -238,11 +251,8 @@ fn load_translation_credits() -> Result<(), ureq::Error> {
 		}
 	}
 
-	let out_dir = std::env::var("OUT_DIR")
-		.expect("failed to get environment variable");
-
-	std::fs::write(format!("{out_dir}/translation_credits.txt"), text)
-		.expect("failed to write file");
+	std::fs::write(path, text)
+		.expect("failed to write translation credits file");
 
 	Ok(())
 }
