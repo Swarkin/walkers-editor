@@ -237,7 +237,7 @@ pub enum BootState {
 #[cfg(not(target_family = "wasm"))]
 pub mod settings {
 	use crate::app::translations;
-	use crate::app::windows::WindowBitflag;
+	use crate::app::windows::{Window, WindowBitflag};
 	use eframe::egui;
 	use serde::{Deserialize, Serialize};
 	use std::path::Path;
@@ -245,13 +245,25 @@ pub mod settings {
 	const CONFIG_FILE_NAME: &str = "config.toml";
 	const THEME_FILE_NAME: &str = "theme.toml";
 
-	#[derive(Default, Clone, Serialize, Deserialize)]
+	#[derive(Clone, Serialize, Deserialize)]
 	pub struct Config {
 		pub language: translations::Language,
 		pub window_flags: WindowBitflag,
 		pub scale_factor: f32,
 		pub zoom_with_ctrl: bool,
 		pub debug_redraw_continuously: bool,
+	}
+
+	impl Default for Config {
+		fn default() -> Self {
+			Self {
+				language: translations::Language::EN,
+				window_flags: Window::Map as u8 | Window::Position as u8 | Window::Tags as u8 | Window::Toolbar as u8,
+				scale_factor: 1.0,
+				zoom_with_ctrl: false,
+				debug_redraw_continuously: false,
+			}
+		}
 	}
 
 	#[derive(Default, Clone, Serialize, Deserialize)]

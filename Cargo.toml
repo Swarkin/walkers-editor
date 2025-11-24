@@ -21,6 +21,7 @@ renderer_wgpu_gles = ["eframe/wgpu", "dep:wgpu", "wgpu/gles"]
 renderer_wgpu_vulkan = ["eframe/wgpu", "dep:wgpu", "wgpu/vulkan"]
 renderer_wgpu_dx12 = ["eframe/wgpu", "dep:wgpu", "wgpu/dx12"]
 renderer_disable_vsync = []
+build_offline = []
 
 [dependencies]
 walkers = { version = "0.50.0", default-features = false }
@@ -56,6 +57,9 @@ log = "0.4"
 [build-dependencies]
 winresource = "0.1"
 poreader = "1.1.2"
+serde = { version = "1", features = ["derive"] }
+ureq = { version = "3.1", default-features = false, features = ["rustls", "json", "gzip"] }
+dotenvy = "0.15"
 
 [profile.release]
 opt-level = 3

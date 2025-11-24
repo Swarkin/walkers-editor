@@ -233,7 +233,7 @@ impl MyApp {
 							let tiles = self.editor_state.editor.map_state.selected_provider.as_ref()
 								.map(|a| self.editor_state.tile_providers.get(a).unwrap());
 
-							windows::debug(ui, self.editor_state.editor.map_state.selected_provider.as_ref(), tiles, &self.editor_state.editor.osm_data);
+							windows::debug(ui, tr, self.editor_state.editor.map_state.selected_provider.as_ref(), tiles, &self.editor_state.editor.osm_data);
 						}
 					}
 
@@ -568,7 +568,7 @@ impl MyApp {
 			})
 	}
 
-	fn modals(&mut self, ctx: &Context, _tr: &Translation) {
+	fn modals(&mut self, ctx: &Context, tr: &Translation) {
 		#[cfg(target_family = "wasm")] {
 			if crate::UPDATE_FLAG.load(std::sync::atomic::Ordering::Relaxed)
 				&& windows::update_modal(ctx)
@@ -584,7 +584,7 @@ impl MyApp {
 		}
 
 		if self.app_state.open_modals & ModalFlag::Licenses as u8 != 0
-			&& windows::licenses_modal(ctx)
+			&& windows::licenses_modal(ctx, tr)
 		{
 			self.app_state.open_modals &= !(ModalFlag::Licenses as u8);
 		}
@@ -929,4 +929,42 @@ fn status_message<T>(ui: &mut Ui, result: Option<&OsmResult<T>>, msg: &str) {
 		}
 		ui.label(msg);
 	});
+}
+
+
+fn split_tr(input: &str) -> Vec<&str> {
+	let mut result = Vec::new();
+	let mut start = 0;
+	let mut chars = input.char_indices();
+
+	while let Some((i, c)) = chars.next() {
+		if c == '{' {
+			if start < i {
+				result.push(&input[start..i]);
+			}
+
+			let mut end = None;
+
+			for (j, cj) in chars.by_ref() {
+				if cj == '}' {
+					end = Some(j);
+					break;
+				}
+			}
+
+			if let Some(j) = end {
+				result.push(&input[i..=j]);
+				start = j + 1;
+			} else {
+				result.push(&input[i..]);
+				return result;
+			}
+		}
+	}
+
+	if start < input.len() {
+		result.push(&input[start..]);
+	}
+
+	result
 }
