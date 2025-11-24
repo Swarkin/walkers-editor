@@ -19,6 +19,7 @@ fn main() {
 		"one of the renderers must be enabled"
 	);
 
+	#[allow(clippy::unnecessary_literal_unwrap)]
 	let dotenv_result = dotenvy::dotenv()
 		.map(|_| ())
 		.or_else(|e| if e.not_found() { Ok(()) } else { Err::<(), dotenvy::Error>(e).unwrap(); Err(()) });
@@ -219,6 +220,7 @@ fn load_translation_credits(offline: bool) -> Result<(), ureq::Error> {
 		return Ok(());
 	}
 
+	#[allow(clippy::items_after_statements)]
 	#[derive(Debug, serde::Deserialize)]
 	struct User {
 		username: String,
