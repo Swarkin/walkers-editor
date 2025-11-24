@@ -22,17 +22,16 @@ fn main() {
 	let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
 	let env_path = manifest_dir.join(".env");
 
-	#[allow(clippy::unnecessary_literal_unwrap)]
-	let dotenv_result = dotenvy::from_path(env_path)
-		.or_else(|e| if e.not_found() { Ok(()) } else { Err::<(), dotenvy::Error>(e).unwrap(); Err(()) });
+	let dotenv_loaded = dotenvy::from_path(env_path)
+		.map(|()| true)
+		.or_else(|e| if e.not_found() { Ok(false) } else { Err(e) })
+		.unwrap();
 
 	generate_translations().unwrap();
 
 	if std::env::var("PROFILE").unwrap() != "release" { return; }
 
-	if dotenv_result.is_ok() {
-		load_translation_credits(cfg!(feature = "build_offline")).unwrap();
-	}
+	load_translation_credits(!dotenv_loaded || cfg!(feature = "build_offline")).unwrap();
 
 	/* generate licenses text */ {
 		let output = std::process::Command::new("cargo")
