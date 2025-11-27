@@ -9,4 +9,4 @@
 
 ![preview](https://github.com/user-attachments/assets/0e4a3b0f-c050-4c17-96e8-ede416eb70ad)
 
-If you want to help out, please consider taking a look at the issues marked with the [`Help wanted`](https://github.com/Swarkin/walkers-editor/issues?q=is:issue%20state:open%20label:%22help%20wanted%22)-tag or issues [without any assignee](https://github.com/Swarkin/walkers-editor/issues?q=is%3Aissue%20state%3Aopen%20no%3Aassignee).
+If you want to help out, you can submit translations on [Weblate](https://hosted.weblate.org/projects/walkers-editor) or help with active [Issues](https://github.com/Swarkin/walkers-editor/issues) if you have coding experience.
