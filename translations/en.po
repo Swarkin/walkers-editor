@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-27 09:06+0000\n"
+"PO-Revision-Date: 2025-11-27 15:19+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -162,3 +162,30 @@ msgstr "Refresh view continuously"
 
 msgid "language"
 msgstr "Language"
+
+msgid "config"
+msgstr "Config"
+
+msgid "theme"
+msgstr "Theme"
+
+msgid "copy_error"
+msgstr "Copy Error"
+
+msgid "loading_config_failed"
+msgstr "Loading settings failed"
+
+msgid "saving_config_failed"
+msgstr "Saving settings failed"
+
+msgid "loading_success"
+msgstr "Loaded successfully."
+
+msgid "saving_success"
+msgstr "Saved successfully."
+
+msgid "loading_config_failed_text"
+msgstr "There was an error loading your settings:"
+
+msgid "saving_config_failed_text"
+msgstr "There was an error saving your settings:"
