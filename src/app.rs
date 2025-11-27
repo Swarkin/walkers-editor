@@ -252,7 +252,7 @@ impl MyApp {
 			}
 			View::Upload => {
 				SidePanel::right("changes").show(ctx, |ui| {
-					ui.heading("Changes");
+					ui.heading(tr[TrID::Changes as usize]);
 					ui.separator();
 					TableBuilder::new(ui)
 						.resizable(true)
@@ -282,12 +282,12 @@ impl MyApp {
 				CentralPanel::default().show(ctx, |ui| {
 					use egui_extras::syntax_highlighting;
 
-					ui.heading("Upload to OpenStreetMap");
-					ui.collapsing("View osmChange", |ui| {
+					ui.heading(tr[TrID::UploadToOsm as usize]);
+					CollapsingHeader::new(tr[TrID::ViewOsc as usize]).id_salt("view_osc").show(ui, |ui| {
 						ScrollArea::vertical().show(ui, |ui| {
 							syntax_highlighting::code_view_ui(ui, &syntax_highlighting::CodeTheme::from_style(ui.style()), &self.uploader_state.osmchange_text, "xml");
 						});
-						if ui.button("Copy to Clipboard").clicked() {
+						if ui.button(tr[TrID::Copy as usize]).clicked() {
 							ui.ctx().copy_text(self.uploader_state.osmchange_text.clone());
 						}
 					});
@@ -301,13 +301,13 @@ impl MyApp {
 
 						let changeset_comment_mut = self.uploader_state.changeset_upload.tags.entry("comment".into()).or_default();
 						let textedit = TextEdit::singleline(changeset_comment_mut)
-							.hint_text("Describe your changes")
+							.hint_text(tr[TrID::CsCommentPlaceholder as usize])
 							.desired_rows(4)
 							.clip_text(false);
 						ui.add_enabled(upload_state_idle, textedit);
 
 						if changeset_comment_mut.chars().count() > 255 {
-							ui.colored_label(Color32::LIGHT_RED, "Changeset comment exceeds 255 characters!");
+							ui.colored_label(Color32::LIGHT_RED, tr[TrID::CsCommentTooLong as usize]);
 							can_upload = false;
 						}
 
@@ -333,10 +333,10 @@ impl MyApp {
 						ui.add_space(10.);
 
 						if !self.uploader_state.changeset_upload.is_empty() {
-							CollapsingHeader::new("Technical info").default_open(cfg!(feature = "debug")).show(ui, |ui| {
+							CollapsingHeader::new(tr[TrID::TechnicalInfo as usize]).id_salt("cs_technical_info").default_open(cfg!(feature = "debug")).show(ui, |ui| {
 								ui.group(|ui| {
 									let result = &self.uploader_state.changeset_upload.creation;
-									status_message(ui, result.as_ref(), "Creating changeset");
+									status_message(ui, result.as_ref(), tr[TrID::CreatingChangeset as usize]);
 
 									if let Some(result) = result {
 										match result {
@@ -345,17 +345,17 @@ impl MyApp {
 												ui.monospace(&text);
 
 												ui.horizontal(|ui| {
-													if ui.button("Copy Link").clicked() {
+													if ui.button(tr[TrID::CopyLink as usize]).clicked() {
 														ctx.copy_text(format!("https://{}/changeset/{text}", self.uploader_state.changeset_upload.target_server.base_url()));
 													}
-													if ui.button("Copy ID").clicked() { ctx.copy_text(text); }
+													if ui.button(tr[TrID::CopyId as usize]).clicked() { ctx.copy_text(text); }
 												});
 											}
 											Err(e) => {
 												let text = e.to_string();
 												ui.monospace(&text);
 
-												if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+												if ui.button(tr[TrID::CopyError as usize]).clicked() { ctx.copy_text(text); }
 											}
 										}
 									}
@@ -365,20 +365,20 @@ impl MyApp {
 
 								ui.group(|ui| {
 									let result = &self.uploader_state.changeset_upload.diff_upload;
-									status_message(ui, result.as_ref(), "Uploading osmChange document");
+									status_message(ui, result.as_ref(), tr[TrID::UploadingOsc as usize]);
 
 									if let Some(result) = result {
 										match result {
 											Ok(resp) => {
 												ScrollArea::vertical().max_height(128.).show(ui, |ui| ui.monospace(resp));
 
-												if ui.button("Copy Response").clicked() { ctx.copy_text(resp.clone()); }
+												if ui.button(tr[TrID::CopyResponse as usize]).clicked() { ctx.copy_text(resp.clone()); }
 											}
 											Err(e) => {
 												let text = e.to_string();
 												ui.monospace(&text);
 
-												if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+												if ui.button(tr[TrID::CopyError as usize]).clicked() { ctx.copy_text(text); }
 											}
 										}
 									}
@@ -387,7 +387,7 @@ impl MyApp {
 								ui.add_space(10.);
 								ui.group(|ui| {
 									let result = &self.uploader_state.changeset_upload.close;
-									status_message(ui, result.as_ref(), "Closing changeset");
+									status_message(ui, result.as_ref(), tr[TrID::ClosingChangeset as usize]);
 
 									if let Some(result) = result {
 										match result {
@@ -396,7 +396,7 @@ impl MyApp {
 												let text = e.to_string();
 												ui.monospace(&text);
 
-												if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+												if ui.button(tr[TrID::CopyError as usize]).clicked() { ctx.copy_text(text); }
 											}
 										}
 									}
@@ -407,18 +407,18 @@ impl MyApp {
 						if self.uploader_state.changeset_upload.all_successful() {
 							ui.horizontal(|ui| {
 								ui.add(prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN));
-								ui.strong(RichText::new("Upload successful!").color(Color32::LIGHT_GREEN));
+								ui.strong(RichText::new(tr[TrID::UploadSuccess as usize]).color(Color32::LIGHT_GREEN));
 							});
 
 							ui.horizontal(|ui| {
 								ui.add(prepare_icon(ctx, icons::EXTERNAL, ICON_SIZE));
-								ui.add(Hyperlink::from_label_and_url("View on OSM", format!("https://{}/changeset/{}", self.uploader_state.changeset_upload.target_server.base_url(), self.uploader_state.changeset_upload.creation.as_ref().unwrap().as_ref().unwrap())).open_in_new_tab(true));
+								ui.add(Hyperlink::from_label_and_url(tr[TrID::ViewOnOsm as usize], format!("https://{}/changeset/{}", self.uploader_state.changeset_upload.target_server.base_url(), self.uploader_state.changeset_upload.creation.as_ref().unwrap().as_ref().unwrap())).open_in_new_tab(true));
 							});
 						} else if self.uploader_state.changeset_upload.any_unsuccessful() {
 							ui.horizontal(|ui| {
 								ui.add(prepare_icon_with_tint(icons::CROSS, ICON_SIZE, Color32::LIGHT_RED));
-								ui.strong(RichText::new("Upload failed!").color(Color32::LIGHT_RED));
-								ui.label("Check the technical info section for details and back up the osmChange document.");
+								ui.strong(RichText::new(tr[TrID::UploadFailed as usize]).color(Color32::LIGHT_RED));
+								ui.label(tr[TrID::UploadFailedInfo as usize]);
 								ui.add_space(5.);
 								if ui.small_button("Unlock editor (Unsafe)").clicked() { self.app_state.top_bar_disabled = false; }
 							});
@@ -444,16 +444,22 @@ impl MyApp {
 						}
 					} else {
 						ui.horizontal(|ui| {
-							ui.strong("Please login to OSM using the");
-							if ui.small_button("Auth").clicked() { self.app_state.view = View::Auth; }
-							ui.strong("tab.");
+							let text = tr[TrID::LoginNotice as usize];
+
+							if let Some((left, right)) = text.split_once("{name}") {
+								if !left.is_empty() { ui.label(left); }
+								if ui.small_button(tr[TrID::Login as usize]).clicked() { self.app_state.view = View::Auth; }
+								if !right.is_empty() { ui.label(right); }
+							} else {
+								ui.label(text);
+							}
 						});
 					}
 				});
 			}
 			View::Auth => {
 				CentralPanel::default().show(ctx, |ui| {
-					ui.heading("Login to OpenStreetMap");
+					ui.heading(tr[TrID::LoginToOsm as usize]);
 
 					if server_selector(ui, &mut self.app_state.target_server_ui) {
 						// update target server for OsmClient of worker
@@ -468,7 +474,7 @@ impl MyApp {
 						let mut logout = false;
 
 						if let Some(result) = self.authenticator_state.token.get(&self.app_state.target_server_ui) {
-							CollapsingHeader::new("Technical info").default_open(cfg!(feature = "debug")).show(ui, |ui| {
+							CollapsingHeader::new(tr[TrID::TechnicalInfo as usize]).default_open(cfg!(feature = "debug")).show(ui, |ui| {
 								status_message(ui, Some(result), "Fetch token");
 
 								match result {
@@ -476,13 +482,13 @@ impl MyApp {
 										let text = format!("{token:?}");
 										ui.monospace(&text);
 
-										if ui.button("Copy Token").clicked() { ctx.copy_text(text); }
+										if ui.button(tr[TrID::Copy as usize]).clicked() { ctx.copy_text(text); }
 									}
 									Err(e) => {
 										let text = e.to_string();
 										ui.monospace(&text);
 
-										if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+										if ui.button(tr[TrID::Copy as usize]).clicked() { ctx.copy_text(text); }
 									}
 								}
 							});
@@ -490,30 +496,30 @@ impl MyApp {
 							if result.is_ok() {
 								ui.horizontal(|ui| {
 									ui.add(prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN));
-									ui.colored_label(Color32::LIGHT_GREEN, "Login successful!");
+									ui.colored_label(Color32::LIGHT_GREEN, tr[TrID::LoginSuccess as usize]);
 								});
 
 								ui.add_space(10.);
-								if ui.add(Button::new((prepare_icon(ctx, icons::LOGOUT, ICON_SIZE), "Log out")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+								if ui.add(Button::new((prepare_icon(ctx, icons::LOGOUT, ICON_SIZE), tr[TrID::Logout as usize])).min_size(WIDE_BUTTON_SIZE)).clicked() {
 									logout = true;
 								}
 							} else {
 								ui.horizontal(|ui| {
 									ui.add(prepare_icon_with_tint(icons::CROSS, ICON_SIZE, Color32::LIGHT_RED));
-									ui.colored_label(Color32::LIGHT_RED, "Authentication failed");
+									ui.colored_label(Color32::LIGHT_RED, tr[TrID::LoginAuthFailed as usize]);
 								});
 
 								ui.add_space(10.);
-								if ui.add(Button::new((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), "Clear")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+								if ui.add(Button::new((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), tr[TrID::Clear as usize])).min_size(WIDE_BUTTON_SIZE)).clicked() {
 									logout = true;
 								}
 							}
 						} else {
-							ui.label("1. Open this URL and follow the authorization process:");
+							ui.label(tr[TrID::LoginInstruction1 as usize]);
 							ui.add(Hyperlink::new(osm::client_auth_url(self.app_state.target_server_ui)).open_in_new_tab(true));
 
 							ui.add_space(10.);
-							ui.label("2. Paste the resulting code into the field below:");
+							ui.label(tr[TrID::LoginInstruction2 as usize]);
 
 							let request_pending = self.authenticator_state.request_pending;
 							let auth_code_empty = self.authenticator_state.authorization_code.is_empty();
@@ -522,9 +528,9 @@ impl MyApp {
 							let auth_textedit_resp = ui.add_enabled(!request_pending, auth_textedit);
 
 							ui.add_space(10.);
-							ui.label("3. Login:");
+							ui.label(tr[TrID::LoginInstruction3 as usize]);
 
-							let login_button = Button::new((prepare_icon(ctx, icons::LOGIN, ICON_SIZE), "Log in")).min_size(WIDE_BUTTON_SIZE);
+							let login_button = Button::new((prepare_icon(ctx, icons::LOGIN, ICON_SIZE), tr[TrID::Login as usize])).min_size(WIDE_BUTTON_SIZE);
 							let login_button_resp = ui.add_enabled(!request_pending && !auth_code_empty, login_button);
 
 							if login_button_resp.clicked() || (auth_textedit_resp.lost_focus() && consume_key(ctx, Key::Enter, Modifiers::NONE)) {
@@ -536,7 +542,7 @@ impl MyApp {
 								ui.add_space(10.);
 								ui.horizontal(|ui| {
 									ui.spinner();
-									ui.strong("Logging in...");
+									ui.strong(tr[TrID::LoggingIn as usize]);
 								});
 							}
 						}
@@ -782,6 +788,8 @@ impl eframe::App for MyApp {
 			self.handle_message(msg, ctx);
 		}
 
+		let tr = translations::get_translation(self.app_state.language);
+
 		#[cfg(not(target_family = "wasm"))]
 		match &self.boot_state {
 			BootState::Starting => {
@@ -790,7 +798,7 @@ impl eframe::App for MyApp {
 						if result.0.is_none() && result.1.is_none() {
 							self.boot_state = BootState::Idle;
 							self.app_state.settings_load_result = None;
-						} else if let Some(resp) = windows::settings_io_error_modal(ctx, result, "Load", &["Quit", "Retry", "Use defaults"]) {
+						} else if let Some(resp) = windows::settings_io_error_modal(ctx, tr, result, false, &[tr[TrID::Quit as usize], tr[TrID::Retry as usize], tr[TrID::UseDefaults as usize]]) {
 							match resp {
 								SettingsIOErrorModalResult::Quit => {
 									self.boot_state = BootState::Finished;
@@ -809,14 +817,12 @@ impl eframe::App for MyApp {
 					} else {
 						ui.horizontal_centered(|ui| {
 							ui.spinner();
-							ui.strong("Loading settings...");
+							ui.strong(tr[TrID::LoadingSettings as usize]);
 						});
 					}
 				});
 			}
 			BootState::Idle => {
-				let tr = translations::get_translation(self.app_state.language);
-
 				self.top_bar(ctx, tr);
 				self.content(ctx, tr);
 				self.modals(ctx, tr);
@@ -837,7 +843,7 @@ impl eframe::App for MyApp {
 
 				CentralPanel::default().show(ctx, |ui| {
 					if let Some(result) = &self.app_state.settings_save_result {
-						if let Some(resp) = windows::settings_io_error_modal(ctx, result, "Sav", &["Quit without saving", "Retry saving", "Cancel"]) {
+						if let Some(resp) = windows::settings_io_error_modal(ctx, tr, result, true, &[tr[TrID::QuitWithoutSaving as usize], tr[TrID::Retry as usize], "Cancel"]) {
 							match resp {
 								SettingsIOErrorModalResult::Quit => {
 									self.boot_state = BootState::Finished;
@@ -856,14 +862,14 @@ impl eframe::App for MyApp {
 					} else {
 						ui.horizontal_centered(|ui| {
 							ui.spinner();
-							ui.strong("Saving settings...");
+							ui.strong(tr[TrID::SavingSettings as usize]);
 						});
 					}
 				});
 			}
 			BootState::Finished => {
 				CentralPanel::default().show(ctx, |ui| {
-					ui.centered_and_justified(|ui| ui.strong("Closing..."));
+					ui.centered_and_justified(|ui| ui.strong(tr[TrID::Closing as usize]));
 				});
 				return;
 			}

@@ -8,8 +8,8 @@ use super::states::{settings, SettingsIOResult};
 use super::states::{MapDownloadState, MapState, SelectionFlag};
 use super::translations::{Translation, TranslationID as TrID};
 use eframe::egui;
-use eframe::egui::ComboBox;
 use eframe::egui::scroll_area::ScrollBarVisibility;
+use eframe::egui::ComboBox;
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, CollapsingHeader, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
@@ -644,7 +644,7 @@ impl DataViewerModal {
 			ui.set_height_range(height..=height);
 
 			ui.heading(tr[TrID::DataViewer as usize]);
-			ui.label(tr[TrID::ShownElements as usize].replace("{n}", &self.cached_id_list.len().to_string()));
+			ui.label(tr[TrID::ElementsShown as usize].replace("{n}", &self.cached_id_list.len().to_string()));
 			ui.separator();
 
 			let available_height = height - 100.0;
@@ -743,11 +743,12 @@ impl DataViewerModal {
 												.replace("{lon}", &format!("{:.6}", n.pos.lon));
 
 											ui.label(&location_str);
-											if ui.button(tr[TrID::CopyPosition]).clicked() {
+											if ui.button(tr[TrID::CopyPosition as usize]).clicked() {
 												ui.ctx().copy_text(location_str);
 											}
 										}
 										ElementRef::Way(w) => {
+											#[allow(clippy::literal_string_with_formatting_args)]
 											CollapsingHeader::new(tr[TrID::NodeCount as usize].replace("{n}", &w.nodes.len().to_string()))
 												.id_salt("node_list")
 												.show(ui, |ui| {
@@ -793,43 +794,43 @@ pub enum SettingsIOErrorModalResult {
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub fn settings_io_error_modal(ctx: &Context, result: &SettingsIOResult, verb: &str, buttons: &[&str]) -> Option<SettingsIOErrorModalResult> {
+pub fn settings_io_error_modal(ctx: &Context, tr: &Translation, result: &SettingsIOResult, save: bool, buttons: &[&str]) -> Option<SettingsIOErrorModalResult> {
 	Modal::new("settings_io_error".into()).show(ctx, |ui| {
 		let max_width = ctx.content_rect().width() * 0.8;
 		ui.set_max_width(max_width);
 
 		ui.horizontal(|ui| {
 			prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_RED).ui(ui);
-			ui.heading(format!("{verb}ing settings failed"));
+			ui.heading(tr[if save { TrID::SavingConfigFailed } else { TrID::LoadingConfigFailed } as usize]);
 		});
-		ui.label(format!("There was an error {}ing your settings:", verb.to_ascii_lowercase()));
+		ui.label(tr[if save { TrID::SavingConfigFailedText } else { TrID::LoadingConfigFailedText } as usize]);
 
 		ui.add_space(4.);
 		ui.group(|ui| {
-			ui.heading("Config");
+			ui.heading(tr[TrID::Config as usize]);
 			if let Some(e) = &result.0 {
 				let text = e.to_string();
 				ui.monospace(&text);
-				if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+				if ui.button(tr[TrID::CopyError as usize]).clicked() { ctx.copy_text(text); }
 			} else {
 				ui.horizontal(|ui| {
 					prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN).ui(ui);
-					ui.label(format!("{verb}ed successfully."));
+					ui.label(tr[if save { TrID::SavingSuccess } else { TrID::LoadingSuccess} as usize]);
 				});
 			}
 		});
 
 		ui.add_space(4.);
 		ui.group(|ui| {
-			ui.heading("Theme");
+			ui.heading(tr[TrID::Theme as usize]);
 			if let Some(e) = &result.1 {
 				let text = e.to_string();
 				ui.monospace(&text);
-				if ui.button("Copy Error").clicked() { ctx.copy_text(text); }
+				if ui.button(tr[TrID::CopyError as usize]).clicked() { ctx.copy_text(text); }
 			} else {
 				ui.horizontal(|ui| {
 					prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN).ui(ui);
-					ui.label(format!("{verb}ed successfully."));
+					ui.label(tr[if save { TrID::SavingSuccess } else { TrID::LoadingSuccess} as usize]);
 				});
 			}
 		});
