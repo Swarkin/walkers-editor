@@ -788,6 +788,7 @@ impl eframe::App for MyApp {
 			self.handle_message(msg, ctx);
 		}
 
+		#[cfg(not(target_family = "wasm"))]
 		let tr = translations::get_translation(self.app_state.language);
 
 		#[cfg(not(target_family = "wasm"))]
