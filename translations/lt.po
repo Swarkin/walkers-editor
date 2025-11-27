@@ -1,2 +1,192 @@
 msgid ""
-msgstr "X-Generator: Weblate\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit"
+msgstr ""
+"PO-Revision-Date: 2025-11-27 20:48+0000\n"
+"Last-Translator: \"Echo J.\" <tcg96nougat@gmail.com>\n"
+"Language: lt\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n % 10 == 1 && (n % 100 < 11 || n % 100 > 19)) ? 0 : ((n % 10 >= 2 && n % 10 <= 9 && (n % 100 < 11 || n % 100 > 19)) ? 1 : 2);\n"
+"X-Generator: Weblate 5.15-dev\n"
+
+msgid "edit"
+msgstr "Redaguoti"
+
+msgid "upload"
+msgstr "Įkelti"
+
+msgid "login"
+msgstr "Prisijungti"
+
+msgid "settings"
+msgstr "Nustatymai"
+
+msgid "tags"
+msgstr "Žymės"
+
+msgid "map"
+msgstr "Žemėlapis"
+
+msgid "attribution"
+msgstr "Priskyrimas"
+
+msgid "position"
+msgstr "Koordinatės"
+
+msgid "open_source_licenses"
+msgstr "Atviro kodo licencijos"
+
+msgid "logout"
+msgstr "Atsijungti"
+
+msgid "login_success"
+msgstr "Prisijungimas sėkmingas"
+
+msgid "login_to_osm"
+msgstr "Prisijungti prie OpenStreetMap"
+
+msgid "login_notice"
+msgstr "Prašome prisijungti prie OpenStreetMap naudodami {name} skirtuką."
+
+msgid "upload_failed_info"
+msgstr "Žiūrėkite techninės informacijos skiltį dėl detalių ir padarykite atsarginę osmChange failo kopiją."
+
+msgid "upload_failed"
+msgstr "Įkėlimas nepavyko"
+
+msgid "view_on_osm"
+msgstr "Žiūrekite OpenStreetMap svetainėje"
+
+msgid "upload_success"
+msgstr "Įkėlimas sėkmingas"
+
+msgid "closing_changeset"
+msgstr "Uždaromas changeset'as"
+
+msgid "copy_response"
+msgstr "Kopijuoti atsakymą"
+
+msgid "uploading_osc"
+msgstr "Įkeliamas osmChange"
+
+msgid "copy_id"
+msgstr "Kopijuoti numerį"
+
+msgid "copy_link"
+msgstr "Kopijuoti nuorodą"
+
+msgid "creating_changeset"
+msgstr "Sukuriamas changeset'as"
+
+msgid "technical_info"
+msgstr "Techninė informacija"
+
+msgid "cs_comment_too_long"
+msgstr "Changeset'o komentaras ilgesnis nei 255 simbolių"
+
+msgid "cs_comment_placeholder"
+msgstr "Apibūdinkite Jūsų pakeitimus"
+
+msgid "view_osc"
+msgstr "Žiūrekite osmChange"
+
+msgid "copy"
+msgstr "Kopijuoti"
+
+msgid "upload_to_osm"
+msgstr "Įkelkite į OpenStreetMap"
+
+msgid "changes"
+msgstr "Pakeitimai"
+
+msgid "closing"
+msgstr "Uždaromas…"
+
+msgid "saving_settings"
+msgstr "Išsaugomi nustatymai…"
+
+msgid "cancel"
+msgstr "Atšaukti"
+
+msgid "quit_without_saving"
+msgstr "Išeiti be išsaugojimo"
+
+msgid "loading_settings"
+msgstr "Kraunami nustatymai…"
+
+msgid "retry"
+msgstr "Bandyti dar kartą"
+
+msgid "quit"
+msgstr "Išeiti"
+
+msgid "saving_config_failed_text"
+msgstr "Įvyko klaida išsaugojant Jūsų nustatymus:"
+
+msgid "loading_config_failed_text"
+msgstr "Įvyko klaida kraunant Jūsų nustatymus:"
+
+msgid "saving_success"
+msgstr "Išsaugota sėkmingai."
+
+msgid "loading_success"
+msgstr "Pakrauta sėkmingai."
+
+msgid "saving_config_failed"
+msgstr "Nustatymų išsaugojimas nepavyko"
+
+msgid "loading_config_failed"
+msgstr "Nustatymų krovimas nepavyko"
+
+msgid "copy_error"
+msgstr "Kopijavimo klaida"
+
+msgid "theme"
+msgstr "Tema"
+
+msgid "config"
+msgstr "Konfigūracija"
+
+msgid "language"
+msgstr "Kalba"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"{mode} režimas\n"
+"Spauskite {key} jo perjungimui"
+
+msgid "redraw_continuously"
+msgstr "Periodiškai perkrauti vaizdą"
+
+msgid "unnamed_element"
+msgstr "Nepavadintas (-a) {type}"
+
+msgid "position_lat_lon"
+msgstr "Koordinatės: {lat}, {lon}"
+
+msgid "no_element_selected"
+msgstr "Nėra pasirinkto elemento."
+
+msgid "copy_position"
+msgstr "Kopijuoti koordinates"
+
+msgid "node_count"
+msgstr "{n} taškų"
+
+msgid "timestamp"
+msgstr "Unix laikas"
+
+msgid "username"
+msgstr "Slapyvardis"
+
+msgid "changeset_id"
+msgstr "Changeset'o numeris"
+
+msgid "type"
+msgstr "Tipas"
+
+msgid "version"
+msgstr "Versija"
+
+msgid "elements_shown"
+msgstr "Rodoma {n} elementų"
