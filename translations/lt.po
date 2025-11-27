@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-27 20:48+0000\n"
+"PO-Revision-Date: 2025-11-28 21:00+0000\n"
 "Last-Translator: \"Echo J.\" <tcg96nougat@gmail.com>\n"
 "Language: lt\n"
 "MIME-Version: 1.0\n"
@@ -190,3 +190,51 @@ msgstr "Versija"
 
 msgid "elements_shown"
 msgstr "Rodoma {n} elementų"
+
+msgid "zoom_with_ctrl"
+msgstr "Didinkite su Ctrl"
+
+msgid "visualization"
+msgstr "Vizualizacija"
+
+msgid "fill_mode"
+msgstr "Užpildymo režimas"
+
+msgid "tile_provider"
+msgstr "Nuotraukų tiekėjas"
+
+msgid "key"
+msgstr "Raktas"
+
+msgid "value"
+msgstr "Reikšmė"
+
+msgid "close"
+msgstr "Uždaryti"
+
+msgid "map_data"
+msgstr "Žemėlapio duomenys"
+
+msgid "imagery"
+msgstr "Nuotraukos"
+
+msgid "translations_view_statistics"
+msgstr "Žiūrėti vertimų statusą"
+
+msgid "icons_view_license"
+msgstr "Žiūrėti {name} licenciją"
+
+msgid "translations_notice"
+msgstr "Vertimai yra valdomi ir gali būti papildomi {weblate_url} svetainėje."
+
+msgid "translations"
+msgstr "Vertimai"
+
+msgid "packages_tree"
+msgstr "Žiūrėti paketų medį"
+
+msgid "packages"
+msgstr "Paketai"
+
+msgid "toolbar"
+msgstr "Įrankinė"
