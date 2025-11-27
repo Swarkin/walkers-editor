@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-27 09:12+0000\n"
+"PO-Revision-Date: 2025-11-27 16:05+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -162,3 +162,18 @@ msgstr "Bildquelle"
 
 msgid "redraw_continuously"
 msgstr "Ansicht kontinuierlich aktualisieren"
+
+msgid "config"
+msgstr "Konfiguration"
+
+msgid "theme"
+msgstr "Farbschema"
+
+msgid "copy_error"
+msgstr "Fehler kopieren"
+
+msgid "loading_config_failed"
+msgstr "Laden der Konfiguration fehlgeschlagen"
+
+msgid "saving_config_failed"
+msgstr "Speichern der Konfiguration fehlgeschlagen"
