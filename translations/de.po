@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 16:41+0000\n"
+"PO-Revision-Date: 2025-11-27 09:10+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -82,3 +82,66 @@ msgstr "Bilder"
 
 msgid "map_data"
 msgstr "Kartendaten"
+
+msgid "reset_config"
+msgstr "Konfiguration zurücksetzen"
+
+msgid "reset_theme"
+msgstr "Farbschema zurücksetzen"
+
+msgid "key"
+msgstr "Schlüssel"
+
+msgid "value"
+msgstr "Wert"
+
+msgid "none"
+msgstr "Nichts"
+
+msgid "fill_mode"
+msgstr "Füllmodus"
+
+msgid "visualization"
+msgstr "Visualisierung"
+
+msgid "data_viewer"
+msgstr "Datenanzeige"
+
+msgid "zoom_with_ctrl"
+msgstr "Mit Strg zoomen"
+
+msgid "scale_factor"
+msgstr "Skalierungsfaktor"
+
+msgid "elements_shown"
+msgstr "Zeigt {n} Elemente"
+
+msgid "version"
+msgstr "Version"
+
+msgid "type"
+msgstr "Typ"
+
+msgid "id"
+msgstr "ID"
+
+msgid "changeset_id"
+msgstr "Änderungssatz-ID"
+
+msgid "username"
+msgstr "Benutzername"
+
+msgid "timestamp"
+msgstr "Zeitstempel"
+
+msgid "node_count"
+msgstr "{n} Punkte"
+
+msgid "copy_position"
+msgstr "Position kopieren"
+
+msgid "no_element_selected"
+msgstr "Kein Element ausgewählt."
+
+msgid "position_lat_lon"
+msgstr "Position: {lat}, {lon}"
