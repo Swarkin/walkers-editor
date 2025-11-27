@@ -258,7 +258,7 @@ pub mod settings {
 		fn default() -> Self {
 			Self {
 				language: translations::Language::EN,
-				window_flags: Window::Map as u8 | Window::Position as u8 | Window::Tags as u8 | Window::Toolbar as u8,
+				window_flags: Window::Settings as u8,
 				scale_factor: 1.0,
 				zoom_with_ctrl: false,
 				debug_redraw_continuously: false,

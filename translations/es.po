@@ -1,0 +1,191 @@
+msgid ""
+msgstr ""
+"PO-Revision-Date: 2025-11-27 18:20+0000\n"
+"Last-Translator: ooosssay <ydoUkill2@gmail.com>\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.15-dev\n"
+
+msgid "edit"
+msgstr "Editar"
+
+msgid "upload"
+msgstr "Subir"
+
+msgid "login"
+msgstr "Iniciar sesión"
+
+msgid "settings"
+msgstr "Ajustes"
+
+msgid "tags"
+msgstr "Etiquetas"
+
+msgid "map"
+msgstr "Mapa"
+
+msgid "toolbar"
+msgstr "Barra de Herramientas"
+
+msgid "debug"
+msgstr "Depurar"
+
+msgid "attribution"
+msgstr "Atribución"
+
+msgid "position"
+msgstr "Posición"
+
+msgid "open_source_licenses"
+msgstr "Licencias de código abierto"
+
+msgid "packages"
+msgstr "Paquetes"
+
+msgid "packages_notice"
+msgstr "Este editor ha sido posible gracias a las siguientes increíbles bibliotecas de código abierto:"
+
+msgid "packages_tree"
+msgstr "Ver árbol de paquetes"
+
+msgid "packages_deduplication"
+msgstr ""
+"Los paquetes marcados con (*) han sido \"desduplicados\".\n"
+"Las dependencias del paquete ya se han mostrado en otra parte del gráfico y, por lo tanto, no se repiten."
+
+msgid "icons"
+msgstr "Iconos"
+
+msgid "icons_notice"
+msgstr "Todos los iconos en {directory} se han obtenido de {tabler_icons_url}, bajo la licencia MIT."
+
+msgid "translations"
+msgstr "Traducciones"
+
+msgid "translations_notice"
+msgstr "Las traducciones se gestionan y se pueden contribuir en {weblate_url}."
+
+msgid "icons_view_license"
+msgstr "Ver licencia de {name}"
+
+msgid "translations_view_statistics"
+msgstr "Ver estadísticas de traducción"
+
+msgid "close"
+msgstr "Cerrar"
+
+msgid "imagery"
+msgstr "Imágenes"
+
+msgid "map_data"
+msgstr "Datos del mapa"
+
+msgid "reset_config"
+msgstr "Restablecer configuración"
+
+msgid "reset_theme"
+msgstr "Restablecer tema"
+
+msgid "key"
+msgstr "Clave"
+
+msgid "value"
+msgstr "Valor"
+
+msgid "tile_provider"
+msgstr "Proveedor de mosaicos"
+
+msgid "none"
+msgstr "Ninguno"
+
+msgid "fill_mode"
+msgstr "Modo de relleno"
+
+msgid "visualization"
+msgstr "Visualización"
+
+msgid "data_viewer"
+msgstr "Visor de datos"
+
+msgid "zoom_with_ctrl"
+msgstr "Zoom con Ctrl"
+
+msgid "scale_factor"
+msgstr "Factor de escala"
+
+msgid "elements_shown"
+msgstr "Mostrando {n} elementos"
+
+msgid "version"
+msgstr "Versión"
+
+msgid "type"
+msgstr "Tipo"
+
+msgid "id"
+msgstr "ID"
+
+msgid "changeset_id"
+msgstr "ID del conjunto de cambios"
+
+msgid "username"
+msgstr "Nombre de usuario"
+
+msgid "timestamp"
+msgstr "Marca de tiempo"
+
+msgid "node_count"
+msgstr "{n} Nodos"
+
+msgid "copy_position"
+msgstr "Copiar Posición"
+
+msgid "no_element_selected"
+msgstr "Ningún elemento seleccionado."
+
+msgid "position_lat_lon"
+msgstr "Posición: {lat}, {lon}"
+
+msgid "unnamed_element"
+msgstr "{type} sin nombre"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"Modo {mode}\n"
+"Pulsa {key} para alternar"
+
+msgid "redraw_continuously"
+msgstr "Actualizar vista continuamente"
+
+msgid "language"
+msgstr "Idioma"
+
+msgid "config"
+msgstr "Configuración"
+
+msgid "theme"
+msgstr "Tema"
+
+msgid "copy_error"
+msgstr "Error de copia"
+
+msgid "loading_config_failed"
+msgstr "Error al cargar la configuración"
+
+msgid "saving_config_failed"
+msgstr "Error al guardar la configuración"
+
+msgid "loading_success"
+msgstr "Cargado correctamente."
+
+msgid "saving_success"
+msgstr "Guardado correctamente."
+
+msgid "loading_config_failed_text"
+msgstr "Hubo un error al cargar su configuración:"
+
+msgid "saving_config_failed_text"
+msgstr "Hubo un error al guardar su configuración:"

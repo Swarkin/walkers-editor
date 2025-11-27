@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-19 16:41+0000\n"
+"PO-Revision-Date: 2025-11-27 18:20+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -82,3 +82,215 @@ msgstr "Imagery"
 
 msgid "map_data"
 msgstr "Map data"
+
+msgid "reset_config"
+msgstr "Reset Config"
+
+msgid "reset_theme"
+msgstr "Reset Theme"
+
+msgid "key"
+msgstr "Key"
+
+msgid "value"
+msgstr "Value"
+
+msgid "tile_provider"
+msgstr "Tile Provider"
+
+msgid "none"
+msgstr "None"
+
+msgid "fill_mode"
+msgstr "Fill Mode"
+
+msgid "visualization"
+msgstr "Visualization"
+
+msgid "data_viewer"
+msgstr "Data Viewer"
+
+msgid "zoom_with_ctrl"
+msgstr "Zoom with Ctrl"
+
+msgid "scale_factor"
+msgstr "Scale factor"
+
+msgid "elements_shown"
+msgstr "Showing {n} elements"
+
+msgid "version"
+msgstr "Version"
+
+msgid "type"
+msgstr "Type"
+
+msgid "id"
+msgstr "ID"
+
+msgid "changeset_id"
+msgstr "Changeset ID"
+
+msgid "username"
+msgstr "Username"
+
+msgid "timestamp"
+msgstr "Timestamp"
+
+msgid "node_count"
+msgstr "{n} Nodes"
+
+msgid "copy_position"
+msgstr "Copy Position"
+
+msgid "no_element_selected"
+msgstr "No element selected."
+
+msgid "position_lat_lon"
+msgstr "Position: {lat}, {lon}"
+
+msgid "unnamed_element"
+msgstr "Unnamed {type}"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"{mode} mode\n"
+"Press {key} to toggle"
+
+msgid "redraw_continuously"
+msgstr "Refresh view continuously"
+
+msgid "language"
+msgstr "Language"
+
+msgid "config"
+msgstr "Config"
+
+msgid "theme"
+msgstr "Theme"
+
+msgid "copy_error"
+msgstr "Copy Error"
+
+msgid "loading_config_failed"
+msgstr "Loading settings failed"
+
+msgid "saving_config_failed"
+msgstr "Saving settings failed"
+
+msgid "loading_success"
+msgstr "Loaded successfully."
+
+msgid "saving_success"
+msgstr "Saved successfully."
+
+msgid "loading_config_failed_text"
+msgstr "There was an error loading your settings:"
+
+msgid "saving_config_failed_text"
+msgstr "There was an error saving your settings:"
+
+msgid "quit"
+msgstr "Quit"
+
+msgid "retry"
+msgstr "Retry"
+
+msgid "use_defaults"
+msgstr "Use defaults"
+
+msgid "loading_settings"
+msgstr "Loading settings…"
+
+msgid "quit_without_saving"
+msgstr "Quit without saving"
+
+msgid "cancel"
+msgstr "Cancel"
+
+msgid "saving_settings"
+msgstr "Saving settings…"
+
+msgid "closing"
+msgstr "Closing…"
+
+msgid "changes"
+msgstr "Changes"
+
+msgid "upload_to_osm"
+msgstr "Upload to OpenStreetMap"
+
+msgid "copy"
+msgstr "Copy"
+
+msgid "view_osc"
+msgstr "View osmChange"
+
+msgid "cs_comment_placeholder"
+msgstr "Describe your changes"
+
+msgid "cs_comment_too_long"
+msgstr "Changeset comment exceeds 255 characters"
+
+msgid "technical_info"
+msgstr "Technical info"
+
+msgid "creating_changeset"
+msgstr "Creating changeset"
+
+msgid "copy_link"
+msgstr "Copy Link"
+
+msgid "copy_id"
+msgstr "Copy ID"
+
+msgid "uploading_osc"
+msgstr "Uploading osmChange"
+
+msgid "copy_response"
+msgstr "Copy Response"
+
+msgid "closing_changeset"
+msgstr "Closing changeset"
+
+msgid "upload_success"
+msgstr "Upload successful"
+
+msgid "view_on_osm"
+msgstr "View on OpenStreetMap"
+
+msgid "upload_failed"
+msgstr "Upload failed"
+
+msgid "upload_failed_info"
+msgstr "Check the technical info section for details and back up the osmChange document."
+
+msgid "login_notice"
+msgstr "Please log in to OpenStreetMap using the {name} tab."
+
+msgid "login_to_osm"
+msgstr "Login to OpenStreetMap"
+
+msgid "login_success"
+msgstr "Login successful"
+
+msgid "logout"
+msgstr "Log out"
+
+msgid "clear"
+msgstr "Clear"
+
+msgid "login_auth_failed"
+msgstr "Authentication failed"
+
+msgid "logging_in"
+msgstr "Logging in…"
+
+msgid "login_instruction_1"
+msgstr "1. Open this URL and follow the authorization process:"
+
+msgid "login_instruction_2"
+msgstr "2. Paste the resulting code into the field below:"
+
+msgid "login_instruction_3"
+msgstr "3. Login:"
