@@ -195,7 +195,7 @@ impl MyApp {
 					if self.editor_state.editor.window_flags & Window::Map as u8 == 0 {
 						let prev_fill_mode = self.editor_state.editor.map_state.selected_fill_mode;
 
-						if let Some(result) = windows::map(ui, &mut self.editor_state.editor.map_state, &mut self.editor_state.tile_providers.keys()) {
+						if let Some(result) = windows::map(ui, tr, &mut self.editor_state.editor.map_state, &mut self.editor_state.tile_providers.keys()) {
 							match result {
 								MapWindowResult::ShowLicenses => self.app_state.open_modals |= ModalFlag::Licenses as u8,
 								MapWindowResult::ShowDataViewer => self.app_state.open_modals |= ModalFlag::DataViewer as u8,
@@ -209,7 +209,7 @@ impl MyApp {
 
 					if self.editor_state.editor.window_flags & Window::Toolbar as u8 == 0 {
 						#[allow(clippy::collapsible_if)]
-						if windows::toolbar(ui, &mut self.editor_state.editor.map_state, &mut self.editor_state.editor.mode, &mut self.editor_state.editor.operation, &self.editor_state.editor.map_bbox) {
+						if windows::toolbar(ui, tr, &mut self.editor_state.editor.map_state, &mut self.editor_state.editor.mode, &mut self.editor_state.editor.operation, &self.editor_state.editor.map_bbox) {
 							let request = Request::GetMap(Box::new(self.editor_state.editor.map_bbox.clone()));
 							self.worker_handle.send_message(request);
 
@@ -564,7 +564,7 @@ impl MyApp {
 			.zoom_with_ctrl(self.editor_state.editor.map_state.zoom_with_ctrl)
 			.drag_pan_buttons(DragPanButtons::PRIMARY | DragPanButtons::MIDDLE | DragPanButtons::SECONDARY)
 			.show(ui, |ui, response, projector, map_memory| {
-				self.editor_state.editor.run(ui, response, projector, map_memory);
+				self.editor_state.editor.run(ui, response, projector, map_memory, tr);
 			})
 	}
 
@@ -594,7 +594,7 @@ impl MyApp {
 				self.editor_state.editor.data_viewer = Some(DataViewerModal::new(&self.editor_state.editor.osm_data.data));
 			} else {
 				let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
-				if data_viewer.show(ctx, &self.editor_state.editor.osm_data.data) {
+				if data_viewer.show(ctx, tr, &self.editor_state.editor.osm_data.data) {
 					self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
 					self.editor_state.editor.data_viewer = None;
 				}

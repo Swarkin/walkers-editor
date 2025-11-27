@@ -8,6 +8,7 @@ use super::states::{settings, SettingsIOResult};
 use super::states::{MapDownloadState, MapState, SelectionFlag};
 use super::translations::{Translation, TranslationID as TrID};
 use eframe::egui;
+use eframe::egui::ComboBox;
 use eframe::egui::scroll_area::ScrollBarVisibility;
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, CollapsingHeader, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
@@ -126,7 +127,7 @@ pub fn tags(ui: &Ui, tr: &Translation, editing_tags: &OrderedTags, edit_enabled:
 		.scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden) // workaround for infinite window grow
 		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
-			let result = tag_editor_ui(ui, editing_tags, edit_enabled);
+			let result = tag_editor_ui(ui, tr, editing_tags, edit_enabled);
 			ui.allocate_space(Vec2::new(0., ui.available_height()));
 			result
 		}).unwrap();
@@ -134,7 +135,7 @@ pub fn tags(ui: &Ui, tr: &Translation, editing_tags: &OrderedTags, edit_enabled:
 	resp.inner?
 }
 
-pub fn tag_editor_ui(ui: &mut Ui, editing_tags: &OrderedTags, edit_enabled: bool) -> Option<TagsEditKind> {
+pub fn tag_editor_ui(ui: &mut Ui, tr: &Translation, editing_tags: &OrderedTags, edit_enabled: bool) -> Option<TagsEditKind> {
 	let mut change = None;
 
 	TableBuilder::new(ui)
@@ -143,8 +144,8 @@ pub fn tag_editor_ui(ui: &mut Ui, editing_tags: &OrderedTags, edit_enabled: bool
 		.column(Column::initial(100.0).clip(true))
 		.column(Column::remainder().clip(true))
 		.header(16., |mut header| {
-			header.col(|ui| { ui.strong("Key"); });
-			header.col(|ui| { ui.strong("Value"); });
+			header.col(|ui| { ui.strong(tr[TrID::Key as usize]); });
+			header.col(|ui| { ui.strong(tr[TrID::Value as usize]); });
 		})
 		.body(|body| {
 			if edit_enabled {
@@ -207,11 +208,7 @@ pub enum MapWindowResult {
 }
 
 // Returns whether the licenses button was pressed
-pub fn map<'a>(
-	ui: &Ui,
-	map_state: &mut MapState,
-	providers: &mut impl Iterator<Item=&'a Provider>,
-) -> Option<MapWindowResult> {
+pub fn map<'a>(ui: &Ui, tr: &Translation, map_state: &mut MapState, providers: &mut impl Iterator<Item=&'a Provider>) -> Option<MapWindowResult> {
 	let mut result = None;
 
 	egui::Window::new("map")
@@ -222,11 +219,11 @@ pub fn map<'a>(
 		.anchor(Align2::RIGHT_BOTTOM, [-WINDOW_MARGIN, -WINDOW_MARGIN])
 		.frame(themed_frame(ui.ctx().theme()))
 		.show(ui.ctx(), |ui| {
-			ui.collapsing("Map", |ui| {
+			CollapsingHeader::new(tr[TrID::Map as usize]).id_salt("map_settings").show(ui, |ui| {
 				let text = map_state.selected_provider
-					.map_or_else(|| "None".into(), |provider| format!("{provider:?}"));
+					.map_or_else(|| tr[TrID::None as usize].into(), |provider| format!("{provider:?}"));
 
-				egui::ComboBox::from_label("Tile Provider")
+				ComboBox::from_label(tr[TrID::TileProvider as usize])
 					.selected_text(text)
 					.show_ui(ui, |ui| {
 						for p in providers {
@@ -237,7 +234,7 @@ pub fn map<'a>(
 						}
 					});
 
-				egui::ComboBox::from_label("Fill Mode")
+				ComboBox::new("fill_mode", tr[TrID::FillMode as usize])
 					.selected_text(format!("{:?}", map_state.selected_fill_mode))
 					.show_ui(ui, |ui| {
 						for fill_mode in FillMode::ITER {
@@ -245,7 +242,7 @@ pub fn map<'a>(
 						}
 					});
 
-				egui::ComboBox::from_label("Visualization")
+				ComboBox::new("visualization", tr[TrID::Visualization as usize])
 					.selected_text(format!("{:?}", map_state.selected_visualization))
 					.show_ui(ui, |ui| {
 						for visualization in Visualization::ITER {
@@ -253,14 +250,14 @@ pub fn map<'a>(
 						}
 					});
 
-				ui.add(egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text("Scale factor"));
-				ui.checkbox(&mut map_state.zoom_with_ctrl, "Zoom with Ctrl");
+				egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text(tr[TrID::ScaleFactor as usize]).ui(ui);
+				ui.checkbox(&mut map_state.zoom_with_ctrl, tr[TrID::ZoomWithCtrl as usize]);
 
-				if ui.button("Data Viewer").clicked() {
+				if ui.button(tr[TrID::DataViewer as usize]).clicked() {
 					result = Some(MapWindowResult::ShowDataViewer);
 				}
 
-				if ui.button("Open-Source Licenses").clicked() {
+				if ui.button(tr[TrID::OpenSourceLicenses as usize]).clicked() {
 					result = Some(MapWindowResult::ShowLicenses);
 				}
 			});
@@ -270,14 +267,15 @@ pub fn map<'a>(
 }
 
 // Returns whether a download was triggered
-pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, editor_operation: &mut EditOperation, map_bbox: &Bbox) -> bool {
+pub fn toolbar(ui: &mut Ui, tr: &Translation, state: &mut MapState, editor_mode: &mut EditMode, editor_operation: &mut EditOperation, map_bbox: &Bbox) -> bool {
 	let top_left = Pos2::from([WINDOW_MARGIN, TOP_BAR_HEIGHT + WINDOW_MARGIN]);
 	let frame = themed_frame(ui.ctx().theme())
 		.corner_radius(CornerRadius { ne: 6, nw: 0, se: 6, sw: 0 });
 	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, frame.total_margin().top.mul_add(2., 24. + 4.)));
 
 	// Draw mode indicator
-	if ui.allocate_rect(rect, Sense::click()).on_hover_text(format!("{editor_mode} mode\nPress Space to toggle")).clicked() {
+	let tooltip = tr[TrID::EditModeTooltip as usize].replace("{mode}", &editor_mode.to_string()).replace("{key}", &format!("{:?}", Key::Space));
+	if ui.allocate_rect(rect, Sense::click()).on_hover_text(tooltip).clicked() {
 		*editor_mode = match editor_mode {
 			EditMode::View => EditMode::Edit,
 			EditMode::Edit => EditMode::View,
@@ -286,7 +284,7 @@ pub fn toolbar(ui: &mut Ui, state: &mut MapState, editor_mode: &mut EditMode, ed
 	ui.painter().rect_filled(rect, CornerRadius::ZERO, editor_mode.color());
 
 	// Draw toolbar
-	egui::Window::new("Toolbar")
+	egui::Window::new("toolbar")
 		.title_bar(false)
 		.resizable(false)
 		.anchor(Align2::LEFT_TOP, top_left.to_vec2() + Vec2::new(MODE_INDICATOR_WIDTH, 0.0))
@@ -415,7 +413,7 @@ pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
 		.default_size(Vec2::new(300., 200.))
 		.scroll(true)
 		.show(ui.ctx(), |ui| {
-			egui::ComboBox::from_label("Language")
+			ComboBox::new("language", tr[TrID::Language as usize])
 				.selected_text(format!("{:?}", &app.app_state.language))
 				.show_ui(ui, |ui| {
 					for lang in translations::Language::ITER {
@@ -423,12 +421,12 @@ pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
 					}
 				});
 
-			ui.checkbox(&mut app.app_state.debug_redraw_continuously, "Redraw Continuously");
+			ui.checkbox(&mut app.app_state.debug_redraw_continuously, tr[TrID::RedrawContinuously as usize]);
 
 			ui.separator();
 
 			ui.horizontal(|ui| {
-				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), "Reset Config"))
+				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetConfig as usize]))
 					.min_size(WIDE_BUTTON_SIZE)
 					.ui(ui)
 					.clicked()
@@ -437,7 +435,7 @@ pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
 					app.apply_config(settings::Config::default());
 				}
 
-				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), "Reset Theme"))
+				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetTheme as usize]))
 					.min_size(WIDE_BUTTON_SIZE)
 					.ui(ui)
 					.clicked()
@@ -633,7 +631,7 @@ impl DataViewerModal {
 	}
 
 	#[allow(clippy::too_many_lines)]
-	pub fn show(&mut self, ctx: &Context, osm: &OsmData) -> bool {
+	pub fn show(&mut self, ctx: &Context, tr: &Translation, osm: &OsmData) -> bool {
 		let screen = ctx.content_rect();
 		let width = screen.width() * 0.8;
 		let height = screen.height() * 0.6;
@@ -645,8 +643,8 @@ impl DataViewerModal {
 			ui.set_width_range(width..=width);
 			ui.set_height_range(height..=height);
 
-			ui.heading("Data View");
-			ui.label(format!("Showing {} elements", self.cached_id_list.len()));
+			ui.heading(tr[TrID::DataViewer as usize]);
+			ui.label(tr[TrID::ShownElements as usize].replace("{n}", &self.cached_id_list.len().to_string()));
 			ui.separator();
 
 			let available_height = height - 100.0;
@@ -662,8 +660,8 @@ impl DataViewerModal {
 						.column(Column::exact(40.0).clip(true))
 						.column(Column::exact(120.0).clip(true))
 						.header(18.0, |mut header| {
-							header.col(|ui| { ui.strong("Type"); });
-							header.col(|ui| { ui.strong("ID"); });
+							header.col(|ui| { ui.strong(tr[TrID::Type as usize]); });
+							header.col(|ui| { ui.strong(tr[TrID::Id as usize]); });
 						})
 						.body(|body| {
 							body.rows(18.0, self.cached_id_list.len(), |mut row| {
@@ -715,43 +713,48 @@ impl DataViewerModal {
 
 									if *id > 0 {
 										ui.horizontal(|ui| {
-											ui.add(prepare_icon(ctx, icons::COMMIT, ICON_SIZE)).on_hover_text_at_pointer("Version");
+											ui.add(prepare_icon(ctx, icons::COMMIT, ICON_SIZE)).on_hover_text_at_pointer(tr[TrID::Version as usize]);
 											ui.monospace(element.version().to_string());
 										});
 										ui.horizontal(|ui| {
-											ui.add(prepare_icon(ctx, icons::HASHTAG, ICON_SIZE)).on_hover_text_at_pointer("Changeset ID");
+											ui.add(prepare_icon(ctx, icons::HASHTAG, ICON_SIZE)).on_hover_text_at_pointer(tr[TrID::ChangesetId as usize]);
 											ui.add(Hyperlink::from_label_and_url(
 												WidgetText::Text(element.changeset().to_string()).monospace(),
 												format!("https://{}/{}", TargetServer::OpenStreetMap.base_changeset_url(), element.changeset())
 											).open_in_new_tab(true));
 										});
 										ui.horizontal(|ui| {
-											ui.add(prepare_icon(ctx, icons::USER, ICON_SIZE)).on_hover_text_at_pointer("Username");
+											ui.add(prepare_icon(ctx, icons::USER, ICON_SIZE)).on_hover_text_at_pointer(tr[TrID::Username as usize]);
 											ui.add(Hyperlink::from_label_and_url(
 												WidgetText::Text(element.user().to_string()).monospace(),
 												format!("https://{}/{}", TargetServer::OpenStreetMap.base_user_url(), element.user())
 											).open_in_new_tab(true));
 										});
 										ui.horizontal(|ui| {
-											ui.add(prepare_icon(ctx, icons::CLOCK, ICON_SIZE)).on_hover_text_at_pointer("Timestamp");
+											ui.add(prepare_icon(ctx, icons::CLOCK, ICON_SIZE)).on_hover_text_at_pointer(tr[TrID::Timestamp as usize]);
 											ui.monospace(element.timestamp());
 										});
 									}
 
 									match element {
 										ElementRef::Node(n) => {
-											let location_str = format!("Position: {:.6}, {:.6}", n.pos.lat, n.pos.lon);
+											let location_str = tr[TrID::PositionLatLon as usize]
+												.replace("{lat}", &format!("{:.6}", n.pos.lat))
+												.replace("{lon}", &format!("{:.6}", n.pos.lon));
+
 											ui.label(&location_str);
-											if ui.button("Copy Position").clicked() {
+											if ui.button(tr[TrID::CopyPosition]).clicked() {
 												ui.ctx().copy_text(location_str);
 											}
 										}
 										ElementRef::Way(w) => {
-											ui.collapsing(format!("{} Nodes", w.nodes.len()), |ui| {
-												for node_id in &w.nodes {
-													ui.monospace(node_id.to_string());
-												}
-											});
+											CollapsingHeader::new(tr[TrID::NodeCount as usize].replace("{n}", &w.nodes.len().to_string()))
+												.id_salt("node_list")
+												.show(ui, |ui| {
+													for node_id in &w.nodes {
+														ui.monospace(node_id.to_string());
+													}
+												});
 										}
 									}
 
@@ -770,7 +773,7 @@ impl DataViewerModal {
 										});
 								}
 							} else {
-								ui.weak("No element selected.");
+								ui.weak(tr[TrID::NoElementSelected as usize]);
 							}
 						});
 				});
@@ -853,8 +856,8 @@ pub enum OverlapSelectorResult<'a> {
 	Selected(ElementRef<'a>),
 }
 
-pub fn overlap_selector<'a>(ui: &Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) -> InnerResponse<Option<OverlapSelectorResult<'a>>> {
-	egui::Window::new("On Top Selector")
+pub fn overlap_selector<'a>(ui: &Ui, tr: &Translation, pos: Pos2, hovered: Vec<ElementRef<'a>>) -> InnerResponse<Option<OverlapSelectorResult<'a>>> {
+	egui::Window::new("overlap_selector")
 		.title_bar(false)
 		.auto_sized()
 		.frame(themed_frame(ui.ctx().theme()))
@@ -867,7 +870,7 @@ pub fn overlap_selector<'a>(ui: &Ui, pos: Pos2, hovered: Vec<ElementRef<'a>>) ->
 					.atom_max_height(24.0);
 
 				let name = element.name()
-					.map_or_else(|| format!("Unnamed {}\n", element.type_str()), |x| format!("{x}\n"));
+					.map_or_else(|| tr[TrID::UnnamedElement as usize].replace("{type}", element.type_str()), |x| format!("{x}\n"));
 
 				let mut text = LayoutJob::default();
 				text.append(&name, 0.0, TextFormat::simple(FontId::proportional(14.0), Color32::LIGHT_GRAY));

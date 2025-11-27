@@ -22,6 +22,7 @@ use std::fmt::Display;
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
 use walkers::{MapMemory, Position, Projector};
+use crate::app::translations::Translation;
 
 /// State related to the editor
 #[derive(Default)]
@@ -263,7 +264,7 @@ impl Editor {
 // logic
 impl Editor {
 	#[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
-	pub fn run(&mut self, ui: &Ui, response: &Response, projector: &Projector, map_memory: &MapMemory) {
+	pub fn run(&mut self, ui: &Ui, response: &Response, projector: &Projector, map_memory: &MapMemory, tr: &Translation) {
 		 #[cfg(feature = "debug")] /* update frame timing */ {
 			let (i, vec) = &mut self.osm_data.frame_timing;
 			vec[*i] = ui.input(|i| i.unstable_dt);
@@ -634,11 +635,7 @@ impl Editor {
 					.filter_map(|id| self.osm_data.get(id.id_ref()))
 					.collect::<Vec<_>>();
 
-				let resp = super::windows::overlap_selector(
-					ui,
-					self.overlap_selector_pos,
-					resolved_elements,
-				);
+				let resp = super::windows::overlap_selector(ui, tr, self.overlap_selector_pos, resolved_elements);
 
 				match resp.inner.unwrap() {
 					OverlapSelectorResult::None => self.hovered.clear(),
