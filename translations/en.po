@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-19 16:41+0000\n"
+"PO-Revision-Date: 2025-11-27 09:06+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -82,3 +82,83 @@ msgstr "Imagery"
 
 msgid "map_data"
 msgstr "Map data"
+
+msgid "reset_config"
+msgstr "Reset Config"
+
+msgid "reset_theme"
+msgstr "Reset Theme"
+
+msgid "key"
+msgstr "Key"
+
+msgid "value"
+msgstr "Value"
+
+msgid "tile_provider"
+msgstr "Tile Provider"
+
+msgid "none"
+msgstr "None"
+
+msgid "fill_mode"
+msgstr "Fill Mode"
+
+msgid "visualization"
+msgstr "Visualization"
+
+msgid "data_viewer"
+msgstr "Data Viewer"
+
+msgid "zoom_with_ctrl"
+msgstr "Zoom with Ctrl"
+
+msgid "scale_factor"
+msgstr "Scale factor"
+
+msgid "elements_shown"
+msgstr "Showing {n} elements"
+
+msgid "version"
+msgstr "Version"
+
+msgid "type"
+msgstr "Type"
+
+msgid "id"
+msgstr "ID"
+
+msgid "changeset_id"
+msgstr "Changeset ID"
+
+msgid "username"
+msgstr "Username"
+
+msgid "timestamp"
+msgstr "Timestamp"
+
+msgid "node_count"
+msgstr "{n} Nodes"
+
+msgid "copy_position"
+msgstr "Copy Position"
+
+msgid "no_element_selected"
+msgstr "No element selected."
+
+msgid "position_lat_lon"
+msgstr "Position: {lat}, {lon}"
+
+msgid "unnamed_element"
+msgstr "Unnamed {type}"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"{mode} mode\n"
+"Press {key} to toggle"
+
+msgid "redraw_continuously"
+msgstr "Refresh view continuously"
+
+msgid "language"
+msgstr "Language"
