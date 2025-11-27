@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-27 09:10+0000\n"
+"PO-Revision-Date: 2025-11-27 09:12+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -145,3 +145,20 @@ msgstr "Kein Element ausgewählt."
 
 msgid "position_lat_lon"
 msgstr "Position: {lat}, {lon}"
+
+msgid "unnamed_element"
+msgstr "Unbenannter {type}"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"{mode} Modus\n"
+"Drücke {key} zum wechseln"
+
+msgid "language"
+msgstr "Sprache"
+
+msgid "tile_provider"
+msgstr "Bildquelle"
+
+msgid "redraw_continuously"
+msgstr "Ansicht kontinuierlich aktualisieren"
