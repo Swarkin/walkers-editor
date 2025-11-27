@@ -423,6 +423,8 @@ pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
 					}
 				});
 
+			ui.checkbox(&mut app.app_state.debug_redraw_continuously, "Redraw Continuously");
+
 			ui.separator();
 
 			ui.horizontal(|ui| {
