@@ -1,2 +1,256 @@
 msgid ""
-msgstr "X-Generator: Weblate\nMIME-Version: 1.0\nContent-Type: text/plain; charset=UTF-8\nContent-Transfer-Encoding: 8bit"
+msgstr ""
+"PO-Revision-Date: 2025-11-28 21:00+0000\n"
+"Last-Translator: Roman Deev <roman.deev06@gmail.com>\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2;\n"
+"X-Generator: Weblate 5.15-dev\n"
+
+msgid "login"
+msgstr "Войти"
+
+msgid "settings"
+msgstr "Настройки"
+
+msgid "tags"
+msgstr "Теги"
+
+msgid "map"
+msgstr "Карта"
+
+msgid "toolbar"
+msgstr "Панель инструментов"
+
+msgid "debug"
+msgstr "Отладка"
+
+msgid "attribution"
+msgstr "Атрибуция"
+
+msgid "position"
+msgstr "Координаты"
+
+msgid "open_source_licenses"
+msgstr "Лицензии используемого открытого ПО"
+
+msgid "packages"
+msgstr "Библиотеки"
+
+msgid "packages_notice"
+msgstr "Этот редактор стал возможен благодаря следующим замечательным библиотекам с открытым исходным кодом:"
+
+msgid "packages_tree"
+msgstr "Просмотреть дерево зависимостей"
+
+msgid "icons"
+msgstr "Иконки"
+
+msgid "icons_notice"
+msgstr "Все иконки в каталоге {directory} взяты из {tabler_icons_url} и доступны по лицензии MIT."
+
+msgid "translations"
+msgstr "Переводы"
+
+msgid "translations_notice"
+msgstr "Внести вклад в переводы приложения можно на {weblate_url}."
+
+msgid "translations_view_statistics"
+msgstr "Посмотреть статистику переводов"
+
+msgid "close"
+msgstr "Закрыть"
+
+msgid "imagery"
+msgstr "Спутниковые снимки"
+
+msgid "map_data"
+msgstr "Данные карты"
+
+msgid "reset_theme"
+msgstr "Сбросить тему"
+
+msgid "key"
+msgstr "Ключ"
+
+msgid "value"
+msgstr "Значение"
+
+msgid "tile_provider"
+msgstr "Поставщик тайлов"
+
+msgid "copy_position"
+msgstr "Скопировать координаты"
+
+msgid "theme"
+msgstr "Тема"
+
+msgid "quit"
+msgstr "Выйти"
+
+msgid "retry"
+msgstr "Повторить"
+
+msgid "cancel"
+msgstr "Отмена"
+
+msgid "saving_settings"
+msgstr "Сохранение настроек…"
+
+msgid "closing"
+msgstr "Закрытие…"
+
+msgid "changes"
+msgstr "Изменения"
+
+msgid "upload_to_osm"
+msgstr "Отправить в OpenStreetMap"
+
+msgid "copy"
+msgstr "Копировать"
+
+msgid "view_osc"
+msgstr "Просмотреть osmChange"
+
+msgid "cs_comment_placeholder"
+msgstr "Опишите ваши изменения"
+
+msgid "cs_comment_too_long"
+msgstr "Комментарий к пакету правок превышает 255 символов"
+
+msgid "technical_info"
+msgstr "Техническая информация"
+
+msgid "creating_changeset"
+msgstr "Создание пакета правок"
+
+msgid "copy_link"
+msgstr "Скопировать ссылку"
+
+msgid "copy_id"
+msgstr "Скопировать ID"
+
+msgid "uploading_osc"
+msgstr "Отправка osmChange"
+
+msgid "copy_response"
+msgstr "Копировать ответ"
+
+msgid "closing_changeset"
+msgstr "Закрытие пакета правок"
+
+msgid "upload_success"
+msgstr "Успешно отправлено"
+
+msgid "view_on_osm"
+msgstr "Просмотреть на OpenStreetMap"
+
+msgid "upload_failed"
+msgstr "Отправка не удалась"
+
+msgid "login_notice"
+msgstr "Пожалуйста, войдите в OpenStreetMap, используя вкладку {name}."
+
+msgid "login_to_osm"
+msgstr "Войти в OpenStreetMap"
+
+msgid "login_success"
+msgstr "Успешный вход"
+
+msgid "logout"
+msgstr "Выйти"
+
+msgid "clear"
+msgstr "Очистить"
+
+msgid "login_auth_failed"
+msgstr "Ошибка аутентификации"
+
+msgid "logging_in"
+msgstr "Вход…"
+
+msgid "edit"
+msgstr "Редактирование"
+
+msgid "upload"
+msgstr "Отправка"
+
+msgid "icons_view_license"
+msgstr "Открыть лицензию {name}"
+
+msgid "reset_config"
+msgstr "Сбросить настройки"
+
+msgid "data_viewer"
+msgstr "Просмотр данных"
+
+msgid "zoom_with_ctrl"
+msgstr "Масштабирование с помощью Ctrl"
+
+msgid "scale_factor"
+msgstr "Коэффициент масштабирования"
+
+msgid "version"
+msgstr "Версия"
+
+msgid "type"
+msgstr "Тип"
+
+msgid "id"
+msgstr "ID"
+
+msgid "changeset_id"
+msgstr "ID пакета правок"
+
+msgid "username"
+msgstr "Имя пользователя"
+
+msgid "timestamp"
+msgstr "Время"
+
+msgid "language"
+msgstr "Язык"
+
+msgid "config"
+msgstr "Настройки"
+
+msgid "copy_error"
+msgstr "Ошибка при копировании"
+
+msgid "loading_config_failed"
+msgstr "Ошибка загрузки настроек"
+
+msgid "saving_config_failed"
+msgstr "Не удалось сохранить настройки"
+
+msgid "loading_settings"
+msgstr "Загрузка настроек…"
+
+msgid "quit_without_saving"
+msgstr "Выйти без сохранения"
+
+msgid "upload_failed_info"
+msgstr "Ознакомьтесь с разделом технической информации и создайте резервную копию osmChange-файла."
+
+msgid "login_instruction_1"
+msgstr "1. Откройте этот URL и следуйте процессу авторизации:"
+
+msgid "login_instruction_2"
+msgstr "2. Вставьте полученный код в поле ниже:"
+
+msgid "login_instruction_3"
+msgstr "3. Войдите:"
+
+msgid "fill_mode"
+msgstr "Способ заливки"
+
+msgid "visualization"
+msgstr "Визуализация"
+
+msgid "position_lat_lon"
+msgstr "Координаты: {lat}, {lon}"
+
+msgid "use_defaults"
+msgstr "Использовать значения по умолчанию"
