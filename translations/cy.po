@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 09:18+0000\n"
+"PO-Revision-Date: 2025-11-27 20:02+0000\n"
 "Last-Translator: dreigiau <dreigiau@users.noreply.hosted.weblate.org>\n"
 "Language: cy\n"
 "MIME-Version: 1.0\n"
@@ -38,3 +38,142 @@ msgstr "Priodoli"
 
 msgid "position"
 msgstr "Lleoliad"
+
+msgid "open_source_licenses"
+msgstr "Trwyddedau Ffynhonnell Agored"
+
+msgid "packages"
+msgstr "Pecynnau"
+
+msgid "packages_notice"
+msgstr "Mae'r llyfrgelloedd ffynhonnell agored anhygoel canlynol wedi gwneud y golygydd hwn yn bosibl:"
+
+msgid "packages_tree"
+msgstr "Gweld y coeden pecyn"
+
+msgid "packages_deduplication"
+msgstr ""
+"Mae'r pecynnau wedi'u nodi gyda (*) wedi cael eu \"dad-dyblygu\"\n"
+"Mae'r dibyniaethau ar gyfer y pecyn eisoes wedi cael eu dangos rhywle arall yn y graff, felly nad ydynt wedi'u hailadrodd."
+
+msgid "icons"
+msgstr "Eiconau"
+
+msgid "icons_notice"
+msgstr "Mae pob eicon o dan {directory} wedi'u cymryd o {tabler_icons_url}, wedi'i drwyddedu o dan drwydded MIT."
+
+msgid "translations"
+msgstr "Cyfieithiadau"
+
+msgid "translations_notice"
+msgstr "Caiff cyfieithiadau eu rheoli a gellir cyfrannu atynt drwy {weblate_url}."
+
+msgid "icons_view_license"
+msgstr "Gweld trwydded {name}"
+
+msgid "translations_view_statistics"
+msgstr "Gweld ystadegau cyfieithu"
+
+msgid "close"
+msgstr "Cau"
+
+msgid "imagery"
+msgstr "Delweddau"
+
+msgid "map_data"
+msgstr "Data map"
+
+msgid "reset_config"
+msgstr "Ailosod Ffurfweddiad"
+
+msgid "reset_theme"
+msgstr "Ailosod Thema"
+
+msgid "key"
+msgstr "Allwedd"
+
+msgid "value"
+msgstr "Gwerth"
+
+msgid "tile_provider"
+msgstr "Darparwr Teils"
+
+msgid "none"
+msgstr "Dim"
+
+msgid "fill_mode"
+msgstr "Modd Llenwi"
+
+msgid "visualization"
+msgstr "Ymddangosiad"
+
+msgid "data_viewer"
+msgstr "Syllwr Data"
+
+msgid "zoom_with_ctrl"
+msgstr "Chwyddo gyda Ctrl"
+
+msgid "scale_factor"
+msgstr "Ffactor graddfa"
+
+msgid "elements_shown"
+msgstr "Yn dangos {n} elfen"
+
+msgid "version"
+msgstr "Fersiwn"
+
+msgid "type"
+msgstr "Math"
+
+msgid "id"
+msgstr "Cyfeirnod"
+
+msgid "changeset_id"
+msgstr "Cyfeirnod Grŵp Newid"
+
+msgid "username"
+msgstr "Enw Defnyddiwr"
+
+msgid "timestamp"
+msgstr "Amser"
+
+msgid "node_count"
+msgstr "{n} Nod"
+
+msgid "copy_position"
+msgstr "Copïo Lleoliad"
+
+msgid "no_element_selected"
+msgstr "Ni ddewiswyd elfen."
+
+msgid "position_lat_lon"
+msgstr "Lleoliad: {lat}, {lon}"
+
+msgid "unnamed_element"
+msgstr "{type} heb ei enwi"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"Modd {mode}\n"
+"Gwasgwch {key} i doglo"
+
+msgid "redraw_continuously"
+msgstr "Adnewyddu'r golwg yn barhaus"
+
+msgid "language"
+msgstr "Iaith"
+
+msgid "config"
+msgstr "Ffurfweddiad"
+
+msgid "theme"
+msgstr "Thema"
+
+msgid "copy_error"
+msgstr "Copïo Gwall"
+
+msgid "loading_config_failed"
+msgstr "Methwyd â llwytho gosodiadau"
+
+msgid "saving_config_failed"
+msgstr "Methwyd â chadw gosodiadau"
