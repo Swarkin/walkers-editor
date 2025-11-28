@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 13:12+0000\n"
+"PO-Revision-Date: 2025-11-28 21:00+0000\n"
 "Last-Translator: Atrate <Atrate@protonmail.com>\n"
 "Language: pl\n"
 "MIME-Version: 1.0\n"
@@ -26,3 +26,75 @@ msgstr "Mapa"
 
 msgid "position"
 msgstr "Pozycja"
+
+msgid "icons"
+msgstr "Ikony"
+
+msgid "key"
+msgstr "Klucz"
+
+msgid "value"
+msgstr "Wartość"
+
+msgid "none"
+msgstr "Brak"
+
+msgid "visualization"
+msgstr "Wizualizacja"
+
+msgid "version"
+msgstr "Wersja"
+
+msgid "type"
+msgstr "Rodzaj"
+
+msgid "id"
+msgstr "ID"
+
+msgid "username"
+msgstr "Nazwa użytkownika"
+
+msgid "position_lat_lon"
+msgstr "Pozycja: {lat}, {lon}"
+
+msgid "language"
+msgstr "Język"
+
+msgid "theme"
+msgstr "Motyw"
+
+msgid "loading_config_failed"
+msgstr "Ładowanie ustawień nie powiodło się"
+
+msgid "copy_id"
+msgstr "Skopiuj ID"
+
+msgid "uploading_osc"
+msgstr "Wysyłanie osmChange"
+
+msgid "copy_response"
+msgstr "Skopiuj odpowiedź"
+
+msgid "closing_changeset"
+msgstr "Zamykanie zestawu zmian"
+
+msgid "upload_success"
+msgstr "Wysyłanie powiodło się"
+
+msgid "upload_failed"
+msgstr "Wysyłanie nie powiodło się"
+
+msgid "login_success"
+msgstr "Logowanie powiodło się"
+
+msgid "clear"
+msgstr "Wyczyść"
+
+msgid "login_auth_failed"
+msgstr "Uwierzytelnianie nie powiodło się"
+
+msgid "logging_in"
+msgstr "Logowanie…"
+
+msgid "login_instruction_2"
+msgstr "2. Wklej otrzymany kod w pole poniżej:"
