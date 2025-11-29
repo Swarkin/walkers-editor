@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-19 09:18+0000\n"
+"PO-Revision-Date: 2025-11-27 20:48+0000\n"
 "Last-Translator: dreigiau <dreigiau@users.noreply.hosted.weblate.org>\n"
 "Language: cy\n"
 "MIME-Version: 1.0\n"
@@ -38,3 +38,259 @@ msgstr "Priodoli"
 
 msgid "position"
 msgstr "Lleoliad"
+
+msgid "open_source_licenses"
+msgstr "Trwyddedau Ffynhonnell Agored"
+
+msgid "packages"
+msgstr "Pecynnau"
+
+msgid "packages_notice"
+msgstr "Mae'r llyfrgelloedd ffynhonnell agored anhygoel canlynol wedi gwneud y golygydd hwn yn bosibl:"
+
+msgid "packages_tree"
+msgstr "Gweld y coeden pecyn"
+
+msgid "packages_deduplication"
+msgstr ""
+"Mae'r pecynnau wedi'u nodi gyda (*) wedi cael eu \"dad-dyblygu\"\n"
+"Mae'r dibyniaethau ar gyfer y pecyn eisoes wedi cael eu dangos rhywle arall yn y graff, felly nad ydynt wedi'u hailadrodd."
+
+msgid "icons"
+msgstr "Eiconau"
+
+msgid "icons_notice"
+msgstr "Mae pob eicon o dan {directory} wedi'u cymryd o {tabler_icons_url}, wedi'i drwyddedu o dan drwydded MIT."
+
+msgid "translations"
+msgstr "Cyfieithiadau"
+
+msgid "translations_notice"
+msgstr "Caiff cyfieithiadau eu rheoli a gellir cyfrannu atynt drwy {weblate_url}."
+
+msgid "icons_view_license"
+msgstr "Gweld trwydded {name}"
+
+msgid "translations_view_statistics"
+msgstr "Gweld ystadegau cyfieithu"
+
+msgid "close"
+msgstr "Cau"
+
+msgid "imagery"
+msgstr "Delweddau"
+
+msgid "map_data"
+msgstr "Data map"
+
+msgid "reset_config"
+msgstr "Ailosod Ffurfweddiad"
+
+msgid "reset_theme"
+msgstr "Ailosod Thema"
+
+msgid "key"
+msgstr "Allwedd"
+
+msgid "value"
+msgstr "Gwerth"
+
+msgid "tile_provider"
+msgstr "Darparwr Teils"
+
+msgid "none"
+msgstr "Dim"
+
+msgid "fill_mode"
+msgstr "Modd Llenwi"
+
+msgid "visualization"
+msgstr "Ymddangosiad"
+
+msgid "data_viewer"
+msgstr "Syllwr Data"
+
+msgid "zoom_with_ctrl"
+msgstr "Chwyddo gyda Ctrl"
+
+msgid "scale_factor"
+msgstr "Ffactor graddfa"
+
+msgid "elements_shown"
+msgstr "Yn dangos {n} elfen"
+
+msgid "version"
+msgstr "Fersiwn"
+
+msgid "type"
+msgstr "Math"
+
+msgid "id"
+msgstr "Cyfeirnod"
+
+msgid "changeset_id"
+msgstr "Cyfeirnod Grŵp Newid"
+
+msgid "username"
+msgstr "Enw Defnyddiwr"
+
+msgid "timestamp"
+msgstr "Amser"
+
+msgid "node_count"
+msgstr "{n} Nod"
+
+msgid "copy_position"
+msgstr "Copïo Lleoliad"
+
+msgid "no_element_selected"
+msgstr "Ni ddewiswyd elfen."
+
+msgid "position_lat_lon"
+msgstr "Lleoliad: {lat}, {lon}"
+
+msgid "unnamed_element"
+msgstr "{type} heb ei enwi"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"Modd {mode}\n"
+"Gwasgwch {key} i doglo"
+
+msgid "redraw_continuously"
+msgstr "Adnewyddu'r golwg yn barhaus"
+
+msgid "language"
+msgstr "Iaith"
+
+msgid "config"
+msgstr "Ffurfweddiad"
+
+msgid "theme"
+msgstr "Thema"
+
+msgid "copy_error"
+msgstr "Copïo Gwall"
+
+msgid "loading_config_failed"
+msgstr "Methwyd â llwytho gosodiadau"
+
+msgid "saving_config_failed"
+msgstr "Methwyd â chadw gosodiadau"
+
+msgid "loading_success"
+msgstr "Wedi llwytho'n llwyddiannus."
+
+msgid "saving_success"
+msgstr "Wedi cadw'n llwyddiannus."
+
+msgid "loading_config_failed_text"
+msgstr "Cafwyd gwall wrth lwytho eich gosodiadau:"
+
+msgid "saving_config_failed_text"
+msgstr "Cafwyd gwall wrth gadw eich gosodiadau:"
+
+msgid "quit"
+msgstr "Gadael"
+
+msgid "retry"
+msgstr "Ailgeisio"
+
+msgid "use_defaults"
+msgstr "Defnyddio diofyn"
+
+msgid "loading_settings"
+msgstr "Wrthi'n llwytho gosodiadau…"
+
+msgid "quit_without_saving"
+msgstr "Gadael heb gadw"
+
+msgid "cancel"
+msgstr "Canslo"
+
+msgid "saving_settings"
+msgstr "Wrthi'n cadw gosodiadau…"
+
+msgid "closing"
+msgstr "Wrth'n cau…"
+
+msgid "changes"
+msgstr "Newidiadau"
+
+msgid "upload_to_osm"
+msgstr "Uwchlwytho i OpenStreetMap"
+
+msgid "copy"
+msgstr "Copïo"
+
+msgid "view_osc"
+msgstr "Gweld osmChange"
+
+msgid "cs_comment_placeholder"
+msgstr "Disgrifiwch eich newidiadau"
+
+msgid "cs_comment_too_long"
+msgstr "Mae sylw'r grŵp newid yn fwy na 255 o nodau"
+
+msgid "technical_info"
+msgstr "Gwybodaeth dechnegol"
+
+msgid "creating_changeset"
+msgstr "Wrthi'n creu grŵp newid"
+
+msgid "copy_link"
+msgstr "Copïo Dolen"
+
+msgid "copy_id"
+msgstr "Copïo Cyfeirnod"
+
+msgid "uploading_osc"
+msgstr "Wrthi'n uwchlwytho osmChange"
+
+msgid "copy_response"
+msgstr "Copïo Ymateb"
+
+msgid "closing_changeset"
+msgstr "Wrthi'n cau grŵp newid"
+
+msgid "upload_success"
+msgstr "Uwchlwythiad llwyddiannus"
+
+msgid "view_on_osm"
+msgstr "Gweld ar OpenStreetMap"
+
+msgid "upload_failed"
+msgstr "Methwyd ag uwchlwytho"
+
+msgid "upload_failed_info"
+msgstr "Gweler y wybodaeth dechnegol a chadwch gopi wrth gefn o'r ffeil osmChange."
+
+msgid "login_notice"
+msgstr "Mewngofnodwch i OpenStreetMap drwy ddefnyddio'r tab {name}."
+
+msgid "login_to_osm"
+msgstr "Mewngofnodi i OpenStreetMap"
+
+msgid "login_success"
+msgstr "Llwyddwyd i fewngofnodi"
+
+msgid "logout"
+msgstr "Allgofnodi"
+
+msgid "clear"
+msgstr "Clirio"
+
+msgid "login_auth_failed"
+msgstr "Methwyd ag awdurdodi"
+
+msgid "logging_in"
+msgstr "Wrthi'n mewngofnodi…"
+
+msgid "login_instruction_1"
+msgstr "1. Agorwch yr URL hwn a dilynwch y broses awdurdodi:"
+
+msgid "login_instruction_2"
+msgstr "2. Gludwch y cod a gawsoch i'r maes isod:"
+
+msgid "login_instruction_3"
+msgstr "3. Mewngofnodwch:"
