@@ -8,6 +8,7 @@ pub mod icons;
 pub mod states;
 pub mod translations;
 
+use crate::app::windows::SettingsWindowResult;
 use editor::cache::{Change, EditorOsmData, ElementId, ElementRef};
 use editor::consts::*;
 use editor::visual::FillMode;
@@ -226,9 +227,24 @@ impl MyApp {
 
 					if self.editor_state.editor.window_flags & Window::Settings as u8 == 0 {
 						let mut is_open = true;
-						windows::settings(ui, tr, self, &mut is_open);
+						let result = self.editor_state.editor.settings_window.show(ui, tr, &mut is_open,
+							&mut self.app_state.language, &mut self.editor_state.editor.map_state.zoom_with_ctrl, &mut self.app_state.debug_redraw_continuously
+						);
 						if !is_open {
 							self.editor_state.editor.window_flags |= Window::Settings as u8;
+						}
+
+						if let Some(result) = result {
+							match result {
+								SettingsWindowResult::ResetConfig => {
+									#[cfg(not(target_family = "wasm"))]
+									self.apply_config(settings::Config::default());
+								}
+								SettingsWindowResult::ResetTheme => {
+									#[cfg(not(target_family = "wasm"))]
+									self.apply_theme(settings::Theme::default(), ctx);
+								}
+							}
 						}
 					}
 
@@ -602,12 +618,12 @@ impl MyApp {
 		if self.app_state.open_modals & ModalFlag::DataViewer as u8 != 0 {
 			if self.editor_state.editor.data_viewer.is_none() {
 				self.editor_state.editor.data_viewer = Some(DataViewerModal::new(&self.editor_state.editor.osm_data.data));
-			} else {
-				let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
-				if data_viewer.show(ctx, tr, &self.editor_state.editor.osm_data.data) {
-					self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
-					self.editor_state.editor.data_viewer = None;
-				}
+			}
+
+			let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
+			if data_viewer.show(ctx, tr, &self.editor_state.editor.osm_data.data) {
+				self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
+				self.editor_state.editor.data_viewer = None;
 			}
 		}
 	}
