@@ -646,7 +646,6 @@ impl MyApp {
 			sender: response_sender,
 		}.spawn(request_sender, request_receiver, response_receiver);
 
-		#[cfg(not(target_family = "wasm"))]
 		worker_handle.send_message(Request::LoadSettings);
 
 		#[cfg(not(target_family = "wasm"))]
@@ -702,6 +701,15 @@ impl MyApp {
 					self.boot_state = BootState::Idle;
 				} else {
 					self.app_state.settings_load_result = Some(setting_load_result);
+				}
+			}
+			#[cfg(target_family = "wasm")]
+			Response::LoadedSettings(config, theme) => {
+				if let Ok(config) = config {
+					self.apply_config(config);
+				}
+				if let Ok(theme) = theme {
+					self.apply_theme(theme, ctx);
 				}
 			}
 			#[cfg(not(target_family = "wasm"))]
