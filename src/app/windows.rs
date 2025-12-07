@@ -404,13 +404,14 @@ pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<P
 		})?.inner?
 }
 
-pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
+pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp, is_open: &mut bool,) {
 	use super::translations;
 
 	egui::Window::new(tr[TrID::Settings as usize])
 		.id("settings".into())
 		.frame(themed_frame(ui.ctx().theme()))
 		.default_size(Vec2::new(300., 200.))
+		.open(is_open)
 		.scroll(true)
 		.show(ui.ctx(), |ui| {
 			ComboBox::new("language", tr[TrID::Language as usize])

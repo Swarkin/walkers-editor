@@ -225,7 +225,11 @@ impl MyApp {
 					}
 
 					if self.editor_state.editor.window_flags & Window::Settings as u8 == 0 {
-						windows::settings(ui, tr, self);
+						let mut is_open = true;
+						windows::settings(ui, tr, self, &mut is_open);
+						if !is_open {
+							self.editor_state.editor.window_flags |= Window::Settings as u8;
+						}
 					}
 
 					#[cfg(feature = "debug")] {
