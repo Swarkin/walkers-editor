@@ -11,6 +11,7 @@ const SCOPES: &str = "write_api";
 const AUTHORIZATION_HEADER: &str = "authorization";
 const CONTENT_TYPE_HEADER: &str = "content-type";
 const APPLICATION_XML: &str = "application/xml";
+const TIMEOUT_GLOBAL: u64 = 120;
 
 type AnyError = Box<dyn std::error::Error + Sync + Send>;
 pub type OsmResult<T> = Result<T, AnyError>;
@@ -149,7 +150,7 @@ mod native {
 					.https_only(true)
 					.max_redirects(0)
 					.timeout_connect(Some(Duration::from_secs(30)))
-					.timeout_global(Some(Duration::from_secs(120)))
+					.timeout_global(Some(Duration::from_secs(TIMEOUT_GLOBAL)))
 					.build().into(),
 				target_server,
 				auth_token: Default::default(),
@@ -254,6 +255,7 @@ mod web {
 	use ehttp::Request;
 	use osm_parser::types::raw;
 	use osm_parser::OsmData;
+	use std::time::Duration;
 
 	const GET: &str = "GET";
 	const PUT: &str = "PUT";
@@ -281,7 +283,7 @@ mod web {
 				headers.insert(AUTHORIZATION_HEADER, format!("{} {}", auth.token_type, auth.access_token));
 			}
 
-			ehttp::fetch_async(Request { method, url, body, headers, mode: ehttp::Mode::Cors, })
+			ehttp::fetch_async(Request { method, url, body, headers, mode: ehttp::Mode::Cors, timeout: Some(Duration::from_secs(TIMEOUT_GLOBAL)) })
 				.await
 				.map(|x| if x.ok { Ok(x) } else { Err(format!("Request failed with status code {}", x.status)) })?
 		}
