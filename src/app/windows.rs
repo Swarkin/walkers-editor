@@ -3,7 +3,9 @@ use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, visual:
 use super::icons;
 use super::osm::{Bbox, OrderedTags, TargetServer};
 use super::providers::Provider;
-use super::states::{MapDownloadState, MapState, SelectionFlag, SettingsIOResult};
+#[cfg(not(target_family = "wasm"))]
+use super::states::SettingsIOResult;
+use super::states::{MapDownloadState, MapState, SelectionFlag};
 use super::translations::{Language, Translation, TranslationID as TrID};
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;

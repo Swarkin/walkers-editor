@@ -22,8 +22,9 @@ use osm::{OsmClient, OsmResult, TargetServer};
 use osmchange::OsmChange;
 use providers::{providers, Provider};
 use rustc_hash::FxHashSet;
+use states::settings;
 #[cfg(not(target_family = "wasm"))]
-use states::{settings, BootState};
+use states::BootState;
 use states::{AppState, AuthenticatorState, CacheFlag, ChangesetUploadState, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
 use translations::{Translation, TranslationID as TrID};
 use walkers::{Map, MapMemory, Position};
@@ -237,11 +238,9 @@ impl MyApp {
 						if let Some(result) = result {
 							match result {
 								SettingsWindowResult::ResetConfig => {
-									#[cfg(not(target_family = "wasm"))]
 									self.apply_config(settings::Config::default());
 								}
 								SettingsWindowResult::ResetTheme => {
-									#[cfg(not(target_family = "wasm"))]
 									self.apply_theme(settings::Theme::default(), ctx);
 								}
 							}
@@ -759,7 +758,6 @@ impl MyApp {
 		}
 	}
 
-	#[cfg(not(target_family = "wasm"))]
 	const fn apply_config(&mut self, settings::Config {
 		language, window_flags, scale_factor, zoom_with_ctrl, debug_redraw_continuously
 	}: settings::Config) {
@@ -770,7 +768,6 @@ impl MyApp {
 		self.app_state.debug_redraw_continuously = debug_redraw_continuously;
 	}
 
-	#[cfg(not(target_family = "wasm"))]
 	#[allow(clippy::unused_self)]
 	fn apply_theme(&self, settings::Theme {
 		theme
