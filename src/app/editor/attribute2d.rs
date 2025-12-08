@@ -1,6 +1,5 @@
-use super::visual::{SIDEWALK_NO_COLOR, SIDEWALK_SEPARATE_COLOR, SIDEWALK_UNKNOWN_COLOR, SIDEWALK_YES_COLOR};
 use crate::app::icons;
-use eframe::egui::{Color32, ImageSource};
+use eframe::egui::ImageSource;
 use osm_parser::Tags;
 use std::fmt::{Display, Formatter};
 
@@ -122,18 +121,6 @@ impl Display for TagValue {
 			Self::Separate => "separate",
 			Self::Unknown => "unknown",
 		})
-	}
-}
-
-#[allow(clippy::from_over_into)]
-impl Into<Color32> for TagValue {
-	fn into(self) -> Color32 {
-		match self {
-			Self::Yes => SIDEWALK_YES_COLOR,
-			Self::No => SIDEWALK_NO_COLOR,
-			Self::Separate => SIDEWALK_SEPARATE_COLOR,
-			Self::Unknown => SIDEWALK_UNKNOWN_COLOR,
-		}
 	}
 }
 

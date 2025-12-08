@@ -1,5 +1,5 @@
 use super::editor::cache::ElementId;
-use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, visual::{FillMode, Visualization}, EditMode, EditOperation};
+use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, theme, visual::{FillMode, Visualization}, EditMode, EditOperation};
 use super::icons;
 use super::osm::{Bbox, OrderedTags, TargetServer};
 use super::providers::Provider;
@@ -420,7 +420,8 @@ pub enum SettingsWindowResult {
 }
 
 impl SettingsWindow {
-	pub fn show(&mut self, ui: &Ui, tr: &Translation, is_open: &mut bool,
+	#[allow(clippy::too_many_arguments)]
+	pub fn show(&mut self, ui: &Ui, tr: &Translation, theme: &mut theme::Theme, is_open: &mut bool,
 		language: &mut Language, zoom_with_ctrl: &mut bool, debug_redraw_continuously: &mut bool
 	) -> Option<SettingsWindowResult> {
 		let mut result = None;
@@ -473,6 +474,44 @@ impl SettingsWindow {
 							}
 						}
 						SettingsTab::Theme => {
+							ui.heading("Primitives");
+							egui::Grid::new("theme_primitives").striped(true).num_columns(2).show(ui, |ui| {
+								ui.label("Regular Node Size");
+								egui::Slider::new(&mut theme.node_size, 1.0..=10.0).ui(ui);
+								ui.end_row();
+								ui.label("Orphan Node Size");
+								egui::Slider::new(&mut theme.node_size_orphan, 1.0..=10.0).ui(ui);
+								ui.end_row();
+								ui.label("Node Color");
+								ui.color_edit_button_srgba(&mut theme.node_color);
+								ui.end_row();
+								ui.label("Connected Node Color");
+								ui.color_edit_button_srgba(&mut theme.node_connected_color);
+								ui.end_row();
+								ui.label("Node Stroke Color");
+								ui.color_edit_button_srgba(&mut theme.node_stroke_color);
+								ui.end_row();
+								ui.label("Node Stroke Width");
+								egui::Slider::new(&mut theme.node_stroke_width, 0.0..=5.0).ui(ui);
+								ui.end_row();
+
+								ui.label("Way Width");
+								egui::Slider::new(&mut theme.way_width, 0.5..=10.0).ui(ui);
+								ui.end_row();
+								ui.label("Way Color");
+								ui.color_edit_button_srgba(&mut theme.way_color);
+								ui.end_row();
+
+								ui.label("Hover Color");
+								ui.color_edit_button_srgba(&mut theme.hover_color);
+								ui.end_row();
+								ui.label("Selection Color");
+								ui.color_edit_button_srgba(&mut theme.selection_color);
+								ui.end_row();
+
+								// todo: more theme settings
+							});
+
 							ui.separator();
 							if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetTheme as usize]))
 								.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()

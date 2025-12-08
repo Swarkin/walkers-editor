@@ -1,5 +1,5 @@
 use super::translations;
-use crate::app::editor::Editor;
+use crate::app::editor::{theme, Editor};
 use crate::app::osm::OrderedTags;
 use crate::app::osmchange::ChangesetId;
 use crate::app::providers::TilesKind;
@@ -20,6 +20,7 @@ pub type SettingsIOResult = (Option<std::io::Error>, Option<std::io::Error>);
 pub struct AppState {
 	pub view: View,
 	pub language: translations::Language,
+	pub theme: theme::Theme,
 	pub target_server_ui: TargetServer,
 	pub open_modals: u8,
 	pub top_bar_disabled: bool,
@@ -235,13 +236,12 @@ pub enum BootState {
 }
 
 pub mod settings {
+	use crate::app::editor::theme::Theme;
 	use crate::app::translations;
 	use crate::app::windows::{Window, WindowBitflag};
-	use eframe::egui;
 	use serde::{Deserialize, Serialize};
 	#[cfg(not(target_family = "wasm"))]
 	use std::path::Path;
-	use crate::app::editor::theme::{Theme, ThemeSetting};
 
 	#[cfg(not(target_family = "wasm"))]
 	const CONFIG_FILE_NAME: &str = "config.toml";

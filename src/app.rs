@@ -228,7 +228,7 @@ impl MyApp {
 
 					if self.editor_state.editor.window_flags & Window::Settings as u8 == 0 {
 						let mut is_open = true;
-						let result = self.editor_state.editor.settings_window.show(ui, tr, &mut is_open,
+						let result = self.editor_state.editor.settings_window.show(ui, tr, &mut self.app_state.theme, &mut is_open,
 							&mut self.app_state.language, &mut self.editor_state.editor.map_state.zoom_with_ctrl, &mut self.app_state.debug_redraw_continuously
 						);
 						if !is_open {
@@ -589,7 +589,7 @@ impl MyApp {
 			.zoom_with_ctrl(self.editor_state.editor.map_state.zoom_with_ctrl)
 			.drag_pan_buttons(DragPanButtons::PRIMARY | DragPanButtons::MIDDLE | DragPanButtons::SECONDARY)
 			.show(ui, |ui, response, projector, map_memory| {
-				self.editor_state.editor.run(ui, response, projector, map_memory, tr);
+				self.editor_state.editor.run(ui, response, projector, map_memory, tr, &self.app_state.theme);
 			})
 	}
 
@@ -777,10 +777,9 @@ impl MyApp {
 	}
 
 	#[allow(clippy::unused_self)]
-	fn apply_theme(&self, theme::Theme {
-		theme
-	}: theme::Theme, ctx: &Context) {
-		ctx.set_theme(theme);
+	fn apply_theme(&mut self, theme: theme::Theme, ctx: &Context) {
+		ctx.set_theme(theme.theme);
+		self.app_state.theme = theme;
 	}
 
 	#[cfg(not(target_family = "wasm"))]
@@ -797,9 +796,9 @@ impl MyApp {
 	#[allow(clippy::unused_self)]
 	#[cfg(not(target_family = "wasm"))]
 	fn collect_theme(&self, ctx: &Context) -> theme::Theme {
-		theme::Theme {
-			theme: ctx.options(|x| x.theme_preference).into(),
-		}
+		let mut theme = self.app_state.theme.clone();
+		theme.theme = ctx.options(|x| x.theme_preference).into();
+		theme
 	}
 }
 
