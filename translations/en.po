@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-11-27 18:20+0000\n"
+"PO-Revision-Date: 2025-12-08 21:40+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -294,3 +294,9 @@ msgstr "2. Paste the resulting code into the field below:"
 
 msgid "login_instruction_3"
 msgstr "3. Login:"
+
+msgid "export"
+msgstr "Export"
+
+msgid "import"
+msgstr "Import"
