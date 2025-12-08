@@ -4,12 +4,12 @@ use super::icons;
 use super::osm::{Bbox, OrderedTags, TargetServer};
 use super::providers::Provider;
 #[cfg(not(target_family = "wasm"))]
-use super::states::{settings, SettingsIOResult};
+use super::states::SettingsIOResult;
 use super::states::{MapDownloadState, MapState, SelectionFlag};
-use super::translations::{Translation, TranslationID as TrID};
+use super::translations::{Language, Translation, TranslationID as TrID};
 use eframe::egui;
 use eframe::egui::scroll_area::ScrollBarVisibility;
-use eframe::egui::ComboBox;
+use eframe::egui::{ComboBox, ScrollArea};
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, CollapsingHeader, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
@@ -251,7 +251,6 @@ pub fn map<'a>(ui: &Ui, tr: &Translation, map_state: &mut MapState, providers: &
 					});
 
 				egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text(tr[TrID::ScaleFactor as usize]).ui(ui);
-				ui.checkbox(&mut map_state.zoom_with_ctrl, tr[TrID::ZoomWithCtrl as usize]);
 
 				if ui.button(tr[TrID::DataViewer as usize]).clicked() {
 					result = Some(MapWindowResult::ShowDataViewer);
@@ -395,7 +394,7 @@ pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<P
 
 				ui.separator();
 
-				if ui.button("Copy").clicked() {
+				if ui.button(tr[TrID::Copy as usize]).clicked() {
 					ui.ctx().copy_text(format!("{:.6}, {:.6}", pos.y(), pos.x()));
 				}
 			});
@@ -404,47 +403,89 @@ pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<P
 		})?.inner?
 }
 
-pub fn settings(ui: &Ui, tr: &Translation, app: &mut crate::app::MyApp) {
-	use super::translations;
+#[derive(Debug, Default)]
+pub enum SettingsTab {
+	#[default] Config,
+	Theme,
+}
 
-	egui::Window::new(tr[TrID::Settings as usize])
-		.id("settings".into())
-		.frame(themed_frame(ui.ctx().theme()))
-		.default_size(Vec2::new(300., 200.))
-		.scroll(true)
-		.show(ui.ctx(), |ui| {
-			ComboBox::new("language", tr[TrID::Language as usize])
-				.selected_text(format!("{:?}", &app.app_state.language))
-				.show_ui(ui, |ui| {
-					for lang in translations::Language::ITER {
-						ui.selectable_value(&mut app.app_state.language, lang, format!("{lang:?}"));
+#[derive(Debug, Default)]
+pub struct SettingsWindow {
+	pub tab: SettingsTab,
+}
+
+pub enum SettingsWindowResult {
+	ResetConfig,
+	ResetTheme,
+}
+
+impl SettingsWindow {
+	pub fn show(&mut self, ui: &Ui, tr: &Translation, is_open: &mut bool,
+		language: &mut Language, zoom_with_ctrl: &mut bool, debug_redraw_continuously: &mut bool
+	) -> Option<SettingsWindowResult> {
+		let mut result = None;
+
+		egui::Window::new(tr[TrID::Settings as usize])
+			.id("settings".into())
+			.frame(themed_frame(ui.ctx().theme()))
+			.default_size(Vec2::new(300., 200.))
+			.min_width(WIDE_BUTTON_SIZE.x)
+			.open(is_open)
+			.show(ui.ctx(), |ui| {
+				ui.horizontal(|ui| {
+					let btn = Button::selectable(matches!(self.tab, SettingsTab::Config), tr[TrID::Config as usize]);
+					if ui.add_sized(Vec2::new(ui.available_width() / 2.0 - ui.style().spacing.item_spacing.x, 20.0), btn).clicked() {
+						self.tab = SettingsTab::Config;
+					}
+					let btn = Button::selectable(matches!(self.tab, SettingsTab::Theme), tr[TrID::Theme as usize]);
+					if ui.add_sized(Vec2::new(ui.available_width(), 20.0), btn).clicked() {
+						self.tab = SettingsTab::Theme;
 					}
 				});
+				ui.separator();
 
-			ui.checkbox(&mut app.app_state.debug_redraw_continuously, tr[TrID::RedrawContinuously as usize]);
+				ScrollArea::vertical().show(ui, |ui| {
+					ui.take_available_space();
+					match &self.tab {
+						SettingsTab::Config => {
+							ui.heading("Application");
+							ComboBox::new("language", tr[TrID::Language as usize])
+								.selected_text(format!("{language:?}"))
+								.show_ui(ui, |ui| {
+									for lang in Language::ITER {
+										ui.selectable_value(language, lang, format!("{lang:?}"));
+									}
+								});
 
-			ui.separator();
+							ui.add_space(4.0);
+							ui.heading("Map");
+							ui.checkbox(zoom_with_ctrl, tr[TrID::ZoomWithCtrl as usize]);
 
-			ui.horizontal(|ui| {
-				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetConfig as usize]))
-					.min_size(WIDE_BUTTON_SIZE)
-					.ui(ui)
-					.clicked()
-				{
-					#[cfg(not(target_family = "wasm"))]
-					app.apply_config(settings::Config::default());
-				}
+							ui.add_space(4.0);
+							ui.heading("Debug");
+							ui.checkbox(debug_redraw_continuously, tr[TrID::RedrawContinuously as usize]);
 
-				if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetTheme as usize]))
-					.min_size(WIDE_BUTTON_SIZE)
-					.ui(ui)
-					.clicked()
-				{
-					#[cfg(not(target_family = "wasm"))]
-					app.apply_theme(settings::Theme::default(), ui.ctx());
-				}
+							ui.separator();
+							if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetConfig as usize]))
+								.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
+							{
+								result = Some(SettingsWindowResult::ResetConfig);
+							}
+						}
+						SettingsTab::Theme => {
+							ui.separator();
+							if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetTheme as usize]))
+								.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
+							{
+								result = Some(SettingsWindowResult::ResetTheme);
+							}
+						}
+					}
+				});
 			});
-		});
+
+		result
+	}
 }
 
 #[cfg(feature = "debug")]
@@ -511,7 +552,7 @@ pub fn licenses_modal(ctx: &Context, tr: &Translation) -> bool {
 	Modal::new("licenses".into()).area(area).show(ctx, |ui| {
 		ui.heading(tr[TrID::OpenSourceLicenses as usize]);
 		ui.separator();
-		egui::ScrollArea::vertical().max_height(screen.height() * 0.8).show(ui, |ui| {
+		ScrollArea::vertical().max_height(screen.height() * 0.8).show(ui, |ui| {
 			ui.heading(tr[TrID::Packages as usize]);
 			ui.label(tr[TrID::PackagesNotice as usize]);
 			CollapsingHeader::new(tr[TrID::PackagesTree as usize]).id_salt("pkg_tree").show(ui, |ui| {
@@ -522,7 +563,7 @@ pub fn licenses_modal(ctx: &Context, tr: &Translation) -> bool {
 				#[cfg(debug_assertions)]
 				let text = "\nLicenses are not loaded in a debug build.\n";
 
-				egui::ScrollArea::vertical().show(ui, |ui| {
+				ScrollArea::vertical().show(ui, |ui| {
 					ui.label(text);
 				});
 				ui.small(tr[TrID::PackagesDeduplication as usize]);
@@ -544,7 +585,7 @@ pub fn licenses_modal(ctx: &Context, tr: &Translation) -> bool {
 				}
 			});
 			CollapsingHeader::new(tr[TrID::IconsViewLicense as usize].replace("{name}", "tabler-icons")).id_salt("icons_license").show(ui, |ui| {
-				egui::ScrollArea::vertical().show(ui, |ui| {
+				ScrollArea::vertical().show(ui, |ui| {
 					#[cfg(not(debug_assertions))]
 					let text = include_str!("../../assets/ui/LICENSE");
 
@@ -568,7 +609,7 @@ pub fn licenses_modal(ctx: &Context, tr: &Translation) -> bool {
 				}
 			});
 			CollapsingHeader::new(tr[TrID::TranslationsViewStatistics as usize]).id_salt("tr_stats").show(ui, |ui| {
-				egui::ScrollArea::vertical().show(ui, |ui| {
+				ScrollArea::vertical().show(ui, |ui| {
 					#[cfg(not(debug_assertions))]
 					let text = crate::TRANSLATION_CREDITS;
 
@@ -688,7 +729,7 @@ impl DataViewerModal {
 
 				columns[1].set_width(columns[1].available_width());
 				columns[1].vertical(|ui| {
-					egui::ScrollArea::vertical()
+					ScrollArea::vertical()
 						.max_height(available_height)
 						.show(ui, |ui| {
 							if let Some(selected_id) = &self.selected_element {

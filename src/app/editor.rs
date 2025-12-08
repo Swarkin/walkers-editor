@@ -8,7 +8,8 @@ use crate::app::editor::r_star::WayEntry;
 use crate::app::osm::{Bbox, OrderedTags};
 use crate::app::states::SelectionFlag;
 use crate::app::states::{CacheFlag, MapState};
-use crate::app::windows::{DataViewerModal, OverlapSelectorResult, WindowBitflag};
+use crate::app::translations::Translation;
+use crate::app::windows::{DataViewerModal, OverlapSelectorResult, SettingsWindow, WindowBitflag};
 use cache::Change;
 use cache::{EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
@@ -22,7 +23,6 @@ use std::fmt::Display;
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
 use walkers::{MapMemory, Position, Projector};
-use crate::app::translations::Translation;
 
 /// State related to the editor
 #[derive(Default)]
@@ -34,6 +34,7 @@ pub struct Editor {
 	pub prev_zoom: f64,
 	pub edit_window: Option<(ElementId, OrderedTags)>,
 	pub data_viewer: Option<DataViewerModal>,
+	pub settings_window: SettingsWindow,
 
 	pub mode: EditMode,
 	pub operation: EditOperation,

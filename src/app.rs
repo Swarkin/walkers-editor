@@ -8,6 +8,7 @@ pub mod icons;
 pub mod states;
 pub mod translations;
 
+use crate::app::windows::SettingsWindowResult;
 use editor::cache::{Change, EditorOsmData, ElementId, ElementRef};
 use editor::consts::*;
 use editor::visual::FillMode;
@@ -21,8 +22,9 @@ use osm::{OsmClient, OsmResult, TargetServer};
 use osmchange::OsmChange;
 use providers::{providers, Provider};
 use rustc_hash::FxHashSet;
+use states::settings;
 #[cfg(not(target_family = "wasm"))]
-use states::{settings, BootState};
+use states::BootState;
 use states::{AppState, AuthenticatorState, CacheFlag, ChangesetUploadState, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
 use translations::{Translation, TranslationID as TrID};
 use walkers::{Map, MapMemory, Position};
@@ -225,7 +227,24 @@ impl MyApp {
 					}
 
 					if self.editor_state.editor.window_flags & Window::Settings as u8 == 0 {
-						windows::settings(ui, tr, self);
+						let mut is_open = true;
+						let result = self.editor_state.editor.settings_window.show(ui, tr, &mut is_open,
+							&mut self.app_state.language, &mut self.editor_state.editor.map_state.zoom_with_ctrl, &mut self.app_state.debug_redraw_continuously
+						);
+						if !is_open {
+							self.editor_state.editor.window_flags |= Window::Settings as u8;
+						}
+
+						if let Some(result) = result {
+							match result {
+								SettingsWindowResult::ResetConfig => {
+									self.apply_config(settings::Config::default());
+								}
+								SettingsWindowResult::ResetTheme => {
+									self.apply_theme(settings::Theme::default(), ctx);
+								}
+							}
+						}
 					}
 
 					#[cfg(feature = "debug")] {
@@ -598,12 +617,12 @@ impl MyApp {
 		if self.app_state.open_modals & ModalFlag::DataViewer as u8 != 0 {
 			if self.editor_state.editor.data_viewer.is_none() {
 				self.editor_state.editor.data_viewer = Some(DataViewerModal::new(&self.editor_state.editor.osm_data.data));
-			} else {
-				let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
-				if data_viewer.show(ctx, tr, &self.editor_state.editor.osm_data.data) {
-					self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
-					self.editor_state.editor.data_viewer = None;
-				}
+			}
+
+			let data_viewer = self.editor_state.editor.data_viewer.as_mut().unwrap();
+			if data_viewer.show(ctx, tr, &self.editor_state.editor.osm_data.data) {
+				self.app_state.open_modals &= !(ModalFlag::DataViewer as u8);
+				self.editor_state.editor.data_viewer = None;
 			}
 		}
 	}
@@ -627,7 +646,6 @@ impl MyApp {
 			sender: response_sender,
 		}.spawn(request_sender, request_receiver, response_receiver);
 
-		#[cfg(not(target_family = "wasm"))]
 		worker_handle.send_message(Request::LoadSettings);
 
 		#[cfg(not(target_family = "wasm"))]
@@ -685,6 +703,15 @@ impl MyApp {
 					self.app_state.settings_load_result = Some(setting_load_result);
 				}
 			}
+			#[cfg(target_family = "wasm")]
+			Response::LoadedSettings(config, theme) => {
+				if let Ok(config) = config {
+					self.apply_config(config);
+				}
+				if let Ok(theme) = theme {
+					self.apply_theme(theme, ctx);
+				}
+			}
 			#[cfg(not(target_family = "wasm"))]
 			Response::SavedSettings(config_err, theme_err) => {
 				if config_err.is_none() && theme_err.is_none() {
@@ -739,7 +766,6 @@ impl MyApp {
 		}
 	}
 
-	#[cfg(not(target_family = "wasm"))]
 	const fn apply_config(&mut self, settings::Config {
 		language, window_flags, scale_factor, zoom_with_ctrl, debug_redraw_continuously
 	}: settings::Config) {
@@ -750,7 +776,6 @@ impl MyApp {
 		self.app_state.debug_redraw_continuously = debug_redraw_continuously;
 	}
 
-	#[cfg(not(target_family = "wasm"))]
 	#[allow(clippy::unused_self)]
 	fn apply_theme(&self, settings::Theme {
 		theme

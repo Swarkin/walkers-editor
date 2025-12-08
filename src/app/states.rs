@@ -234,15 +234,17 @@ pub enum BootState {
 	Finished,
 }
 
-#[cfg(not(target_family = "wasm"))]
 pub mod settings {
 	use crate::app::translations;
 	use crate::app::windows::{Window, WindowBitflag};
 	use eframe::egui;
 	use serde::{Deserialize, Serialize};
+	#[cfg(not(target_family = "wasm"))]
 	use std::path::Path;
 
+	#[cfg(not(target_family = "wasm"))]
 	const CONFIG_FILE_NAME: &str = "config.toml";
+	#[cfg(not(target_family = "wasm"))]
 	const THEME_FILE_NAME: &str = "theme.toml";
 
 	#[derive(Clone, Serialize, Deserialize)]
@@ -299,6 +301,7 @@ pub mod settings {
 		pub theme: ThemeSetting,
 	}
 
+	#[cfg(not(target_family = "wasm"))]
 	pub fn load_config(path: &Path) -> std::io::Result<Config> {
 		let path = path.join(CONFIG_FILE_NAME);
 		let content = match std::fs::read_to_string(path) {
@@ -311,6 +314,7 @@ pub mod settings {
 			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 	}
 
+	#[cfg(not(target_family = "wasm"))]
 	pub fn load_theme(path: &Path) -> std::io::Result<Theme> {
 		let path = path.join(THEME_FILE_NAME);
 		let content = match std::fs::read_to_string(path) {
@@ -323,6 +327,7 @@ pub mod settings {
 			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))
 	}
 
+	#[cfg(not(target_family = "wasm"))]
 	pub fn save_config(path: &Path, config: &Config) -> std::io::Result<()> {
 		let path = path.join(CONFIG_FILE_NAME);
 		let content = toml::to_string(config)
@@ -330,6 +335,7 @@ pub mod settings {
 		std::fs::write(path, content)
 	}
 
+	#[cfg(not(target_family = "wasm"))]
 	pub fn save_theme(path: &Path, theme: &Theme) -> std::io::Result<()> {
 		let path = path.join(THEME_FILE_NAME);
 		let content = toml::to_string(theme)

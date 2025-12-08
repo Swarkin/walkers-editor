@@ -2,21 +2,20 @@ use super::osm::{Bbox, OrderedTags, OsmClient, OsmResult, OsmToken, TargetServer
 use super::osmchange::{ChangesetId, OsmChange, Tag};
 use osm_parser::OsmData;
 
+#[cfg(not(target_family = "wasm"))]
+use super::settings;
+use super::settings::{Config, Theme};
+#[cfg(not(target_family = "wasm"))]
+use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_family = "wasm")]
 use futures::{
 	channel::mpsc::{UnboundedReceiver as Receiver, UnboundedSender as Sender},
 	stream::StreamExt,
 };
 #[cfg(not(target_family = "wasm"))]
-use {
-	super::settings,
-	super::settings::{Config, Theme},
-	crossbeam_channel::{Receiver, Sender},
-	std::thread::JoinHandle,
-};
+use std::thread::JoinHandle;
 
 pub enum Request { // box is used to keep enum size small
-	#[cfg(not(target_family = "wasm"))]
 	LoadSettings,
 	#[cfg(not(target_family = "wasm"))]
 	SaveSettings(Option<Box<Config>>, Option<Box<Theme>>),
@@ -28,7 +27,6 @@ pub enum Request { // box is used to keep enum size small
 }
 
 pub enum Response {
-	#[cfg(not(target_family = "wasm"))]
 	LoadedSettings(std::io::Result<Config>, std::io::Result<Theme>),
 	#[cfg(not(target_family = "wasm"))]
 	SavedSettings(Option<std::io::Error>, Option<std::io::Error>),
@@ -194,6 +192,9 @@ impl Worker {
 	#[allow(clippy::future_not_send)]
 	async fn handle_message(&mut self, request: Request) {
 		match request {
+			Request::LoadSettings => {
+				self.send_message(Response::LoadedSettings(Ok(Config::default()), Ok(Theme::default())));
+			}
 			Request::GetMap(bbox) => {
 				let result = self.osm_client.get_map(&bbox).await;
 				self.send_message(Response::Map(result));
