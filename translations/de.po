@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-27 19:10+0000\n"
+"PO-Revision-Date: 2025-12-08 21:40+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: de\n"
 "MIME-Version: 1.0\n"
@@ -294,3 +294,9 @@ msgstr "2. Füge den resultierenden Code in das folgende Feld ein:"
 
 msgid "login_instruction_3"
 msgstr "3. Anmelden:"
+
+msgid "export"
+msgstr "Exportieren"
+
+msgid "import"
+msgstr "Importieren"
