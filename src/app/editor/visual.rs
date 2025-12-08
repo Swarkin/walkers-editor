@@ -2,7 +2,7 @@ use super::attribute2d::{Attribute2D, TagValue};
 use super::cache::Change;
 use super::consts::osm::*;
 use crate::app::editor::consts::{prepare_icon, prepare_icon_with_tint};
-use crate::app::editor::consume_key;
+use crate::app::editor::{consume_key, theme};
 use crate::app::icons;
 use eframe::egui;
 use eframe::egui::{Image, ImageSource, Key, Modifiers, Rect, Vec2, Widget};
@@ -38,54 +38,48 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 	MOTORWAY_LINK, TRUNK_LINK, PRIMARY_LINK, SECONDARY_LINK, TERTIARY_LINK,
 ];
 
-pub const SIDEWALK_WIDTH: f32 = 4.0;
-pub const SIDEWALK_YES_COLOR: Color32 = Color32::LIGHT_GREEN;
-pub const SIDEWALK_NO_COLOR: Color32 = Color32::LIGHT_GRAY;
-pub const SIDEWALK_SEPARATE_COLOR: Color32 = Color32::LIGHT_BLUE;
-pub const SIDEWALK_UNKNOWN_COLOR: Color32 = Color32::LIGHT_RED;
-
-pub fn width_default(w: &Way) -> f32 {
+pub fn width_default(theme: &theme::Theme, w: &Way) -> f32 {
 	w.tags.get("building").map_or_else(
 		|| w.tags.get("highway")
-			.map_or(WAY_WIDTH, |highway| match highway.as_str() {
-				"path" | "footway" | "steps" => PATH_WIDTH,
-				"service" | "track" => SERVICE_ROAD_WIDTH,
-				"residential" => MINOR_ROAD_WIDTH,
+			.map_or(theme.way_width, |highway| match highway.as_str() {
+				"path" | "footway" | "steps" => theme.path_width,
+				"service" | "track" => theme.service_road_width,
+				"residential" => theme.minor_road_width,
 				"tertiary" | "secondary" | "primary" | "trunk" | "motorway" | "tertiary_link"
-				| "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => MAJOR_ROAD_WIDTH,
-				_ => WAY_WIDTH,
+				| "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => theme.major_road_width,
+				_ => theme.way_width,
 			}),
 		|building| match building.as_str() {
-			"no" => WAY_WIDTH,
-			_ => BUILDING_WIDTH,
+			"no" => theme.way_width,
+			_ => theme.building_width,
 		}
 	)
 }
 
-pub fn color_default(w: &Way) -> Color32 {
+pub fn color_default(theme: &theme::Theme, w: &Way) -> Color32 {
 	w.tags.get("building").map_or_else(
 		|| w.tags.get("highway")
-			.map_or(WAY_COLOR, |highway| match highway.as_str() {
-				"path" => PATH_COLOR,
-				"footway" => FOOTWAY_COLOR,
-				"steps" => STEPS_COLOR,
-				"track" => TRACK_COLOR,
+			.map_or(theme.way_color, |highway| match highway.as_str() {
+				"path" => theme.path_color,
+				"footway" => theme.footway_color,
+				"steps" => theme.steps_color,
+				"track" => theme.track_color,
 				_ => Color32::WHITE,
 			}),
 		|building| match building.as_str() {
-			"no" => WAY_COLOR,
-			_ => BUILDING_COLOR,
+			"no" => theme.way_color,
+			_ => theme.building_color,
 		}
 	)
 }
 
-pub fn sidewalks(tags: &Tags, points: &[Pos2], width: f32, scale_factor: f32) -> [Shape; 2] {
+pub fn sidewalks(theme: &theme::Theme, tags: &Tags, points: &[Pos2], width: f32, scale_factor: f32) -> [Shape; 2] {
 	let attr = Attribute2D::new(tags, "sidewalk");
 	let mut iter = points.windows(2).peekable();
 	let count = iter.len() + 1;
 
-	let mut path_left = PathShape::line(Vec::with_capacity(count), Stroke::new(SIDEWALK_WIDTH * scale_factor, attr.left));
-	let mut path_right = PathShape::line(Vec::with_capacity(count), Stroke::new(SIDEWALK_WIDTH + scale_factor, attr.right));
+	let mut path_left = PathShape::line(Vec::with_capacity(count), Stroke::new(theme.sidewalk_width * scale_factor, tagvalue_to_color(theme, attr.left)));
+	let mut path_right = PathShape::line(Vec::with_capacity(count), Stroke::new(theme.sidewalk_width + scale_factor, tagvalue_to_color(theme, attr.right)));
 
 	/* first point */ {
 		let from = points[0];
@@ -120,12 +114,21 @@ pub fn sidewalks(tags: &Tags, points: &[Pos2], width: f32, scale_factor: f32) ->
 	[path_left.into(), path_right.into()]
 }
 
+const fn tagvalue_to_color(theme: &theme::Theme, value: TagValue) -> Color32 {
+	match value {
+		TagValue::Yes => theme.sidewalk_yes_color,
+		TagValue::No => theme.sidewalk_no_color,
+		TagValue::Separate => theme.sidewalk_separate_color,
+		TagValue::Unknown => theme.sidewalk_unknown_color,
+	}
+}
+
 pub fn sidewalks_relevant(tags: &Tags) -> bool {
 	tags.get("highway")
 		.is_some_and(|highway| HIGHWAYS_WITH_SIDEWALK.contains(&highway.as_str()))
 }
 
-pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
+pub fn sidewalks_ui(ui: &Ui, theme: &theme::Theme, way: &Way, pos: Pos2) -> Option<Change> {
 	const TAG: &str = "sidewalk";
 	const TAG_LEFT: &str = "sidewalk:left";
 	const TAG_RIGHT: &str = "sidewalk:right";
@@ -142,11 +145,11 @@ pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 
 			ui.horizontal(|ui| {
 				if ui.vertical(|ui|
-					attribute2d_selectable_value(ui, &mut attr.left, true, 2)
+					attribute2d_selectable_value(ui, theme, &mut attr.left, true, 2)
 				).inner { edited = true; }
 				ui.separator();
 				if ui.vertical(|ui|
-					attribute2d_selectable_value(ui, &mut attr.right, false, 2)
+					attribute2d_selectable_value(ui, theme, &mut attr.right, false, 2)
 				).inner { edited = true; }
 			});
 
@@ -165,7 +168,7 @@ pub fn sidewalks_ui(ui: &Ui, way: &Way, pos: Pos2) -> Option<Change> {
 		})?.inner?
 }
 
-fn attribute2d_selectable_value(ui: &mut Ui, current: &mut TagValue, flip: bool, buttons_per_row: u8) -> bool {
+fn attribute2d_selectable_value(ui: &mut Ui, theme: &theme::Theme, current: &mut TagValue, flip: bool, buttons_per_row: u8) -> bool {
 	const DATA: &[(TagValue, ImageSource, ImageSource, (Key, Key))] = &[
 		(TagValue::Yes, icons::SIDEWALK_YES, icons::MISC_CHECK, (Key::Num1, Key::Q)),
 		(TagValue::No, icons::SIDEWALK_NO, icons::MISC_CROSS, (Key::Num2, Key::W)),
@@ -179,7 +182,7 @@ fn attribute2d_selectable_value(ui: &mut Ui, current: &mut TagValue, flip: bool,
 	let uid = *current as u8 + u8::from(flip) * 69;
 	egui::Grid::new(uid).show(ui, |ui| {
 		for (tag_value, icon_bg, icon_fg, key) in DATA {
-			let color = (*tag_value).into();
+			let color = tagvalue_to_color(theme, *tag_value);
 			let mut image = prepare_icon(ui.ctx(), icon_bg.clone(), 48.);
 
 			if flip {
@@ -188,7 +191,7 @@ fn attribute2d_selectable_value(ui: &mut Ui, current: &mut TagValue, flip: bool,
 
 			let overlay = prepare_icon_with_tint(icon_fg.clone(), 16., color);
 
-			sidewalk_overlay_button(ui, current, *tag_value, image, &overlay, flip);
+			sidewalk_overlay_button(ui, theme, current, *tag_value, image, &overlay, flip);
 			if consume_key(ui.ctx(), if flip { key.0 } else { key.1 }, Modifiers::NONE) { *current = *tag_value; }
 
 			button_i += 1;
@@ -201,12 +204,13 @@ fn attribute2d_selectable_value(ui: &mut Ui, current: &mut TagValue, flip: bool,
 	original != *current
 }
 
-fn sidewalk_overlay_button(ui: &mut Ui, current: &mut TagValue, new: TagValue, image: Image, overlay: &Image, flip: bool) {
-	ui.visuals_mut().selection.bg_fill = new.into();
+fn sidewalk_overlay_button(ui: &mut Ui, theme: &theme::Theme, current: &mut TagValue, new: TagValue, image: Image, overlay: &Image, flip: bool) {
+	let color = tagvalue_to_color(theme, new);
+	ui.visuals_mut().selection.bg_fill = color;
 
 	let resp = egui::Button::image(image)
 		.min_size(Vec2::splat(56.))
-		.stroke(Stroke::new(2., new))
+		.stroke(Stroke::new(2., color))
 		.selected(*current == new)
 		.ui(ui);
 

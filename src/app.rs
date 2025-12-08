@@ -12,7 +12,7 @@ use crate::app::windows::SettingsWindowResult;
 use editor::cache::{Change, EditorOsmData, ElementId, ElementRef};
 use editor::consts::*;
 use editor::visual::FillMode;
-use editor::{consume_key, EditMode, EditOperation, Editor};
+use editor::{consume_key, theme, EditMode, EditOperation, Editor};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{Button, CentralPanel, CollapsingHeader, Color32, ComboBox, Context, DragPanButtons, Frame, Grid, Hyperlink, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, SidePanel, Spinner, TextEdit, TopBottomPanel, Ui, Vec2, ViewportCommand, Widget};
@@ -228,7 +228,7 @@ impl MyApp {
 
 					if self.editor_state.editor.window_flags & Window::Settings as u8 == 0 {
 						let mut is_open = true;
-						let result = self.editor_state.editor.settings_window.show(ui, tr, &mut is_open,
+						let result = self.editor_state.editor.settings_window.show(ui, tr, &mut self.app_state.theme, &mut is_open,
 							&mut self.app_state.language, &mut self.editor_state.editor.map_state.zoom_with_ctrl, &mut self.app_state.debug_redraw_continuously
 						);
 						if !is_open {
@@ -241,7 +241,7 @@ impl MyApp {
 									self.apply_config(settings::Config::default());
 								}
 								SettingsWindowResult::ResetTheme => {
-									self.apply_theme(settings::Theme::default(), ctx);
+									self.apply_theme(theme::Theme::default(), ctx);
 								}
 							}
 						}
@@ -589,7 +589,7 @@ impl MyApp {
 			.zoom_with_ctrl(self.editor_state.editor.map_state.zoom_with_ctrl)
 			.drag_pan_buttons(DragPanButtons::PRIMARY | DragPanButtons::MIDDLE | DragPanButtons::SECONDARY)
 			.show(ui, |ui, response, projector, map_memory| {
-				self.editor_state.editor.run(ui, response, projector, map_memory, tr);
+				self.editor_state.editor.run(ui, response, projector, map_memory, tr, &self.app_state.theme);
 			})
 	}
 
@@ -767,20 +767,18 @@ impl MyApp {
 	}
 
 	const fn apply_config(&mut self, settings::Config {
-		language, window_flags, scale_factor, zoom_with_ctrl, debug_redraw_continuously
+		language, window_flags, zoom_with_ctrl, debug_redraw_continuously
 	}: settings::Config) {
 		self.app_state.language = language;
 		self.editor_state.editor.window_flags = window_flags;
 		self.editor_state.editor.map_state.zoom_with_ctrl = zoom_with_ctrl;
-		self.editor_state.editor.map_state.scale_factor = scale_factor;
 		self.app_state.debug_redraw_continuously = debug_redraw_continuously;
 	}
 
 	#[allow(clippy::unused_self)]
-	fn apply_theme(&self, settings::Theme {
-		theme
-	}: settings::Theme, ctx: &Context) {
-		ctx.set_theme(theme);
+	fn apply_theme(&mut self, theme: theme::Theme, ctx: &Context) {
+		ctx.set_theme(theme.theme);
+		self.app_state.theme = theme;
 	}
 
 	#[cfg(not(target_family = "wasm"))]
@@ -788,7 +786,6 @@ impl MyApp {
 		settings::Config {
 			language: self.app_state.language,
 			window_flags: self.editor_state.editor.window_flags,
-			scale_factor: self.editor_state.editor.map_state.scale_factor,
 			zoom_with_ctrl: self.editor_state.editor.map_state.zoom_with_ctrl,
 			debug_redraw_continuously: self.app_state.debug_redraw_continuously,
 		}
@@ -796,10 +793,10 @@ impl MyApp {
 
 	#[allow(clippy::unused_self)]
 	#[cfg(not(target_family = "wasm"))]
-	fn collect_theme(&self, ctx: &Context) -> settings::Theme {
-		settings::Theme {
-			theme: ctx.options(|x| x.theme_preference).into(),
-		}
+	fn collect_theme(&self, ctx: &Context) -> theme::Theme {
+		let mut theme = self.app_state.theme.clone();
+		theme.theme = ctx.options(|x| x.theme_preference).into();
+		theme
 	}
 }
 

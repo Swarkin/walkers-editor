@@ -1,5 +1,5 @@
 use super::translations;
-use crate::app::editor::Editor;
+use crate::app::editor::{theme, Editor};
 use crate::app::osm::OrderedTags;
 use crate::app::osmchange::ChangesetId;
 use crate::app::providers::TilesKind;
@@ -20,6 +20,7 @@ pub type SettingsIOResult = (Option<std::io::Error>, Option<std::io::Error>);
 pub struct AppState {
 	pub view: View,
 	pub language: translations::Language,
+	pub theme: theme::Theme,
 	pub target_server_ui: TargetServer,
 	pub open_modals: u8,
 	pub top_bar_disabled: bool,
@@ -50,7 +51,6 @@ pub struct MapState {
 	pub selected_fill_mode: FillMode,
 	pub selection_mode: u8,
 	pub download: MapDownloadState,
-	pub scale_factor: f32,
 	pub zoom_with_ctrl: bool,
 }
 
@@ -62,7 +62,6 @@ impl Default for MapState {
 			selected_fill_mode: FillMode::default(),
 			selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
 			download: MapDownloadState::Idle(None),
-			scale_factor: 1.,
 			zoom_with_ctrl: false,
 		}
 	}
@@ -235,9 +234,10 @@ pub enum BootState {
 }
 
 pub mod settings {
-	use crate::app::translations;
+	#[cfg(not(target_family = "wasm"))]
+	use super::theme::Theme;
+	use super::translations;
 	use crate::app::windows::{Window, WindowBitflag};
-	use eframe::egui;
 	use serde::{Deserialize, Serialize};
 	#[cfg(not(target_family = "wasm"))]
 	use std::path::Path;
@@ -251,7 +251,6 @@ pub mod settings {
 	pub struct Config {
 		pub language: translations::Language,
 		pub window_flags: WindowBitflag,
-		pub scale_factor: f32,
 		pub zoom_with_ctrl: bool,
 		pub debug_redraw_continuously: bool,
 	}
@@ -261,44 +260,10 @@ pub mod settings {
 			Self {
 				language: translations::Language::EN,
 				window_flags: Window::Settings as u8,
-				scale_factor: 1.0,
 				zoom_with_ctrl: false,
 				debug_redraw_continuously: false,
 			}
 		}
-	}
-
-	#[derive(Default, Clone, Serialize, Deserialize)]
-	#[serde(rename_all = "lowercase")]
-	pub enum ThemeSetting {
-		Dark,
-		Light,
-		#[default] System,
-	}
-
-	impl From<egui::ThemePreference> for ThemeSetting {
-		fn from(value: egui::ThemePreference) -> Self {
-			match value {
-				egui::ThemePreference::Dark => Self::Dark,
-				egui::ThemePreference::Light => Self::Light,
-				egui::ThemePreference::System => Self::System,
-			}
-		}
-	}
-
-	impl From<ThemeSetting> for egui::ThemePreference {
-		fn from(value: ThemeSetting) -> Self {
-			match value {
-				ThemeSetting::Dark => Self::Dark,
-				ThemeSetting::Light => Self::Light,
-				ThemeSetting::System => Self::System,
-			}
-		}
-	}
-
-	#[derive(Default, Clone, Serialize, Deserialize)]
-	pub struct Theme {
-		pub theme: ThemeSetting,
 	}
 
 	#[cfg(not(target_family = "wasm"))]
