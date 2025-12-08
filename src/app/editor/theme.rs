@@ -4,7 +4,9 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
+	#[allow(clippy::struct_field_names)]
 	pub theme: ThemeSetting,
+	pub scale_factor: f32,
 	pub node_size: f32,
 	pub node_size_orphan: f32,
 	pub node_color: Color32,
@@ -36,6 +38,7 @@ impl Default for Theme {
 	fn default() -> Self {
 		Self {
 			theme: ThemeSetting::System,
+			scale_factor: 1.0,
 			node_size: 3.0,
 			node_size_orphan: 4.0,
 			node_color: Color32::WHITE,

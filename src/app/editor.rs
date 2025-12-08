@@ -88,16 +88,16 @@ impl Editor {
 	fn draw_node(&self, theme: &theme::Theme, id: &Id) -> CircleShape {
 		CircleShape {
 			center: self.osm_data.get_projected_pos(id).expect("id not found in cache"),
-			radius: theme.node_size * self.map_state.scale_factor,
+			radius: theme.node_size * theme.scale_factor,
 			fill: theme.node_color,
 			stroke: Stroke { width: theme.node_stroke_width, color: theme.node_stroke_color },
 		}
 	}
 
-	const fn draw_node_at(&self, theme: &theme::Theme, center: Pos2) -> CircleShape {
+	const fn draw_node_at(theme: &theme::Theme, center: Pos2) -> CircleShape {
 		CircleShape {
 			center,
-			radius: theme.node_size * self.map_state.scale_factor,
+			radius: theme.node_size * theme.scale_factor,
 			fill: theme.node_color,
 			stroke: Stroke { width: theme.node_stroke_width, color: theme.node_stroke_color },
 		}
@@ -106,16 +106,16 @@ impl Editor {
 	fn draw_node_connected(&self, theme: &theme::Theme, id: &Id) -> CircleShape {
 		CircleShape {
 			center: self.osm_data.get_projected_pos(id).expect("id not found in cache"),
-			radius: theme.node_size * self.map_state.scale_factor,
+			radius: theme.node_size * theme.scale_factor,
 			fill: theme.node_connected_color,
 			stroke: Stroke { width: theme.node_stroke_width, color: theme.node_stroke_color },
 		}
 	}
 
-	const fn draw_node_connected_at(&self, theme: &theme::Theme, center: Pos2) -> CircleShape {
+	const fn draw_node_connected_at(theme: &theme::Theme, center: Pos2) -> CircleShape {
 		CircleShape {
 			center,
-			radius: theme.node_size * self.map_state.scale_factor,
+			radius: theme.node_size * theme.scale_factor,
 			fill: theme.node_connected_color,
 			stroke: Stroke { width: theme.node_stroke_width, color: theme.node_stroke_color },
 		}
@@ -124,16 +124,16 @@ impl Editor {
 	fn draw_node_orphan(&self, theme: &theme::Theme, id: &Id) -> CircleShape {
 		CircleShape {
 			center: self.osm_data.get_projected_pos(id).expect("id not found in cache"),
-			radius: theme.node_size_orphan * self.map_state.scale_factor,
+			radius: theme.node_size_orphan * theme.scale_factor,
 			fill: theme.node_color,
 			stroke: Stroke { width: theme.node_stroke_width, color: theme.node_stroke_color },
 		}
 	}
 
-	const fn draw_node_orphan_at(&self, theme: &theme::Theme, center: Pos2) -> CircleShape {
+	const fn draw_node_orphan_at(theme: &theme::Theme, center: Pos2) -> CircleShape {
 		CircleShape {
 			center,
-			radius: theme.node_size_orphan * self.map_state.scale_factor,
+			radius: theme.node_size_orphan * theme.scale_factor,
 			fill: theme.node_color,
 			stroke: Stroke { width: theme.node_stroke_width, color: theme.node_stroke_color },
 		}
@@ -142,7 +142,7 @@ impl Editor {
 	fn draw_node_hovered(&self, theme: &theme::Theme, id: &Id) -> CircleShape {
 		CircleShape {
 			center: self.osm_data.get_projected_pos(id).expect("id not found in cache"),
-			radius: theme.node_size * self.map_state.scale_factor,
+			radius: theme.node_size * theme.scale_factor,
 			fill: theme.node_color,
 			stroke: Stroke { width: theme.node_stroke_width + HOVER_SIZE_INCREASE, color: theme.hover_color },
 		}
@@ -151,7 +151,7 @@ impl Editor {
 	fn draw_node_selected(&self, theme: &theme::Theme, id: &Id) -> CircleShape {
 		CircleShape {
 			center: self.osm_data.get_projected_pos(id).expect("id not found in cache"),
-			radius: theme.node_size * self.map_state.scale_factor,
+			radius: theme.node_size * theme.scale_factor,
 			fill: theme.node_color,
 			stroke: Stroke { width: theme.node_stroke_width + SELECTION_SIZE_INCREASE, color: theme.selection_color },
 		}
@@ -422,7 +422,7 @@ impl Editor {
 							if node_coords.len() > 2 {
 								let first_coord = &node_coords[0];
 								let first_pos = projector.project(Position::new(first_coord.lon, first_coord.lat)).to_pos2();
-								if first_pos.distance_sq(mouse) < (theme.node_size * self.map_state.scale_factor).powi(2) {
+								if first_pos.distance_sq(mouse) < (theme.node_size * theme.scale_factor).powi(2) {
 									end_way = true;
 									node_coords.push(first_coord.clone());
 								}
@@ -480,7 +480,7 @@ impl Editor {
 					}
 
 					let node_shapes = node_pos.into_iter()
-						.map(|x| self.draw_node_at(theme, x).into())
+						.map(|x| Self::draw_node_at(theme, x).into())
 						.collect::<Vec<Shape>>();
 					self.shapes_top.extend(node_shapes);
 				}
@@ -551,7 +551,7 @@ impl Editor {
 					self.hovered.push(ElementId::Way(*way_id));
 
 					if interact_nodes {
-						let range_sq = (theme.node_size * self.map_state.scale_factor).powi(2);
+						let range_sq = (theme.node_size * theme.scale_factor).powi(2);
 
 						for (pos, id) in points.iter().zip(way.nodes.iter()) {
 							if pos.distance_sq(mouse.unwrap()) < range_sq {
@@ -564,7 +564,7 @@ impl Editor {
 				match &self.map_state.selected_visualization {
 					Visualization::Sidewalks => {
 						if visual::sidewalks_relevant(&way.tags) { // todo: this can be cached
-							self.shapes.extend(visual::sidewalks(theme, &way.tags, &points, width, self.map_state.scale_factor));
+							self.shapes.extend(visual::sidewalks(theme, &way.tags, &points, width, theme.scale_factor));
 						}
 					},
 					Visualization::Default => {},
@@ -588,7 +588,7 @@ impl Editor {
 
 					let mouse = mouse.unwrap();
 
-					let distance_sq = (theme.node_size * self.map_state.scale_factor).powi(2);
+					let distance_sq = (theme.node_size * theme.scale_factor).powi(2);
 					for (id, pos) in way_nodes {
 						// hit detection
 						if pos.distance_sq(mouse) < distance_sq {
@@ -597,14 +597,14 @@ impl Editor {
 
 						// drawing
 						let shape = if self.osm_data.node_usage.get(id).expect("id not found in cache").len() > 1 {
-							self.draw_node_connected_at(theme, pos)
+							Self::draw_node_connected_at(theme, pos)
 						} else {
-							self.draw_node_at(theme, pos)
+							Self::draw_node_at(theme, pos)
 						}.into();
 						self.shapes.push(shape);
 					}
 
-					let distance_sq = (theme.node_size_orphan * self.map_state.scale_factor).powi(2);
+					let distance_sq = (theme.node_size_orphan * theme.scale_factor).powi(2);
 					for (pos, id) in orphan_nodes {
 						// hit detection
 						if pos.distance_sq(mouse) < distance_sq {
@@ -612,7 +612,7 @@ impl Editor {
 						}
 
 						// drawing
-						self.shapes.push(self.draw_node_orphan_at(theme, pos).into());
+						self.shapes.push(Self::draw_node_orphan_at(theme, pos).into());
 					}
 				} else { // optimized without hover detection
 					for id in &self.osm_data.node_dedup.way_nodes {
@@ -693,7 +693,7 @@ impl Editor {
 
 							/* detect interactions and draw nodes on hovered way */ {
 								if interact_nodes {
-									let range_sq = (theme.node_size * self.map_state.scale_factor).powi(2);
+									let range_sq = (theme.node_size * theme.scale_factor).powi(2);
 
 									let points = way.nodes.iter()
 										.skip(closed.into())
@@ -779,8 +779,8 @@ impl Editor {
 					for section in self.osm_data.get_projected_positions_in_way(&w.id).windows(2) {
 						let way_width = self.way_width(theme, w);
 
-						let arrow_length = way_width.mul_add(0.75, 6.5) * self.map_state.scale_factor;
-						let arrow_width = way_width.mul_add(0.75, 5.0) * self.map_state.scale_factor;
+						let arrow_length = way_width.mul_add(0.75, 6.5) * theme.scale_factor;
+						let arrow_width = way_width.mul_add(0.75, 5.0) * theme.scale_factor;
 						let (p1, p2) = (section[0], section[1]);
 						let length = (p2 - p1).length_sq().abs();
 						if length < arrow_length * 5.0 { continue; } // skip short segments
@@ -792,7 +792,7 @@ impl Editor {
 						let side = center + direction.rot90() * arrow_width / 2.0;
 						let side2 = center + direction.rot90().rot90().rot90() * arrow_width / 2.0;
 
-						self.shapes.push(PathShape::convex_polygon(vec![side, tip, side2], Color32::WHITE, PathStroke::new(0.5 * self.map_state.scale_factor, Color32::DARK_GRAY)).into());
+						self.shapes.push(PathShape::convex_polygon(vec![side, tip, side2], Color32::WHITE, PathStroke::new(0.5 * theme.scale_factor, Color32::DARK_GRAY)).into());
 					}
 				}
 			}
@@ -831,7 +831,7 @@ impl Editor {
 
 	fn way_width(&self, theme: &theme::Theme, way: &Way) -> f32 {
 		match self.map_state.selected_visualization {
-			Visualization::Default | Visualization::Sidewalks => visual::width_default(theme, way) * self.map_state.scale_factor,
+			Visualization::Default | Visualization::Sidewalks => visual::width_default(theme, way) * theme.scale_factor,
 		}
 	}
 

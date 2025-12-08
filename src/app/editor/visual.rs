@@ -114,7 +114,7 @@ pub fn sidewalks(theme: &theme::Theme, tags: &Tags, points: &[Pos2], width: f32,
 	[path_left.into(), path_right.into()]
 }
 
-fn tagvalue_to_color(theme: &theme::Theme, value: TagValue) -> Color32 {
+const fn tagvalue_to_color(theme: &theme::Theme, value: TagValue) -> Color32 {
 	match value {
 		TagValue::Yes => theme.sidewalk_yes_color,
 		TagValue::No => theme.sidewalk_no_color,

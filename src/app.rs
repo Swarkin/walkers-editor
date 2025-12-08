@@ -767,12 +767,11 @@ impl MyApp {
 	}
 
 	const fn apply_config(&mut self, settings::Config {
-		language, window_flags, scale_factor, zoom_with_ctrl, debug_redraw_continuously
+		language, window_flags, zoom_with_ctrl, debug_redraw_continuously
 	}: settings::Config) {
 		self.app_state.language = language;
 		self.editor_state.editor.window_flags = window_flags;
 		self.editor_state.editor.map_state.zoom_with_ctrl = zoom_with_ctrl;
-		self.editor_state.editor.map_state.scale_factor = scale_factor;
 		self.app_state.debug_redraw_continuously = debug_redraw_continuously;
 	}
 
@@ -787,7 +786,6 @@ impl MyApp {
 		settings::Config {
 			language: self.app_state.language,
 			window_flags: self.editor_state.editor.window_flags,
-			scale_factor: self.editor_state.editor.map_state.scale_factor,
 			zoom_with_ctrl: self.editor_state.editor.map_state.zoom_with_ctrl,
 			debug_redraw_continuously: self.app_state.debug_redraw_continuously,
 		}

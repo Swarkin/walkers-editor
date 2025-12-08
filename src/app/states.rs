@@ -51,7 +51,6 @@ pub struct MapState {
 	pub selected_fill_mode: FillMode,
 	pub selection_mode: u8,
 	pub download: MapDownloadState,
-	pub scale_factor: f32,
 	pub zoom_with_ctrl: bool,
 }
 
@@ -63,7 +62,6 @@ impl Default for MapState {
 			selected_fill_mode: FillMode::default(),
 			selection_mode: SelectionFlag::Nodes as u8 + SelectionFlag::Ways as u8,
 			download: MapDownloadState::Idle(None),
-			scale_factor: 1.,
 			zoom_with_ctrl: false,
 		}
 	}
@@ -236,8 +234,9 @@ pub enum BootState {
 }
 
 pub mod settings {
-	use crate::app::editor::theme::Theme;
-	use crate::app::translations;
+	#[cfg(not(target_family = "wasm"))]
+	use super::theme::Theme;
+	use super::translations;
 	use crate::app::windows::{Window, WindowBitflag};
 	use serde::{Deserialize, Serialize};
 	#[cfg(not(target_family = "wasm"))]
@@ -252,7 +251,6 @@ pub mod settings {
 	pub struct Config {
 		pub language: translations::Language,
 		pub window_flags: WindowBitflag,
-		pub scale_factor: f32,
 		pub zoom_with_ctrl: bool,
 		pub debug_redraw_continuously: bool,
 	}
@@ -262,7 +260,6 @@ pub mod settings {
 			Self {
 				language: translations::Language::EN,
 				window_flags: Window::Settings as u8,
-				scale_factor: 1.0,
 				zoom_with_ctrl: false,
 				debug_redraw_continuously: false,
 			}

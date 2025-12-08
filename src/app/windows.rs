@@ -250,8 +250,6 @@ pub fn map<'a>(ui: &Ui, tr: &Translation, map_state: &mut MapState, providers: &
 						}
 					});
 
-				egui::Slider::new(&mut map_state.scale_factor, 0.1..=2.0).text(tr[TrID::ScaleFactor as usize]).ui(ui);
-
 				if ui.button(tr[TrID::DataViewer as usize]).clicked() {
 					result = Some(MapWindowResult::ShowDataViewer);
 				}
@@ -474,6 +472,9 @@ impl SettingsWindow {
 							}
 						}
 						SettingsTab::Theme => {
+							egui::Slider::new(&mut theme.scale_factor, 0.5..=3.0)
+								.text(tr[TrID::ScaleFactor as usize]).ui(ui);
+							ui.add_space(4.0);
 							ui.heading("Primitives");
 							egui::Grid::new("theme_primitives").striped(true).num_columns(2).show(ui, |ui| {
 								ui.label("Regular Node Size");
