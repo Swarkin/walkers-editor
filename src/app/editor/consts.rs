@@ -3,6 +3,7 @@ use egui::{Color32, Context, Image, ImageSource, Vec2};
 pub const TOP_BAR_HEIGHT: f32 = 37.0;
 pub const TOP_BAR_FONT_SIZE: f32 = 14.0;
 pub const TOP_BAR_BUTTON_SIZE: Vec2 = Vec2::new(80.0, ICON_SIZE + 4.0);
+pub const REGULAR_BUTTON_SIZE: Vec2 = Vec2::new(120.0, ICON_SIZE + 6.0);
 pub const WIDE_BUTTON_SIZE: Vec2 = Vec2::new(160.0, ICON_SIZE + 6.0);
 
 pub const ICON_SIZE: f32 = 24.0;

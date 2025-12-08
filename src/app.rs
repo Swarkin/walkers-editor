@@ -8,7 +8,6 @@ pub mod icons;
 pub mod states;
 pub mod translations;
 
-use crate::app::windows::SettingsWindowResult;
 use editor::cache::{Change, EditorOsmData, ElementId, ElementRef};
 use editor::consts::*;
 use editor::visual::FillMode;
@@ -30,7 +29,7 @@ use translations::{Translation, TranslationID as TrID};
 use walkers::{Map, MapMemory, Position};
 #[cfg(not(target_family = "wasm"))]
 use windows::SettingsIOErrorModalResult;
-use windows::{DataViewerModal, MapWindowResult, TagsEditKind, Window};
+use windows::{DataViewerModal, MapWindowResult, SettingsWindowResult, TagsEditKind, Window};
 use worker::{Request, Response, UploadChangesProgress, Worker, WorkerHandle};
 
 pub struct MyApp {
@@ -242,7 +241,11 @@ impl MyApp {
 								}
 								SettingsWindowResult::ResetTheme => {
 									self.apply_theme(theme::Theme::default(), ctx);
-								}
+								},
+								SettingsWindowResult::ExportConfig => self.worker_handle.send_message(Request::ExportConfig(Box::new(self.collect_config()))),
+								SettingsWindowResult::ExportTheme => self.worker_handle.send_message(Request::ExportTheme(Box::new(self.app_state.theme.clone()))),
+								SettingsWindowResult::ImportConfig => self.worker_handle.send_message(Request::ImportConfig),
+								SettingsWindowResult::ImportTheme => self.worker_handle.send_message(Request::ImportTheme),
 							}
 						}
 					}
@@ -446,7 +449,7 @@ impl MyApp {
 						if !self.uploader_state.changeset_upload.is_empty() {
 							ui.add_space(10.);
 
-							if ui.add(Button::new((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), "Clear")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+							if ui.add(Button::new((prepare_icon(ctx, icons::SQUARE_X, ICON_SIZE), tr[TrID::Clear as usize])).min_size(WIDE_BUTTON_SIZE)).clicked() {
 								// todo: clear changes and downloaded data
 								self.uploader_state.changeset_upload.clear();
 
@@ -646,7 +649,7 @@ impl MyApp {
 			sender: response_sender,
 		}.spawn(request_sender, request_receiver, response_receiver);
 
-		worker_handle.send_message(Request::LoadSettings);
+		worker_handle.send_message(Request::LoadSettings(None));
 
 		#[cfg(not(target_family = "wasm"))]
 		let cache_dir = Some(std::env::temp_dir().join(env!("CARGO_PKG_NAME")));
@@ -682,19 +685,24 @@ impl MyApp {
 		}
 	}
 
+	#[allow(clippy::too_many_lines)]
 	fn handle_message(&mut self, msg: Response, ctx: &Context) {
 		match msg {
 			#[cfg(not(target_family = "wasm"))]
 			Response::LoadedSettings(config, theme) => {
 				let mut setting_load_result = (None, None);
 
-				match config {
-					Ok(config) => self.apply_config(config),
-					Err(e) => setting_load_result.0 = Some(e),
+				if let Some(config) = config {
+					match config {
+						Ok(config) => self.apply_config(config),
+						Err(e) => setting_load_result.0 = Some(e),
+					}
 				}
-				match theme {
-					Ok(theme) => self.apply_theme(theme, ctx),
-					Err(e) => setting_load_result.1 = Some(e),
+				if let Some(theme) = theme {
+					match theme {
+						Ok(theme) => self.apply_theme(theme, ctx),
+						Err(e) => setting_load_result.1 = Some(e),
+					}
 				}
 
 				if setting_load_result.0.is_none() && setting_load_result.1.is_none() {
@@ -719,6 +727,37 @@ impl MyApp {
 					ctx.send_viewport_cmd(ViewportCommand::Close);
 				} else {
 					self.app_state.settings_save_result = Some((config_err, theme_err));
+				}
+			}
+
+			Response::ExportedConfig(result) => {
+				self.editor_state.editor.settings_window.pending_io = false;
+				ctx.request_repaint();
+				self.editor_state.editor.settings_window.export_config_err = result;
+			}
+			Response::ExportedTheme(result) => {
+				self.editor_state.editor.settings_window.pending_io = false;
+				ctx.request_repaint();
+				self.editor_state.editor.settings_window.export_theme_err = result;
+			}
+			Response::ImportedConfig(result) => {
+				self.editor_state.editor.settings_window.pending_io = false;
+				ctx.request_repaint();
+				match result {
+					Ok(config) => self.apply_config(config),
+					Err(e) => {
+						self.editor_state.editor.settings_window.import_config_err = Some(e);
+					}
+				}
+			}
+			Response::ImportedTheme(result) => {
+				self.editor_state.editor.settings_window.pending_io = false;
+				ctx.request_repaint();
+				match result {
+					Ok(theme) => self.apply_theme(theme, ctx),
+					Err(e) => {
+						self.editor_state.editor.settings_window.import_theme_err = Some(e);
+					}
 				}
 			}
 
@@ -801,6 +840,7 @@ impl MyApp {
 }
 
 impl eframe::App for MyApp {
+	#[allow(clippy::too_many_lines)]
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
 		if self.app_state.debug_redraw_continuously {
 			ctx.request_repaint();
@@ -828,7 +868,7 @@ impl eframe::App for MyApp {
 									ctx.send_viewport_cmd(ViewportCommand::Close);
 								}
 								SettingsIOErrorModalResult::Retry => {
-									self.worker_handle.send_message(Request::LoadSettings);
+									self.worker_handle.send_message(Request::LoadSettings(None));
 									self.app_state.settings_load_result = None;
 								}
 								SettingsIOErrorModalResult::Continue => {
@@ -855,7 +895,7 @@ impl eframe::App for MyApp {
 
 					let config = Box::new(self.collect_config());
 					let theme = Box::new(self.collect_theme(ctx));
-					self.worker_handle.send_message(Request::SaveSettings(Some(config), Some(theme)));
+					self.worker_handle.send_message(Request::SaveSettings(None, Some(config), Some(theme)));
 					self.boot_state = BootState::Saving;
 				}
 			}
@@ -866,14 +906,16 @@ impl eframe::App for MyApp {
 
 				CentralPanel::default().show(ctx, |ui| {
 					if let Some(result) = &self.app_state.settings_save_result {
-						if let Some(resp) = windows::settings_io_error_modal(ctx, tr, result, true, &[tr[TrID::QuitWithoutSaving as usize], tr[TrID::Retry as usize], "Cancel"]) {
+						if let Some(resp) = windows::settings_io_error_modal(ctx, tr, result, true, &[tr[TrID::QuitWithoutSaving as usize], tr[TrID::Retry as usize], tr[TrID::Cancel as usize]]) {
 							match resp {
 								SettingsIOErrorModalResult::Quit => {
 									self.boot_state = BootState::Finished;
 									ctx.send_viewport_cmd(ViewportCommand::Close);
 								}
 								SettingsIOErrorModalResult::Retry => {
-									self.worker_handle.send_message(Request::SaveSettings(None, None));
+									let config = Box::new(self.collect_config());
+									let theme = Box::new(self.collect_theme(ctx));
+									self.worker_handle.send_message(Request::SaveSettings(None, Some(config), Some(theme)));
 									self.app_state.settings_save_result = None;
 								}
 								SettingsIOErrorModalResult::Continue => {

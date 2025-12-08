@@ -239,13 +239,12 @@ pub mod settings {
 	use super::translations;
 	use crate::app::windows::{Window, WindowBitflag};
 	use serde::{Deserialize, Serialize};
-	#[cfg(not(target_family = "wasm"))]
-	use std::path::Path;
+	use std::path::PathBuf;
 
 	#[cfg(not(target_family = "wasm"))]
-	const CONFIG_FILE_NAME: &str = "config.toml";
+	pub const CONFIG_FILE_NAME: &str = "config.toml";
 	#[cfg(not(target_family = "wasm"))]
-	const THEME_FILE_NAME: &str = "theme.toml";
+	pub const THEME_FILE_NAME: &str = "theme.toml";
 
 	#[derive(Clone, Serialize, Deserialize)]
 	pub struct Config {
@@ -267,8 +266,7 @@ pub mod settings {
 	}
 
 	#[cfg(not(target_family = "wasm"))]
-	pub fn load_config(path: &Path) -> std::io::Result<Config> {
-		let path = path.join(CONFIG_FILE_NAME);
+	pub fn load_config(path: PathBuf) -> std::io::Result<Config> {
 		let content = match std::fs::read_to_string(path) {
 			Ok(c) => c,
 			Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Config::default()),
@@ -280,8 +278,7 @@ pub mod settings {
 	}
 
 	#[cfg(not(target_family = "wasm"))]
-	pub fn load_theme(path: &Path) -> std::io::Result<Theme> {
-		let path = path.join(THEME_FILE_NAME);
+	pub fn load_theme(path: PathBuf) -> std::io::Result<Theme> {
 		let content = match std::fs::read_to_string(path) {
 			Ok(c) => c,
 			Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Theme::default()),
@@ -293,16 +290,14 @@ pub mod settings {
 	}
 
 	#[cfg(not(target_family = "wasm"))]
-	pub fn save_config(path: &Path, config: &Config) -> std::io::Result<()> {
-		let path = path.join(CONFIG_FILE_NAME);
+	pub fn save_config(path: PathBuf, config: &Config) -> std::io::Result<()> {
 		let content = toml::to_string(config)
 			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 		std::fs::write(path, content)
 	}
 
 	#[cfg(not(target_family = "wasm"))]
-	pub fn save_theme(path: &Path, theme: &Theme) -> std::io::Result<()> {
-		let path = path.join(THEME_FILE_NAME);
+	pub fn save_theme(path: PathBuf, theme: &Theme) -> std::io::Result<()> {
 		let content = toml::to_string(theme)
 			.map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
 		std::fs::write(path, content)

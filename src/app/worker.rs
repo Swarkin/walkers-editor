@@ -1,10 +1,13 @@
 use super::osm::{Bbox, OrderedTags, OsmClient, OsmResult, OsmToken, TargetServer};
 use super::osmchange::{ChangesetId, OsmChange, Tag};
 use osm_parser::OsmData;
+use std::path::PathBuf;
+use std::{fs, io};
 
 #[cfg(not(target_family = "wasm"))]
 use super::settings;
 use super::settings::Config;
+use crate::app::editor::theme::Theme;
 #[cfg(not(target_family = "wasm"))]
 use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_family = "wasm")]
@@ -14,12 +17,16 @@ use futures::{
 };
 #[cfg(not(target_family = "wasm"))]
 use std::thread::JoinHandle;
-use crate::app::editor::theme::Theme;
 
 pub enum Request { // box is used to keep enum size small
-	LoadSettings,
+	LoadSettings(Option<PathBuf>),
 	#[cfg(not(target_family = "wasm"))]
-	SaveSettings(Option<Box<Config>>, Option<Box<Theme>>),
+	SaveSettings(Option<PathBuf>, Option<Box<Config>>, Option<Box<Theme>>),
+
+	ExportConfig(Box<Config>),
+	ExportTheme(Box<Theme>),
+	ImportConfig,
+	ImportTheme,
 
 	GetMap(Box<Bbox>),
 	SetTargetServer(TargetServer),
@@ -28,9 +35,14 @@ pub enum Request { // box is used to keep enum size small
 }
 
 pub enum Response {
-	LoadedSettings(std::io::Result<Config>, std::io::Result<Theme>),
+	LoadedSettings(Option<io::Result<Config>>, Option<io::Result<Theme>>),
 	#[cfg(not(target_family = "wasm"))]
-	SavedSettings(Option<std::io::Error>, Option<std::io::Error>),
+	SavedSettings(Option<io::Error>, Option<io::Error>),
+
+	ExportedConfig(Option<io::Error>),
+	ExportedTheme(Option<io::Error>),
+	ImportedConfig(io::Result<Config>),
+	ImportedTheme(io::Result<Theme>),
 
 	Map(OsmResult<OsmData>),
 	Token(OsmResult<OsmToken>, TargetServer),
@@ -107,43 +119,88 @@ impl WorkerHandle {
 
 impl Worker {
 	#[cfg(not(target_family = "wasm"))]
+	#[allow(clippy::option_if_let_else)]
+	fn load_settings(path: Option<PathBuf>, load_config: bool, load_theme: bool) -> (Option<io::Result<Config>>, Option<io::Result<Theme>>) {
+		if let Some(dir) = path.or_else(|| dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")))) {
+			if let Err(e) = fs::create_dir_all(&dir) {
+				(
+					if load_config { Some(Err(io::Error::other(format!("Failed to create config directory: {e}")))) } else { None },
+					if load_theme { Some(Err(io::Error::other(format!("Failed to create config directory: {e}")))) } else { None },
+				)
+			} else {
+				let config = if load_config {
+					Some(settings::load_config(dir.join(settings::CONFIG_FILE_NAME)))
+				} else { None };
+				let theme = if load_theme {
+					Some(settings::load_theme(dir.join(settings::THEME_FILE_NAME)))
+				} else { None };
+				(config, theme)
+			}
+		} else { (None, None) }
+	}
+
+	#[cfg(not(target_family = "wasm"))]
+	fn save_settings(path: Option<PathBuf>, config: Option<Box<Config>>, theme: Option<Box<Theme>>) -> (Option<io::Error>, Option<io::Error>) {
+		let mut config_result = Ok(());
+		let mut theme_result = Ok(());
+		let path_some = path.is_some();
+		if path_some { debug_assert!(!(config.is_some() && theme.is_some())); }
+
+		if let Some(dir) = path.or_else(|| dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")))) {
+			if let Some(config) = config {
+				config_result = settings::save_config(if path_some { dir.clone() } else { dir.join(settings::CONFIG_FILE_NAME) }, &config);
+			}
+			if let Some(theme) = theme {
+				theme_result = settings::save_theme(if path_some { dir } else { dir.join(settings::THEME_FILE_NAME) }, &theme);
+			}
+		}
+
+		(config_result.err(), theme_result.err())
+	}
+
+	#[cfg(not(target_family = "wasm"))]
 	fn handle_message(&mut self, request: Request) {
 		match request {
-			Request::LoadSettings => {
-				let settings_dir = dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")));
-				if let Some(dir) = settings_dir {
-					if let Err(e) = std::fs::create_dir_all(&dir) {
-						self.send_message(Response::LoadedSettings(
-							Err(std::io::Error::other(format!("Failed to create config directory: {e}"))),
-							Err(std::io::Error::other(format!("Failed to create config directory: {e}"))),
-						));
-					} else {
-						let config = settings::load_config(&dir);
-						let theme = settings::load_theme(&dir);
-						self.send_message(Response::LoadedSettings(config, theme));
-					}
+			Request::LoadSettings(path) => {
+				let (config, theme) = Self::load_settings(path, true, true);
+				self.send_message(Response::LoadedSettings(config, theme));
+			}
+			Request::SaveSettings(path, config, theme) => {
+				let (config, theme) = Self::save_settings(path, config, theme);
+				self.send_message(Response::SavedSettings(config, theme));
+			}
+
+			Request::ExportConfig(config) => {
+				if let Some(file) = rfd::FileDialog::new().set_file_name("config.toml").add_filter("toml", &["toml"]).save_file() {
+					let (config, theme) = Self::save_settings(Some(file), Some(config), None);
+					debug_assert!(theme.is_none());
+					self.send_message(Response::ExportedConfig(config));
+				} else {
+					self.send_message(Response::ExportedConfig(None));
 				}
 			}
-			Request::SaveSettings(config, theme) => {
-				if config.is_none() && theme.is_none() {
-					self.send_message(Response::SavedSettings(None, None));
-					return;
+			Request::ExportTheme(theme) => {
+				if let Some(file) = rfd::FileDialog::new().set_file_name("theme.toml").add_filter("toml", &["toml"]).save_file() {
+					let (config, theme) = Self::save_settings(Some(file), None, Some(theme));
+					debug_assert!(config.is_none());
+					self.send_message(Response::ExportedTheme(theme));
+				} else {
+					self.send_message(Response::ExportedTheme(None));
 				}
-
-				let settings_dir = dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")));
-				let mut config_result = Ok(());
-				let mut theme_result = Ok(());
-
-				if let Some(dir) = settings_dir {
-					if let Some(config) = config {
-						config_result = settings::save_config(&dir, &config);
-					}
-					if let Some(theme) = theme {
-						theme_result = settings::save_theme(&dir, &theme);
-					}
+			}
+			Request::ImportConfig => {
+				if let Some(file) = rfd::FileDialog::new().add_filter("toml", &["toml"]).pick_file() {
+					let (config, theme) = Self::load_settings(Some(file), true, false);
+					debug_assert!(theme.is_none());
+					self.send_message(Response::ImportedConfig(config.unwrap()));
 				}
-
-				self.send_message(Response::SavedSettings(config_result.err(), theme_result.err()));
+			}
+			Request::ImportTheme => {
+				if let Some(file) = rfd::FileDialog::new().add_filter("toml", &["toml"]).pick_file() {
+					let (config, theme) = Self::load_settings(Some(file), false, true);
+					debug_assert!(config.is_none());
+					self.send_message(Response::ImportedTheme(theme.unwrap()));
+				}
 			}
 
 			Request::GetMap(bbox) => {

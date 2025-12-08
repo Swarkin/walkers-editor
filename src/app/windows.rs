@@ -401,7 +401,7 @@ pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<P
 		})?.inner?
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum SettingsTab {
 	#[default] Config,
 	Theme,
@@ -410,24 +410,75 @@ pub enum SettingsTab {
 #[derive(Debug, Default)]
 pub struct SettingsWindow {
 	pub tab: SettingsTab,
+	pub export_config_err: Option<std::io::Error>,
+	pub export_theme_err: Option<std::io::Error>,
+	pub import_config_err: Option<std::io::Error>,
+	pub import_theme_err: Option<std::io::Error>,
+	pub pending_io: bool,
 }
 
 pub enum SettingsWindowResult {
 	ResetConfig,
 	ResetTheme,
+	ExportConfig,
+	ExportTheme,
+	ImportConfig,
+	ImportTheme,
 }
 
 impl SettingsWindow {
-	#[allow(clippy::too_many_arguments)]
+	#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 	pub fn show(&mut self, ui: &Ui, tr: &Translation, theme: &mut theme::Theme, is_open: &mut bool,
 		language: &mut Language, zoom_with_ctrl: &mut bool, debug_redraw_continuously: &mut bool
 	) -> Option<SettingsWindowResult> {
+		fn io_buttons(ui: &mut Ui, tr: &Translation, t: SettingsTab, pending_io: &mut bool) -> Option<SettingsWindowResult> {
+			let mut result = None;
+			if *pending_io { ui.disable(); }
+
+			ui.horizontal(|ui| {
+				ui.style_mut().spacing.item_spacing.x = 3.0;
+				if Button::new((prepare_icon(ui.ctx(), icons::FILE_ARROW_LEFT, ICON_SIZE), tr[TrID::Import as usize]))
+					.min_size(REGULAR_BUTTON_SIZE).ui(ui).clicked()
+				{
+					result = Some(if matches!(t, SettingsTab::Config) { SettingsWindowResult::ImportConfig } else { SettingsWindowResult::ImportTheme });
+					*pending_io = true;
+				}
+				if Button::new((prepare_icon(ui.ctx(), icons::FILE_ARROW_RIGHT, ICON_SIZE), tr[TrID::Export as usize]))
+					.min_size(REGULAR_BUTTON_SIZE).ui(ui).clicked()
+				{
+					result = Some(if matches!(t, SettingsTab::Config) { SettingsWindowResult::ExportConfig } else { SettingsWindowResult::ExportTheme });
+					*pending_io = true;
+				}
+			});
+
+			result
+		}
+		fn reset_button(ui: &mut Ui, tr: &Translation, t: SettingsTab) -> Option<SettingsWindowResult> {
+			if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_RED),
+				tr[if matches!(t, SettingsTab::Config) { TrID::ResetConfig } else { TrID::ResetTheme } as usize]))
+				.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
+			{
+				Some(if matches!(t, SettingsTab::Config) { SettingsWindowResult::ResetConfig } else { SettingsWindowResult::ResetTheme })
+			} else { None }
+		}
+		fn error_info(ui: &mut Ui, tr: &Translation, error: &mut Option<std::io::Error>, text: &str) {
+			if let Some(e) = error {
+				ui.label(text);
+				let text = e.to_string();
+				ui.monospace(&text);
+				ui.horizontal(|ui| {
+					if ui.button(tr[TrID::CopyError as usize]).clicked() { ui.ctx().copy_text(text); }
+					if ui.add(Button::new((prepare_icon(ui.ctx(), icons::SQUARE_X, ICON_SIZE), tr[TrID::Clear as usize]))).clicked() { *error = None; }
+				});
+			}
+		}
+
 		let mut result = None;
 
 		egui::Window::new(tr[TrID::Settings as usize])
 			.id("settings".into())
 			.frame(themed_frame(ui.ctx().theme()))
-			.default_size(Vec2::new(300., 200.))
+			.default_size(Vec2::new(400., 300.))
 			.min_width(WIDE_BUTTON_SIZE.x)
 			.open(is_open)
 			.show(ui.ctx(), |ui| {
@@ -465,11 +516,10 @@ impl SettingsWindow {
 							ui.checkbox(debug_redraw_continuously, tr[TrID::RedrawContinuously as usize]);
 
 							ui.separator();
-							if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetConfig as usize]))
-								.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
-							{
-								result = Some(SettingsWindowResult::ResetConfig);
-							}
+							if let Some(r) = io_buttons(ui, tr, self.tab, &mut self.pending_io) { result = Some(r); }
+							if let Some(r) = reset_button(ui, tr, self.tab) { result = Some(r); }
+							error_info(ui, tr, &mut self.export_config_err, "Failed to export config:");
+							error_info(ui, tr, &mut self.import_config_err, "Failed to import config:");
 						}
 						SettingsTab::Theme => {
 							egui::Slider::new(&mut theme.scale_factor, 0.5..=3.0)
@@ -509,16 +559,13 @@ impl SettingsWindow {
 								ui.label("Selection Color");
 								ui.color_edit_button_srgba(&mut theme.selection_color);
 								ui.end_row();
-
-								// todo: more theme settings
 							});
 
 							ui.separator();
-							if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetTheme as usize]))
-								.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
-							{
-								result = Some(SettingsWindowResult::ResetTheme);
-							}
+							if let Some(r) = io_buttons(ui, tr, self.tab, &mut self.pending_io) { result = Some(r); }
+							if let Some(r) = reset_button(ui, tr, self.tab) { result = Some(r); }
+							error_info(ui, tr, &mut self.export_theme_err, "Failed to export theme:");
+							error_info(ui, tr, &mut self.import_theme_err, "Failed to import theme:");
 						}
 					}
 				});
