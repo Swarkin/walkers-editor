@@ -38,12 +38,6 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 	MOTORWAY_LINK, TRUNK_LINK, PRIMARY_LINK, SECONDARY_LINK, TERTIARY_LINK,
 ];
 
-pub const SIDEWALK_WIDTH: f32 = 4.0;
-pub const SIDEWALK_YES_COLOR: Color32 = Color32::LIGHT_GREEN;
-pub const SIDEWALK_NO_COLOR: Color32 = Color32::LIGHT_GRAY;
-pub const SIDEWALK_SEPARATE_COLOR: Color32 = Color32::LIGHT_BLUE;
-pub const SIDEWALK_UNKNOWN_COLOR: Color32 = Color32::LIGHT_RED;
-
 pub fn width_default(w: &Way) -> f32 {
 	w.tags.get("building").map_or_else(
 		|| w.tags.get("highway")

@@ -241,6 +241,7 @@ pub mod settings {
 	use serde::{Deserialize, Serialize};
 	#[cfg(not(target_family = "wasm"))]
 	use std::path::Path;
+	use crate::app::editor::theme::{Theme, ThemeSetting};
 
 	#[cfg(not(target_family = "wasm"))]
 	const CONFIG_FILE_NAME: &str = "config.toml";
@@ -266,39 +267,6 @@ pub mod settings {
 				debug_redraw_continuously: false,
 			}
 		}
-	}
-
-	#[derive(Default, Clone, Serialize, Deserialize)]
-	#[serde(rename_all = "lowercase")]
-	pub enum ThemeSetting {
-		Dark,
-		Light,
-		#[default] System,
-	}
-
-	impl From<egui::ThemePreference> for ThemeSetting {
-		fn from(value: egui::ThemePreference) -> Self {
-			match value {
-				egui::ThemePreference::Dark => Self::Dark,
-				egui::ThemePreference::Light => Self::Light,
-				egui::ThemePreference::System => Self::System,
-			}
-		}
-	}
-
-	impl From<ThemeSetting> for egui::ThemePreference {
-		fn from(value: ThemeSetting) -> Self {
-			match value {
-				ThemeSetting::Dark => Self::Dark,
-				ThemeSetting::Light => Self::Light,
-				ThemeSetting::System => Self::System,
-			}
-		}
-	}
-
-	#[derive(Default, Clone, Serialize, Deserialize)]
-	pub struct Theme {
-		pub theme: ThemeSetting,
 	}
 
 	#[cfg(not(target_family = "wasm"))]

@@ -3,6 +3,7 @@ pub mod cache;
 pub mod consts;
 pub mod attribute2d;
 pub mod r_star;
+pub mod theme;
 
 use crate::app::editor::r_star::WayEntry;
 use crate::app::osm::{Bbox, OrderedTags};

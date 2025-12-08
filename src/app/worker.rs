@@ -4,7 +4,7 @@ use osm_parser::OsmData;
 
 #[cfg(not(target_family = "wasm"))]
 use super::settings;
-use super::settings::{Config, Theme};
+use super::settings::Config;
 #[cfg(not(target_family = "wasm"))]
 use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_family = "wasm")]
@@ -14,6 +14,7 @@ use futures::{
 };
 #[cfg(not(target_family = "wasm"))]
 use std::thread::JoinHandle;
+use crate::app::editor::theme::Theme;
 
 pub enum Request { // box is used to keep enum size small
 	LoadSettings,

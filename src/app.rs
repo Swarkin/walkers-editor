@@ -12,7 +12,7 @@ use crate::app::windows::SettingsWindowResult;
 use editor::cache::{Change, EditorOsmData, ElementId, ElementRef};
 use editor::consts::*;
 use editor::visual::FillMode;
-use editor::{consume_key, EditMode, EditOperation, Editor};
+use editor::{consume_key, theme, EditMode, EditOperation, Editor};
 use eframe::egui;
 use egui::containers::menu::{MenuButton, MenuConfig};
 use egui::{Button, CentralPanel, CollapsingHeader, Color32, ComboBox, Context, DragPanButtons, Frame, Grid, Hyperlink, Image, Key, Margin, Modifiers, PopupCloseBehavior, RichText, ScrollArea, SidePanel, Spinner, TextEdit, TopBottomPanel, Ui, Vec2, ViewportCommand, Widget};
@@ -241,7 +241,7 @@ impl MyApp {
 									self.apply_config(settings::Config::default());
 								}
 								SettingsWindowResult::ResetTheme => {
-									self.apply_theme(settings::Theme::default(), ctx);
+									self.apply_theme(theme::Theme::default(), ctx);
 								}
 							}
 						}
@@ -777,9 +777,9 @@ impl MyApp {
 	}
 
 	#[allow(clippy::unused_self)]
-	fn apply_theme(&self, settings::Theme {
+	fn apply_theme(&self, theme::Theme {
 		theme
-	}: settings::Theme, ctx: &Context) {
+	}: theme::Theme, ctx: &Context) {
 		ctx.set_theme(theme);
 	}
 
@@ -796,8 +796,8 @@ impl MyApp {
 
 	#[allow(clippy::unused_self)]
 	#[cfg(not(target_family = "wasm"))]
-	fn collect_theme(&self, ctx: &Context) -> settings::Theme {
-		settings::Theme {
+	fn collect_theme(&self, ctx: &Context) -> theme::Theme {
+		theme::Theme {
 			theme: ctx.options(|x| x.theme_preference).into(),
 		}
 	}
