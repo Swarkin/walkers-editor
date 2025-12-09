@@ -12,6 +12,7 @@ use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, CollapsingHeader, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
 use osm_parser::OsmData;
+#[cfg(not(target_family = "wasm"))]
 use std::io;
 use walkers::sources::Attribution;
 use walkers::Position;
@@ -310,7 +311,6 @@ pub fn toolbar(ui: &mut Ui, tr: &Translation, state: &mut MapState, editor_mode:
 							if *editor_mode == EditMode::View {
 								state.selection_mode ^= flag as u8;
 							} else {
-								#[allow(clippy::single_match)]
 								match flag {
 									SelectionFlag::Nodes => *editor_operation = EditOperation::AddNode,
 									SelectionFlag::Ways => *editor_operation = EditOperation::AddWay(vec![]),
@@ -409,27 +409,32 @@ pub enum SettingsTab {
 #[derive(Debug, Default)]
 pub struct SettingsWindow {
 	pub tab: SettingsTab,
-	pub export_config_err: Option<io::Error>,
-	pub export_theme_err: Option<io::Error>,
-	pub import_config_err: Option<io::Error>,
-	pub import_theme_err: Option<io::Error>,
-	pub pending_io: bool,
+	#[cfg(not(target_family = "wasm"))] pub export_config_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub export_theme_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub import_config_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub import_theme_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub pending_io: bool,
 }
 
 pub enum SettingsWindowResult {
 	ResetConfig,
 	ResetTheme,
+	#[cfg(not(target_family = "wasm"))]
 	ExportConfig,
+	#[cfg(not(target_family = "wasm"))]
 	ExportTheme,
+	#[cfg(not(target_family = "wasm"))]
 	ImportConfig,
+	#[cfg(not(target_family = "wasm"))]
 	ImportTheme,
 }
 
 impl SettingsWindow {
-	#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+	#[expect(clippy::too_many_arguments, clippy::too_many_lines)]
 	pub fn show(&mut self, ui: &Ui, tr: &Translation, theme: &mut theme::Theme, is_open: &mut bool,
 		language: &mut Language, zoom_with_ctrl: &mut bool, debug_redraw_continuously: &mut bool
 	) -> Option<SettingsWindowResult> {
+		#[cfg(not(target_family = "wasm"))]
 		fn io_buttons(ui: &mut Ui, tr: &Translation, t: SettingsTab, pending_io: &mut bool) -> Option<SettingsWindowResult> {
 			let mut result = None;
 			if *pending_io { ui.disable(); }
@@ -462,6 +467,7 @@ impl SettingsWindow {
 		}
 
 		/// Returns true if retry was requested
+		#[cfg(not(target_family = "wasm"))]
 		fn error_info(ui: &Ui, tr: &Translation, err: &mut Option<io::Error>, settings_tab: SettingsTab, save: bool) -> bool {
 			if let Some(e) = err
 				&& let Some(clicked_btn) = settings_io::error_modal_single(ui.ctx(), tr, e, settings_tab, save, &[(tr[TrID::Retry as usize], icons::RELOAD), (tr[TrID::Dismiss as usize], icons::CROSS)])
@@ -521,13 +527,16 @@ impl SettingsWindow {
 							ui.checkbox(debug_redraw_continuously, tr[TrID::RedrawContinuously as usize]);
 
 							ui.separator();
+							#[cfg(not(target_family = "wasm"))]
 							if let Some(r) = io_buttons(ui, tr, self.tab, &mut self.pending_io) { result = Some(r); }
 							if let Some(r) = reset_button(ui, tr, self.tab) { result = Some(r); }
 
+							#[cfg(not(target_family = "wasm"))]
 							if error_info(ui, tr, &mut self.import_config_err, SettingsTab::Config, false) {
 								self.pending_io = true;
 								result = Some(SettingsWindowResult::ImportConfig);
 							}
+							#[cfg(not(target_family = "wasm"))]
 							if error_info(ui, tr, &mut self.export_config_err, SettingsTab::Config, true) {
 								self.pending_io = true;
 								result = Some(SettingsWindowResult::ExportConfig);
@@ -574,13 +583,16 @@ impl SettingsWindow {
 							});
 
 							ui.separator();
+							#[cfg(not(target_family = "wasm"))]
 							if let Some(r) = io_buttons(ui, tr, self.tab, &mut self.pending_io) { result = Some(r); }
 							if let Some(r) = reset_button(ui, tr, self.tab) { result = Some(r); }
 
+							#[cfg(not(target_family = "wasm"))]
 							if error_info(ui, tr, &mut self.import_theme_err, SettingsTab::Theme, false) {
 								self.pending_io = true;
 								result = Some(SettingsWindowResult::ImportTheme);
 							}
+							#[cfg(not(target_family = "wasm"))]
 							if error_info(ui, tr, &mut self.export_theme_err, SettingsTab::Theme, true) {
 								self.pending_io = true;
 								result = Some(SettingsWindowResult::ExportTheme);
@@ -607,7 +619,7 @@ pub fn debug(ui: &Ui, tr: &Translation, selected_provider: Option<&Provider>, pr
 
 			ui.heading(format!("Δt: {:.4} ms", frame_times[*frame_i] * 1000.0));
 
-			#[allow(clippy::cast_precision_loss)]
+			#[expect(clippy::cast_precision_loss)]
 			let avg_timing = frame_times.iter().sum::<f32>() / frame_times.len() as f32;
 			ui.label(format!("Avg Δt: {:.4} ms", avg_timing * 1000.0));
 
@@ -637,7 +649,7 @@ pub fn debug(ui: &Ui, tr: &Translation, selected_provider: Option<&Provider>, pr
 						header.col(|ui| { ui.label("Refresh"); });
 					})
 					.body(|body| {
-						#[allow(clippy::cast_precision_loss)]
+						#[expect(clippy::cast_precision_loss)]
 						body.rows(18.0, CacheFlag::SIZE, |mut row| {
 							let i = row.index();
 							let (time, refresh) = editor_osm_data.cache_debug.0[i];
@@ -777,7 +789,7 @@ impl DataViewerModal {
 		}
 	}
 
-	#[allow(clippy::too_many_lines)]
+	#[expect(clippy::too_many_lines)]
 	pub fn show(&mut self, ctx: &Context, tr: &Translation, osm: &OsmData) -> bool {
 		let screen = ctx.content_rect();
 		let width = screen.width() * 0.8;
@@ -895,7 +907,7 @@ impl DataViewerModal {
 											}
 										}
 										ElementRef::Way(w) => {
-											#[allow(clippy::literal_string_with_formatting_args)]
+											#[expect(clippy::literal_string_with_formatting_args)]
 											CollapsingHeader::new(tr[TrID::NodeCount as usize].replace("{n}", &w.nodes.len().to_string()))
 												.id_salt("node_list")
 												.show(ui, |ui| {
@@ -936,6 +948,7 @@ impl DataViewerModal {
 #[cfg(not(target_family = "wasm"))]
 pub mod settings_io {
 	use super::*;
+	use std::io;
 
 	fn settings_io_section_header(ui: &mut Ui, tr: &Translation, save: bool) {
 		ui.horizontal(|ui| {

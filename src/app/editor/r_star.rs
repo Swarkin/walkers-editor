@@ -18,7 +18,7 @@ pub struct RStarOsmData {
 
 impl From<&OsmData> for RStarOsmData {
 	fn from(data: &OsmData) -> Self {
-		#[allow(clippy::cast_possible_truncation)]
+		#[expect(clippy::cast_possible_truncation)]
 		let mut positions = data.nodes.iter()
 			.map(|(id, node)| {
 				(*id, WebMercatorPoint::from([node.pos.lat as f32, node.pos.lon as f32]))

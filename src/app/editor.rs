@@ -265,7 +265,7 @@ impl Editor {
 
 // logic
 impl Editor {
-	#[allow(clippy::too_many_lines, clippy::cognitive_complexity)]
+	#[expect(clippy::too_many_lines, clippy::cognitive_complexity)]
 	pub fn run(&mut self, ui: &Ui, response: &Response, projector: &Projector, map_memory: &MapMemory, tr: &Translation, theme: &theme::Theme) {
 		 #[cfg(feature = "debug")] /* update frame timing */ {
 			let (i, vec) = &mut self.osm_data.frame_timing;
@@ -279,7 +279,7 @@ impl Editor {
 		self.shapes.clear();
 		self.shapes_top.clear();
 
-		#[allow(clippy::float_cmp)]
+		#[expect(clippy::float_cmp)]
 		if self.prev_zoom != curr_zoom {
 			self.osm_data.refresh_in_view_flag = true;
 		}
@@ -323,7 +323,7 @@ impl Editor {
 				let diff = p_start - current_pos_projected;
 
 				if diff.x.abs() > MAX_VIEW_OFFSET || diff.y.abs() > MAX_VIEW_OFFSET || self.osm_data.refresh_in_view_flag {
-					#[allow(clippy::cast_possible_truncation)]
+					#[expect(clippy::cast_possible_truncation)]
 					let aabb = &AABB::from_corners(
 						WebMercatorPoint::from((self.map_bbox.top as f32, self.map_bbox.left as f32)),
 						WebMercatorPoint::from((self.map_bbox.bottom as f32, self.map_bbox.right as f32))
@@ -389,22 +389,19 @@ impl Editor {
 					} else {
 						ui.ctx().set_cursor_icon(CursorIcon::Crosshair);
 
-						if clicked {
-							#[allow(clippy::collapsible_if)]
-							if let Some(mouse) = mouse {
-								let id = self.next_placeholder_id();
-								let pos = projector.unproject(mouse.to_vec2());
-								let coord = Coordinate::new(pos.0.y, pos.0.x);
+						if clicked && let Some(mouse) = mouse {
+							let id = self.next_placeholder_id();
+							let pos = projector.unproject(mouse.to_vec2());
+							let coord = Coordinate::new(pos.0.y, pos.0.x);
 
-								#[allow(clippy::cast_possible_truncation)]
-								self.osm_data.rtree_data.nodes.insert(NodeEntry::new([coord.lat as f32, coord.lon as f32], id));
-								let change = Change::CreateNode(id, Node { id, pos: coord, ..Default::default() });
-								self.osm_data.apply_change(change);
-								self.osm_data.refresh_in_view_flag = true;
+							#[expect(clippy::cast_possible_truncation)]
+							self.osm_data.rtree_data.nodes.insert(NodeEntry::new([coord.lat as f32, coord.lon as f32], id));
+							let change = Change::CreateNode(id, Node { id, pos: coord, ..Default::default() });
+							self.osm_data.apply_change(change);
+							self.osm_data.refresh_in_view_flag = true;
 
-								self.operation = EditOperation::Idle;
-								self.selected = Some(ElementId::Node(id));
-							}
+							self.operation = EditOperation::Idle;
+							self.selected = Some(ElementId::Node(id));
 						}
 					}
 				}
@@ -437,7 +434,7 @@ impl Editor {
 							let mut nodes = Vec::with_capacity(node_coords.len());
 							let coords = std::mem::take(node_coords).into_iter().skip(closed_way.into()).collect::<Vec<_>>();
 
-							#[allow(clippy::cast_possible_truncation)]
+							#[expect(clippy::cast_possible_truncation)]
 							let temp = coords.iter().map(|x| [x.lat as f32, x.lon as f32]).collect::<Vec<WebMercatorPoint>>();
 							let aabb = AABB::from_points(&temp);
 							drop(temp);
@@ -447,7 +444,7 @@ impl Editor {
 								let node = Node { id, pos: coord, ..Default::default() };
 
 								nodes.push(node.id);
-								#[allow(clippy::cast_possible_truncation)]
+								#[expect(clippy::cast_possible_truncation)]
 								self.osm_data.rtree_data.nodes.insert(NodeEntry::new([node.pos.lat as f32, node.pos.lon as f32], id));
 								self.osm_data.apply_change(Change::CreateNode(id, node));
 							}
@@ -467,7 +464,7 @@ impl Editor {
 		}
 
 		/* draw edit operation */ {
-			#[allow(clippy::single_match)]
+			#[expect(clippy::single_match)]
 			match &self.operation {
 				EditOperation::AddWay(node_coords) => {
 					let node_pos = node_coords.iter().map(|x| {
@@ -801,22 +798,19 @@ impl Editor {
 		/* handle delete key */ {
 			if matches!(self.operation, EditOperation::Idle)
 				&& consume_key(ui.ctx(), Key::Delete, Modifiers::NONE)
+				&& let Some(selected) = &self.selected
+				&& let ElementId::Node(node_id) = selected
+				&& self.osm_data.orphan_nodes.contains(node_id)
 			{
-				#[allow(clippy::collapsible_if)]
-				if let Some(selected) = &self.selected
-					&& let ElementId::Node(node_id) = selected
-					&& self.osm_data.orphan_nodes.contains(node_id)
-				{
-					let node = self.osm_data.data.nodes.get(node_id).expect("id not found in data");
+				let node = self.osm_data.data.nodes.get(node_id).expect("id not found in data");
 
-					#[allow(clippy::cast_possible_truncation)]
-					self.osm_data.rtree_data.nodes.remove(&NodeEntry::new([node.pos.lat as f32, node.pos.lon as f32], *node_id)).unwrap();
-					self.osm_data.apply_change(Change::DeleteNode(*node_id, node.to_owned()));
-					self.osm_data.refresh_in_view_flag = true;
+				#[expect(clippy::cast_possible_truncation)]
+				self.osm_data.rtree_data.nodes.remove(&NodeEntry::new([node.pos.lat as f32, node.pos.lon as f32], *node_id)).unwrap();
+				self.osm_data.apply_change(Change::DeleteNode(*node_id, node.to_owned()));
+				self.osm_data.refresh_in_view_flag = true;
 
-					self.hovered.clear();
-					self.selected = None;
-				}
+				self.hovered.clear();
+				self.selected = None;
 			}
 		}
 
@@ -864,7 +858,7 @@ impl Editor {
 	}
 }
 
-#[allow(clippy::many_single_char_names)]
+#[expect(clippy::many_single_char_names)]
 fn distance_to_segment_sq(p: Pos2, points: &[Pos2; 2]) -> f32 {
 	let x = points[0];
 	let y = points[1];

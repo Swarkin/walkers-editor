@@ -105,7 +105,7 @@ impl MyApp {
 			});
 	}
 
-	#[allow(clippy::too_many_lines)]
+	#[expect(clippy::too_many_lines)]
 	fn content(&mut self, ctx: &Context, tr: &Translation) {
 		match self.app_state.view {
 			View::Edit => {
@@ -206,8 +206,8 @@ impl MyApp {
 						}
 					}
 
+					#[expect(clippy::collapsible_if)]
 					if self.editor_state.editor.window_flags & Window::Toolbar as u8 == 0 {
-						#[allow(clippy::collapsible_if)]
 						if windows::toolbar(ui, tr, &mut self.editor_state.editor.map_state, &mut self.editor_state.editor.mode, &mut self.editor_state.editor.operation, &self.editor_state.editor.map_bbox) {
 							let request = Request::GetMap(Box::new(self.editor_state.editor.map_bbox.clone()));
 							self.worker_handle.send_message(request);
@@ -234,15 +234,15 @@ impl MyApp {
 
 						if let Some(result) = result {
 							match result {
-								SettingsWindowResult::ResetConfig => {
-									self.apply_config(settings::Config::default());
-								}
-								SettingsWindowResult::ResetTheme => {
-									self.apply_theme(theme::Theme::default(), ctx);
-								},
+								SettingsWindowResult::ResetConfig => self.apply_config(settings::Config::default()),
+								SettingsWindowResult::ResetTheme => self.apply_theme(theme::Theme::default(), ctx),
+								#[cfg(not(target_family = "wasm"))]
 								SettingsWindowResult::ExportConfig => self.worker_handle.send_message(Request::ExportConfig(Box::new(self.collect_config()))),
+								#[cfg(not(target_family = "wasm"))]
 								SettingsWindowResult::ExportTheme => self.worker_handle.send_message(Request::ExportTheme(Box::new(self.app_state.theme.clone()))),
+								#[cfg(not(target_family = "wasm"))]
 								SettingsWindowResult::ImportConfig => self.worker_handle.send_message(Request::ImportConfig),
+								#[cfg(not(target_family = "wasm"))]
 								SettingsWindowResult::ImportTheme => self.worker_handle.send_message(Request::ImportTheme),
 							}
 						}
@@ -647,7 +647,10 @@ impl MyApp {
 			sender: response_sender,
 		}.spawn(request_sender, request_receiver, response_receiver);
 
+		#[cfg(not(target_family = "wasm"))]
 		worker_handle.send_message(Request::LoadSettings(None, None));
+		#[cfg(target_family = "wasm")]
+		worker_handle.send_message(Request::LoadSettings);
 
 		#[cfg(not(target_family = "wasm"))]
 		let cache_dir = Some(std::env::temp_dir().join(env!("CARGO_PKG_NAME")));
@@ -683,7 +686,7 @@ impl MyApp {
 		}
 	}
 
-	#[allow(clippy::too_many_lines)]
+	#[expect(clippy::too_many_lines)]
 	fn handle_message(&mut self, msg: Response, ctx: &Context) {
 		match msg {
 			#[cfg(not(target_family = "wasm"))]
@@ -712,10 +715,10 @@ impl MyApp {
 			}
 			#[cfg(target_family = "wasm")]
 			Response::LoadedSettings(config, theme) => {
-				if let Ok(config) = config {
+				if let Some(Ok(config)) = config {
 					self.apply_config(config);
 				}
-				if let Ok(theme) = theme {
+				if let Some(Ok(theme)) = theme {
 					self.apply_theme(theme, ctx);
 				}
 			}
@@ -729,16 +732,19 @@ impl MyApp {
 				}
 			}
 
+			#[cfg(not(target_family = "wasm"))]
 			Response::ExportedConfig(result) => {
 				self.editor_state.editor.settings_window.pending_io = false;
 				ctx.request_repaint();
 				self.editor_state.editor.settings_window.export_config_err = result;
 			}
+			#[cfg(not(target_family = "wasm"))]
 			Response::ExportedTheme(result) => {
 				self.editor_state.editor.settings_window.pending_io = false;
 				ctx.request_repaint();
 				self.editor_state.editor.settings_window.export_theme_err = result;
 			}
+			#[cfg(not(target_family = "wasm"))]
 			Response::ImportedConfig(result) => {
 				self.editor_state.editor.settings_window.pending_io = false;
 				ctx.request_repaint();
@@ -749,6 +755,7 @@ impl MyApp {
 					}
 				}
 			}
+			#[cfg(not(target_family = "wasm"))]
 			Response::ImportedTheme(result) => {
 				self.editor_state.editor.settings_window.pending_io = false;
 				ctx.request_repaint();
@@ -759,6 +766,7 @@ impl MyApp {
 					}
 				}
 			}
+			#[cfg(not(target_family = "wasm"))]
 			Response::SettingsIoCancelled => {
 				self.editor_state.editor.settings_window.pending_io = false;
 				ctx.request_repaint();
@@ -817,7 +825,6 @@ impl MyApp {
 		self.app_state.debug_redraw_continuously = debug_redraw_continuously;
 	}
 
-	#[allow(clippy::unused_self)]
 	fn apply_theme(&mut self, theme: theme::Theme, ctx: &Context) {
 		ctx.set_theme(theme.theme);
 		self.app_state.theme = theme;
@@ -833,7 +840,6 @@ impl MyApp {
 		}
 	}
 
-	#[allow(clippy::unused_self)]
 	#[cfg(not(target_family = "wasm"))]
 	fn collect_theme(&self, ctx: &Context) -> theme::Theme {
 		let mut theme = self.app_state.theme.clone();
@@ -843,7 +849,7 @@ impl MyApp {
 }
 
 impl eframe::App for MyApp {
-	#[allow(clippy::too_many_lines)]
+	#[expect(clippy::too_many_lines)]
 	fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
 		if self.app_state.debug_redraw_continuously {
 			ctx.request_repaint();

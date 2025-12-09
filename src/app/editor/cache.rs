@@ -290,7 +290,7 @@ impl ElementId {
 	}
 }
 
-#[allow(clippy::trivially_copy_pass_by_ref, clippy::cast_possible_truncation)]
+#[allow(clippy::trivially_copy_pass_by_ref)]
 impl EditorOsmData {
 	pub fn apply_change(&mut self, change: Change) {
 		match change {
@@ -448,7 +448,7 @@ impl EditorOsmData {
 	// - NodeOrphan
 	// - WayArea
 	pub fn refresh_node_dedup_cache(&mut self) {
-		#[allow(clippy::cast_possible_truncation)]
+		#[expect(clippy::cast_possible_truncation)]
 		fn quantize_and_insert(positions: &mut HashSet<(i64, i64)>, pos: &Coordinate, amount: f64) -> bool {
 			let pos_quantized = ((pos.lat * amount) as i64, (pos.lon * amount) as i64);
 			positions.insert(pos_quantized)

@@ -266,7 +266,7 @@ mod web {
 		pub auth_token: [Option<OsmToken>; TargetServer::SIZE],
 	}
 
-	#[allow(clippy::future_not_send)]
+	#[expect(clippy::future_not_send)]
 	impl OsmClient {
 		pub fn new(target_server: TargetServer) -> Self {
 			Self {

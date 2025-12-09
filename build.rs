@@ -221,7 +221,7 @@ fn load_translation_credits(offline: bool) -> Result<(), ureq::Error> {
 		return Ok(());
 	}
 
-	#[allow(clippy::items_after_statements)]
+	#[expect(clippy::items_after_statements)]
 	#[derive(Debug, serde::Deserialize)]
 	struct User {
 		username: String,

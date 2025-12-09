@@ -1,8 +1,7 @@
 use super::osm::{Bbox, OrderedTags, OsmClient, OsmResult, OsmToken, TargetServer};
 use super::osmchange::{ChangesetId, OsmChange, Tag};
 use osm_parser::OsmData;
-use std::path::PathBuf;
-use std::{fs, io};
+use std::io;
 
 #[cfg(not(target_family = "wasm"))]
 use super::settings;
@@ -16,17 +15,22 @@ use futures::{
 	stream::StreamExt,
 };
 #[cfg(not(target_family = "wasm"))]
+use std::fs;
+#[cfg(not(target_family = "wasm"))]
+use std::path::PathBuf;
+#[cfg(not(target_family = "wasm"))]
 use std::thread::JoinHandle;
 
 pub enum Request { // box is used to keep enum size small
-	LoadSettings(Option<PathBuf>, Option<String>),
-	#[cfg(not(target_family = "wasm"))]
-	SaveSettings(Option<PathBuf>, Option<String>, Option<Box<Config>>, Option<Box<Theme>>),
+	#[cfg(target_family = "wasm")]
+	LoadSettings,
+	#[cfg(not(target_family = "wasm"))] LoadSettings(Option<PathBuf>, Option<String>),
+	#[cfg(not(target_family = "wasm"))] SaveSettings(Option<PathBuf>, Option<String>, Option<Box<Config>>, Option<Box<Theme>>),
 
-	ExportConfig(Box<Config>),
-	ExportTheme(Box<Theme>),
-	ImportConfig,
-	ImportTheme,
+	#[cfg(not(target_family = "wasm"))] ExportConfig(Box<Config>),
+	#[cfg(not(target_family = "wasm"))] ExportTheme(Box<Theme>),
+	#[cfg(not(target_family = "wasm"))] ImportConfig,
+	#[cfg(not(target_family = "wasm"))] ImportTheme,
 
 	GetMap(Box<Bbox>),
 	SetTargetServer(TargetServer),
@@ -36,14 +40,13 @@ pub enum Request { // box is used to keep enum size small
 
 pub enum Response {
 	LoadedSettings(Option<io::Result<Config>>, Option<io::Result<Theme>>),
-	#[cfg(not(target_family = "wasm"))]
-	SavedSettings(Option<io::Error>, Option<io::Error>),
+	#[cfg(not(target_family = "wasm"))] SavedSettings(Option<io::Error>, Option<io::Error>),
 
-	ExportedConfig(Option<io::Error>),
-	ExportedTheme(Option<io::Error>),
-	ImportedConfig(io::Result<Config>),
-	ImportedTheme(io::Result<Theme>),
-	SettingsIoCancelled,
+	#[cfg(not(target_family = "wasm"))] ExportedConfig(Option<io::Error>),
+	#[cfg(not(target_family = "wasm"))] ExportedTheme(Option<io::Error>),
+	#[cfg(not(target_family = "wasm"))] ImportedConfig(io::Result<Config>),
+	#[cfg(not(target_family = "wasm"))] ImportedTheme(io::Result<Theme>),
+	#[cfg(not(target_family = "wasm"))] SettingsIoCancelled,
 
 	Map(OsmResult<OsmData>),
 	Token(OsmResult<OsmToken>, TargetServer),
@@ -265,11 +268,11 @@ impl Worker {
 	}
 
 	#[cfg(target_family = "wasm")]
-	#[allow(clippy::future_not_send)]
+	#[expect(clippy::future_not_send)]
 	async fn handle_message(&mut self, request: Request) {
 		match request {
 			Request::LoadSettings => {
-				self.send_message(Response::LoadedSettings(Ok(Config::default()), Ok(Theme::default())));
+				self.send_message(Response::LoadedSettings(Some(Ok(Config::default())), Some(Ok(Theme::default()))));
 			}
 			Request::GetMap(bbox) => {
 				let result = self.osm_client.get_map(&bbox).await;
@@ -322,7 +325,7 @@ impl Worker {
 	}
 
 	#[cfg(target_family = "wasm")]
-	#[allow(clippy::future_not_send)]
+	#[expect(clippy::future_not_send)]
 	pub async fn run(&mut self, mut receiver: Receiver<Request>) {
 		while let Some(msg) = receiver.next().await {
 			self.handle_message(msg).await;

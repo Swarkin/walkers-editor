@@ -11,6 +11,7 @@ use crate::app::{
 };
 use crate::HashMap;
 use std::fmt::{Display, Formatter};
+#[cfg(not(target_family = "wasm"))]
 use std::io;
 use walkers::MapMemory;
 
@@ -240,6 +241,7 @@ pub mod settings {
 	use super::translations;
 	use crate::app::windows::{Window, WindowBitflag};
 	use serde::{Deserialize, Serialize};
+	#[cfg(not(target_family = "wasm"))]
 	use std::path::PathBuf;
 
 	#[cfg(not(target_family = "wasm"))]
