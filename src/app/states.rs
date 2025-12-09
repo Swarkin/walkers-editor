@@ -11,10 +11,11 @@ use crate::app::{
 };
 use crate::HashMap;
 use std::fmt::{Display, Formatter};
+use std::io;
 use walkers::MapMemory;
 
-#[cfg(not(target_family = "wasm"))]
-pub type SettingsIOResult = (Option<std::io::Error>, Option<std::io::Error>);
+//#[cfg(not(target_family = "wasm"))]
+//pub type SettingsIOResult = (Option<std::io::Error>, Option<std::io::Error>);
 
 #[derive(Default)]
 pub struct AppState {
@@ -25,9 +26,9 @@ pub struct AppState {
 	pub open_modals: u8,
 	pub top_bar_disabled: bool,
 	#[cfg(not(target_family = "wasm"))]
-	pub settings_load_result: Option<SettingsIOResult>,
+	pub settings_load_result: Option<(Option<io::Error>, Option<io::Error>)>,
 	#[cfg(not(target_family = "wasm"))]
-	pub settings_save_result: Option<SettingsIOResult>,
+	pub settings_save_result: Option<(Option<io::Error>, Option<io::Error>)>,
 	pub debug_redraw_continuously: bool,
 }
 

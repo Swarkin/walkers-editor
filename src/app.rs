@@ -27,8 +27,6 @@ use states::BootState;
 use states::{AppState, AuthenticatorState, CacheFlag, ChangesetUploadState, EditorState, MapDownloadState, ModalFlag, UploaderState, View};
 use translations::{Translation, TranslationID as TrID};
 use walkers::{Map, MapMemory, Position};
-#[cfg(not(target_family = "wasm"))]
-use windows::SettingsIOErrorModalResult;
 use windows::{DataViewerModal, MapWindowResult, SettingsWindowResult, TagsEditKind, Window};
 use worker::{Request, Response, UploadChangesProgress, Worker, WorkerHandle};
 
@@ -649,7 +647,7 @@ impl MyApp {
 			sender: response_sender,
 		}.spawn(request_sender, request_receiver, response_receiver);
 
-		worker_handle.send_message(Request::LoadSettings(None));
+		worker_handle.send_message(Request::LoadSettings(None, None));
 
 		#[cfg(not(target_family = "wasm"))]
 		let cache_dir = Some(std::env::temp_dir().join(env!("CARGO_PKG_NAME")));
@@ -690,25 +688,26 @@ impl MyApp {
 		match msg {
 			#[cfg(not(target_family = "wasm"))]
 			Response::LoadedSettings(config, theme) => {
-				let mut setting_load_result = (None, None);
+				let mut config_result = None;
+				let mut theme_result = None;
 
 				if let Some(config) = config {
 					match config {
 						Ok(config) => self.apply_config(config),
-						Err(e) => setting_load_result.0 = Some(e),
+						Err(e) => config_result = Some(e),
 					}
 				}
 				if let Some(theme) = theme {
 					match theme {
 						Ok(theme) => self.apply_theme(theme, ctx),
-						Err(e) => setting_load_result.1 = Some(e),
+						Err(e) => theme_result = Some(e),
 					}
 				}
 
-				if setting_load_result.0.is_none() && setting_load_result.1.is_none() {
+				if config_result.is_none() && theme_result.is_none() {
 					self.boot_state = BootState::Idle;
 				} else {
-					self.app_state.settings_load_result = Some(setting_load_result);
+					self.app_state.settings_load_result = Some((config_result, theme_result));
 				}
 			}
 			#[cfg(target_family = "wasm")]
@@ -759,6 +758,10 @@ impl MyApp {
 						self.editor_state.editor.settings_window.import_theme_err = Some(e);
 					}
 				}
+			}
+			Response::SettingsIoCancelled => {
+				self.editor_state.editor.settings_window.pending_io = false;
+				ctx.request_repaint();
 			}
 
 			Response::Map(result) => {
@@ -857,24 +860,27 @@ impl eframe::App for MyApp {
 		match &self.boot_state {
 			BootState::Starting => {
 				CentralPanel::default().show(ctx, |ui| {
-					if let Some(result) = &mut self.app_state.settings_load_result {
-						if result.0.is_none() && result.1.is_none() {
+					if let Some((config_err, theme_err)) = &self.app_state.settings_load_result {
+						if config_err.is_none() && theme_err.is_none() {
 							self.boot_state = BootState::Idle;
 							self.app_state.settings_load_result = None;
-						} else if let Some(resp) = windows::settings_io_error_modal(ctx, tr, result, false, &[tr[TrID::Quit as usize], tr[TrID::Retry as usize], tr[TrID::UseDefaults as usize]]) {
-							match resp {
-								SettingsIOErrorModalResult::Quit => {
+						} else if let Some(result) = windows::settings_io::error_modal(ctx, tr, config_err.as_ref(), theme_err.as_ref(), false,
+							&[(tr[TrID::Quit as usize], icons::CROSS), (tr[TrID::Retry as usize], icons::RELOAD), (tr[TrID::UseDefaults as usize], icons::CHECK)]
+						) {
+							match result {
+								0 => {
 									self.boot_state = BootState::Finished;
 									ctx.send_viewport_cmd(ViewportCommand::Close);
 								}
-								SettingsIOErrorModalResult::Retry => {
-									self.worker_handle.send_message(Request::LoadSettings(None));
+								1 => {
+									self.worker_handle.send_message(Request::LoadSettings(None, None));
 									self.app_state.settings_load_result = None;
 								}
-								SettingsIOErrorModalResult::Continue => {
+								2 => {
 									self.boot_state = BootState::Idle;
 									self.app_state.settings_load_result = None;
-								},
+								}
+								_ => unreachable!(),
 							}
 						}
 					} else {
@@ -895,7 +901,7 @@ impl eframe::App for MyApp {
 
 					let config = Box::new(self.collect_config());
 					let theme = Box::new(self.collect_theme(ctx));
-					self.worker_handle.send_message(Request::SaveSettings(None, Some(config), Some(theme)));
+					self.worker_handle.send_message(Request::SaveSettings(None, None, Some(config), Some(theme)));
 					self.boot_state = BootState::Saving;
 				}
 			}
@@ -905,23 +911,29 @@ impl eframe::App for MyApp {
 				}
 
 				CentralPanel::default().show(ctx, |ui| {
-					if let Some(result) = &self.app_state.settings_save_result {
-						if let Some(resp) = windows::settings_io_error_modal(ctx, tr, result, true, &[tr[TrID::QuitWithoutSaving as usize], tr[TrID::Retry as usize], tr[TrID::Cancel as usize]]) {
-							match resp {
-								SettingsIOErrorModalResult::Quit => {
+					if let Some((config_err, theme_err)) = &self.app_state.settings_save_result {
+						if config_err.is_none() && theme_err.is_none() {
+							self.boot_state = BootState::Idle;
+							self.app_state.settings_save_result = None;
+						} else if let Some(result) = windows::settings_io::error_modal(ctx, tr, config_err.as_ref(), theme_err.as_ref(), true,
+							&[(tr[TrID::QuitWithoutSaving as usize], icons::CROSS), (tr[TrID::Retry as usize], icons::RELOAD), (tr[TrID::Cancel as usize], icons::CHECK)]
+						) {
+							match result {
+								0 => {
 									self.boot_state = BootState::Finished;
 									ctx.send_viewport_cmd(ViewportCommand::Close);
 								}
-								SettingsIOErrorModalResult::Retry => {
+								1 => {
 									let config = Box::new(self.collect_config());
 									let theme = Box::new(self.collect_theme(ctx));
-									self.worker_handle.send_message(Request::SaveSettings(None, Some(config), Some(theme)));
+									self.worker_handle.send_message(Request::SaveSettings(None, None, Some(config), Some(theme)));
 									self.app_state.settings_save_result = None;
 								}
-								SettingsIOErrorModalResult::Continue => {
+								2 => {
 									self.boot_state = BootState::Idle;
 									self.app_state.settings_save_result = None;
-								},
+								}
+								_ => unreachable!(),
 							}
 						}
 					} else {
