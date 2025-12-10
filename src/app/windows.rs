@@ -271,7 +271,7 @@ pub fn toolbar(ui: &mut Ui, tr: &Translation, state: &mut MapState, editor_mode:
 	let rect = Rect::from_two_pos(top_left, top_left + Vec2::new(MODE_INDICATOR_WIDTH, frame.total_margin().top.mul_add(2., 24. + 4.)));
 
 	// Draw mode indicator
-	let tooltip = tr[TrID::EditModeTooltip as usize].replace("{mode}", &editor_mode.to_string()).replace("{key}", &format!("{:?}", Key::Space));
+	let tooltip = tr[TrID::EditModeTooltip as usize].replace("{mode}", (*editor_mode).translate(tr)).replace("{key}", &format!("{:?}", Key::Space));
 	if ui.allocate_rect(rect, Sense::click()).on_hover_text(tooltip).clicked() {
 		*editor_mode = match editor_mode {
 			EditMode::View => EditMode::Edit,
