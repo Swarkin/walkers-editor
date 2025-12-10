@@ -1,5 +1,5 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-#![expect(clippy::wildcard_imports)]
+#![allow(clippy::wildcard_imports)]
 
 mod app;
 
