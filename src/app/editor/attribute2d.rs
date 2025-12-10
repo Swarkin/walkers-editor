@@ -10,7 +10,7 @@ pub struct Attribute2D {
 }
 
 impl Attribute2D {
-	#[allow(clippy::useless_let_if_seq)]
+	#[expect(clippy::useless_let_if_seq)]
 	pub fn new(tags: &Tags, tag: &str) -> Self {
 		let mut attr = Self::default();
 
@@ -124,7 +124,7 @@ impl Display for TagValue {
 	}
 }
 
-#[allow(clippy::from_over_into)]
+#[expect(clippy::from_over_into)]
 impl Into<ImageSource<'_>> for TagValue {
 	fn into(self) -> ImageSource<'static> {
 		match self {

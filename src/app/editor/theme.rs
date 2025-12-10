@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Theme {
-	#[allow(clippy::struct_field_names)]
+	#[expect(clippy::struct_field_names)]
 	pub theme: ThemeSetting,
 	pub scale_factor: f32,
 	pub node_size: f32,

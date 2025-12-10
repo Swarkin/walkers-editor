@@ -1,10 +1,12 @@
 use super::osm::{Bbox, OrderedTags, OsmClient, OsmResult, OsmToken, TargetServer};
 use super::osmchange::{ChangesetId, OsmChange, Tag};
 use osm_parser::OsmData;
+use std::io;
 
 #[cfg(not(target_family = "wasm"))]
 use super::settings;
 use super::settings::Config;
+use crate::app::editor::theme::Theme;
 #[cfg(not(target_family = "wasm"))]
 use crossbeam_channel::{Receiver, Sender};
 #[cfg(target_family = "wasm")]
@@ -13,13 +15,22 @@ use futures::{
 	stream::StreamExt,
 };
 #[cfg(not(target_family = "wasm"))]
+use std::fs;
+#[cfg(not(target_family = "wasm"))]
+use std::path::PathBuf;
+#[cfg(not(target_family = "wasm"))]
 use std::thread::JoinHandle;
-use crate::app::editor::theme::Theme;
 
 pub enum Request { // box is used to keep enum size small
+	#[cfg(target_family = "wasm")]
 	LoadSettings,
-	#[cfg(not(target_family = "wasm"))]
-	SaveSettings(Option<Box<Config>>, Option<Box<Theme>>),
+	#[cfg(not(target_family = "wasm"))] LoadSettings(Option<PathBuf>, Option<String>),
+	#[cfg(not(target_family = "wasm"))] SaveSettings(Option<PathBuf>, Option<String>, Option<Box<Config>>, Option<Box<Theme>>),
+
+	#[cfg(not(target_family = "wasm"))] ExportConfig(Box<Config>),
+	#[cfg(not(target_family = "wasm"))] ExportTheme(Box<Theme>),
+	#[cfg(not(target_family = "wasm"))] ImportConfig,
+	#[cfg(not(target_family = "wasm"))] ImportTheme,
 
 	GetMap(Box<Bbox>),
 	SetTargetServer(TargetServer),
@@ -28,9 +39,14 @@ pub enum Request { // box is used to keep enum size small
 }
 
 pub enum Response {
-	LoadedSettings(std::io::Result<Config>, std::io::Result<Theme>),
-	#[cfg(not(target_family = "wasm"))]
-	SavedSettings(Option<std::io::Error>, Option<std::io::Error>),
+	LoadedSettings(Option<io::Result<Config>>, Option<io::Result<Theme>>),
+	#[cfg(not(target_family = "wasm"))] SavedSettings(Option<io::Error>, Option<io::Error>),
+
+	#[cfg(not(target_family = "wasm"))] ExportedConfig(Option<io::Error>),
+	#[cfg(not(target_family = "wasm"))] ExportedTheme(Option<io::Error>),
+	#[cfg(not(target_family = "wasm"))] ImportedConfig(io::Result<Config>),
+	#[cfg(not(target_family = "wasm"))] ImportedTheme(io::Result<Theme>),
+	#[cfg(not(target_family = "wasm"))] SettingsIoCancelled,
 
 	Map(OsmResult<OsmData>),
 	Token(OsmResult<OsmToken>, TargetServer),
@@ -107,43 +123,105 @@ impl WorkerHandle {
 
 impl Worker {
 	#[cfg(not(target_family = "wasm"))]
-	fn handle_message(&mut self, request: Request) {
-		match request {
-			Request::LoadSettings => {
-				let settings_dir = dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")));
-				if let Some(dir) = settings_dir {
-					if let Err(e) = std::fs::create_dir_all(&dir) {
-						self.send_message(Response::LoadedSettings(
-							Err(std::io::Error::other(format!("Failed to create config directory: {e}"))),
-							Err(std::io::Error::other(format!("Failed to create config directory: {e}"))),
-						));
-					} else {
-						let config = settings::load_config(&dir);
-						let theme = settings::load_theme(&dir);
-						self.send_message(Response::LoadedSettings(config, theme));
-					}
+	#[expect(clippy::needless_pass_by_value)]
+	fn load_settings(dir: Option<PathBuf>, name: Option<String>, load_config: bool, load_theme: bool) -> (Option<io::Result<Config>>, Option<io::Result<Theme>>) {
+		debug_assert!(load_config || load_theme);
+
+		let mut config = None;
+		let mut theme = None;
+
+		if let Some(dir) = dir.or_else(|| dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")))) {
+			if name.is_none() && let Err(e) = fs::create_dir_all(&dir) {
+				if load_config { config = Some(Err(io::Error::other(format!("{e}")))) }
+				if load_theme { theme = Some(Err(e)) }
+			} else {
+				if load_config {
+					config = Some(settings::load_config(dir.join(name.as_ref().map_or(settings::CONFIG_FILE_NAME, |v| v))));
+				}
+				if load_theme {
+					theme = Some(settings::load_theme(dir.join(name.as_ref().map_or(settings::THEME_FILE_NAME, |v| v))));
 				}
 			}
-			Request::SaveSettings(config, theme) => {
-				if config.is_none() && theme.is_none() {
-					self.send_message(Response::SavedSettings(None, None));
-					return;
+		}
+
+		(config, theme)
+	}
+
+	#[cfg(not(target_family = "wasm"))]
+	#[expect(clippy::needless_pass_by_value)]
+	fn save_settings(dir: Option<PathBuf>, name: Option<String>, config: Option<Box<Config>>, theme: Option<Box<Theme>>) -> (Option<io::Error>, Option<io::Error>) {
+		debug_assert!(config.is_some() || theme.is_some());
+
+		let mut config_result = Ok(());
+		let mut theme_result = Ok(());
+
+		if let Some(dir) = dir.or_else(|| dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")))) {
+			if let Some(config) = config {
+				config_result = settings::save_config(dir.join(name.as_ref().map_or(settings::CONFIG_FILE_NAME, |v| v)), &config);
+			}
+			if let Some(theme) = theme {
+				theme_result = settings::save_theme(dir.join(name.as_ref().map_or(settings::THEME_FILE_NAME, |v| v)), &theme);
+			}
+		}
+
+		(config_result.err(), theme_result.err())
+	}
+
+	#[cfg(not(target_family = "wasm"))]
+	fn handle_message(&mut self, request: Request) {
+		match request {
+			Request::LoadSettings(dir, name) => {
+				let (config, theme) = Self::load_settings(dir, name, true, true);
+				self.send_message(Response::LoadedSettings(config, theme));
+			}
+			Request::SaveSettings(path, name, config, theme) => {
+				let (config, theme) = Self::save_settings(path, name, config, theme);
+				self.send_message(Response::SavedSettings(config, theme));
+			}
+
+			Request::ExportConfig(config) => {
+				if let Some(path) = rfd::FileDialog::new().set_file_name("config.toml").add_filter("toml", &["toml"]).save_file() {
+					let dir = path.parent().unwrap().to_owned();
+					let file = path.file_name().unwrap().to_str().unwrap().into();
+					let (config, theme) = Self::save_settings(Some(dir), Some(file), Some(config), None);
+					debug_assert!(theme.is_none());
+					self.send_message(Response::ExportedConfig(config));
+				} else {
+					self.send_message(Response::SettingsIoCancelled);
 				}
-
-				let settings_dir = dirs::config_dir().map(|x| x.join(env!("CARGO_PKG_NAME")));
-				let mut config_result = Ok(());
-				let mut theme_result = Ok(());
-
-				if let Some(dir) = settings_dir {
-					if let Some(config) = config {
-						config_result = settings::save_config(&dir, &config);
-					}
-					if let Some(theme) = theme {
-						theme_result = settings::save_theme(&dir, &theme);
-					}
+			}
+			Request::ExportTheme(theme) => {
+				if let Some(path) = rfd::FileDialog::new().set_file_name("theme.toml").add_filter("toml", &["toml"]).save_file() {
+					let dir = path.parent().unwrap().to_owned();
+					let file = path.file_name().unwrap().to_str().unwrap().into();
+					let (config, theme) = Self::save_settings(Some(dir), Some(file), None, Some(theme));
+					debug_assert!(config.is_none());
+					self.send_message(Response::ExportedTheme(theme));
+				} else {
+					self.send_message(Response::SettingsIoCancelled);
 				}
-
-				self.send_message(Response::SavedSettings(config_result.err(), theme_result.err()));
+			}
+			Request::ImportConfig => {
+				if let Some(path) = rfd::FileDialog::new().add_filter("toml", &["toml"]).pick_file() {
+					let dir = path.parent().unwrap().to_owned();
+					let file = path.file_name().unwrap().to_str().unwrap().into();
+					let (config, theme) = Self::load_settings(Some(dir), Some(file), true, false);
+					debug_assert!(theme.is_none());
+					self.send_message(Response::ImportedConfig(config.unwrap()));
+				} else {
+					self.send_message(Response::SettingsIoCancelled);
+				}
+			}
+			Request::ImportTheme => {
+				if let Some(path) = rfd::FileDialog::new().add_filter("toml", &["toml"]).pick_file() {
+					let dir = path.parent().unwrap().to_owned();
+					let file = path.file_name().unwrap().to_str().unwrap().into();
+					let (config, theme) = Self::load_settings(Some(dir), Some(file), false, true);
+					debug_assert!(config.is_none());
+					self.send_message(Response::ImportedTheme(theme.unwrap()));
+				} else {
+					self.send_message(Response::SettingsIoCancelled);
+				}
 			}
 
 			Request::GetMap(bbox) => {
@@ -190,11 +268,11 @@ impl Worker {
 	}
 
 	#[cfg(target_family = "wasm")]
-	#[allow(clippy::future_not_send)]
+	#[expect(clippy::future_not_send)]
 	async fn handle_message(&mut self, request: Request) {
 		match request {
 			Request::LoadSettings => {
-				self.send_message(Response::LoadedSettings(Ok(Config::default()), Ok(Theme::default())));
+				self.send_message(Response::LoadedSettings(Some(Ok(Config::default())), Some(Ok(Theme::default()))));
 			}
 			Request::GetMap(bbox) => {
 				let result = self.osm_client.get_map(&bbox).await;
@@ -247,7 +325,7 @@ impl Worker {
 	}
 
 	#[cfg(target_family = "wasm")]
-	#[allow(clippy::future_not_send)]
+	#[expect(clippy::future_not_send)]
 	pub async fn run(&mut self, mut receiver: Receiver<Request>) {
 		while let Some(msg) = receiver.next().await {
 			self.handle_message(msg).await;

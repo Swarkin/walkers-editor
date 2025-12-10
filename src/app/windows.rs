@@ -3,8 +3,6 @@ use super::editor::{cache::ElementRef, consts::{osm::*, *}, consume_key, theme, 
 use super::icons;
 use super::osm::{Bbox, OrderedTags, TargetServer};
 use super::providers::Provider;
-#[cfg(not(target_family = "wasm"))]
-use super::states::SettingsIOResult;
 use super::states::{MapDownloadState, MapState, SelectionFlag};
 use super::translations::{Language, Translation, TranslationID as TrID};
 use eframe::egui;
@@ -14,6 +12,8 @@ use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, CollapsingHeader, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
 use osm_parser::OsmData;
+#[cfg(not(target_family = "wasm"))]
+use std::io;
 use walkers::sources::Attribution;
 use walkers::Position;
 
@@ -311,7 +311,6 @@ pub fn toolbar(ui: &mut Ui, tr: &Translation, state: &mut MapState, editor_mode:
 							if *editor_mode == EditMode::View {
 								state.selection_mode ^= flag as u8;
 							} else {
-								#[allow(clippy::single_match)]
 								match flag {
 									SelectionFlag::Nodes => *editor_operation = EditOperation::AddNode,
 									SelectionFlag::Ways => *editor_operation = EditOperation::AddWay(vec![]),
@@ -401,7 +400,7 @@ pub fn position(ui: &Ui, tr: &Translation, pos: Position, zoom: f64) -> Option<P
 		})?.inner?
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub enum SettingsTab {
 	#[default] Config,
 	Theme,
@@ -410,24 +409,87 @@ pub enum SettingsTab {
 #[derive(Debug, Default)]
 pub struct SettingsWindow {
 	pub tab: SettingsTab,
+	#[cfg(not(target_family = "wasm"))] pub export_config_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub export_theme_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub import_config_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub import_theme_err: Option<io::Error>,
+	#[cfg(not(target_family = "wasm"))] pub pending_io: bool,
 }
 
 pub enum SettingsWindowResult {
 	ResetConfig,
 	ResetTheme,
+	#[cfg(not(target_family = "wasm"))]
+	ExportConfig,
+	#[cfg(not(target_family = "wasm"))]
+	ExportTheme,
+	#[cfg(not(target_family = "wasm"))]
+	ImportConfig,
+	#[cfg(not(target_family = "wasm"))]
+	ImportTheme,
 }
 
 impl SettingsWindow {
-	#[allow(clippy::too_many_arguments)]
+	#[expect(clippy::too_many_arguments, clippy::too_many_lines)]
 	pub fn show(&mut self, ui: &Ui, tr: &Translation, theme: &mut theme::Theme, is_open: &mut bool,
 		language: &mut Language, zoom_with_ctrl: &mut bool, debug_redraw_continuously: &mut bool
 	) -> Option<SettingsWindowResult> {
+		#[cfg(not(target_family = "wasm"))]
+		fn io_buttons(ui: &mut Ui, tr: &Translation, t: SettingsTab, pending_io: &mut bool) -> Option<SettingsWindowResult> {
+			let mut result = None;
+			if *pending_io { ui.disable(); }
+
+			ui.horizontal(|ui| {
+				ui.style_mut().spacing.item_spacing.x = 3.0;
+				if Button::new((prepare_icon(ui.ctx(), icons::FILE_ARROW_LEFT, ICON_SIZE), tr[TrID::Import as usize]))
+					.min_size(REGULAR_BUTTON_SIZE).ui(ui).clicked()
+				{
+					result = Some(if matches!(t, SettingsTab::Config) { SettingsWindowResult::ImportConfig } else { SettingsWindowResult::ImportTheme });
+					*pending_io = true;
+				}
+				if Button::new((prepare_icon(ui.ctx(), icons::FILE_ARROW_RIGHT, ICON_SIZE), tr[TrID::Export as usize]))
+					.min_size(REGULAR_BUTTON_SIZE).ui(ui).clicked()
+				{
+					result = Some(if matches!(t, SettingsTab::Config) { SettingsWindowResult::ExportConfig } else { SettingsWindowResult::ExportTheme });
+					*pending_io = true;
+				}
+			});
+
+			result
+		}
+		fn reset_button(ui: &mut Ui, tr: &Translation, t: SettingsTab) -> Option<SettingsWindowResult> {
+			if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_RED),
+				tr[if matches!(t, SettingsTab::Config) { TrID::ResetConfig } else { TrID::ResetTheme } as usize]))
+				.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
+			{
+				Some(if matches!(t, SettingsTab::Config) { SettingsWindowResult::ResetConfig } else { SettingsWindowResult::ResetTheme })
+			} else { None }
+		}
+
+		/// Returns true if retry was requested
+		#[cfg(not(target_family = "wasm"))]
+		fn error_info(ui: &Ui, tr: &Translation, err: &mut Option<io::Error>, settings_tab: SettingsTab, save: bool) -> bool {
+			if let Some(e) = err
+				&& let Some(clicked_btn) = settings_io::error_modal_single(ui.ctx(), tr, e, settings_tab, save, &[(tr[TrID::Retry as usize], icons::RELOAD), (tr[TrID::Dismiss as usize], icons::CROSS)])
+			{
+				match clicked_btn {
+					0 => {
+						*err = None;
+						return true;
+					},
+					1 => *err = None,
+					_ => unreachable!(),
+				}
+			}
+			false
+		}
+
 		let mut result = None;
 
 		egui::Window::new(tr[TrID::Settings as usize])
 			.id("settings".into())
 			.frame(themed_frame(ui.ctx().theme()))
-			.default_size(Vec2::new(300., 200.))
+			.default_size(Vec2::new(400., 300.))
 			.min_width(WIDE_BUTTON_SIZE.x)
 			.open(is_open)
 			.show(ui.ctx(), |ui| {
@@ -465,10 +527,19 @@ impl SettingsWindow {
 							ui.checkbox(debug_redraw_continuously, tr[TrID::RedrawContinuously as usize]);
 
 							ui.separator();
-							if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetConfig as usize]))
-								.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
-							{
-								result = Some(SettingsWindowResult::ResetConfig);
+							#[cfg(not(target_family = "wasm"))]
+							if let Some(r) = io_buttons(ui, tr, self.tab, &mut self.pending_io) { result = Some(r); }
+							if let Some(r) = reset_button(ui, tr, self.tab) { result = Some(r); }
+
+							#[cfg(not(target_family = "wasm"))]
+							if error_info(ui, tr, &mut self.import_config_err, SettingsTab::Config, false) {
+								self.pending_io = true;
+								result = Some(SettingsWindowResult::ImportConfig);
+							}
+							#[cfg(not(target_family = "wasm"))]
+							if error_info(ui, tr, &mut self.export_config_err, SettingsTab::Config, true) {
+								self.pending_io = true;
+								result = Some(SettingsWindowResult::ExportConfig);
 							}
 						}
 						SettingsTab::Theme => {
@@ -509,15 +580,22 @@ impl SettingsWindow {
 								ui.label("Selection Color");
 								ui.color_edit_button_srgba(&mut theme.selection_color);
 								ui.end_row();
-
-								// todo: more theme settings
 							});
 
 							ui.separator();
-							if Button::new((prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_YELLOW), tr[TrID::ResetTheme as usize]))
-								.min_size(WIDE_BUTTON_SIZE).ui(ui).clicked()
-							{
-								result = Some(SettingsWindowResult::ResetTheme);
+							#[cfg(not(target_family = "wasm"))]
+							if let Some(r) = io_buttons(ui, tr, self.tab, &mut self.pending_io) { result = Some(r); }
+							if let Some(r) = reset_button(ui, tr, self.tab) { result = Some(r); }
+
+							#[cfg(not(target_family = "wasm"))]
+							if error_info(ui, tr, &mut self.import_theme_err, SettingsTab::Theme, false) {
+								self.pending_io = true;
+								result = Some(SettingsWindowResult::ImportTheme);
+							}
+							#[cfg(not(target_family = "wasm"))]
+							if error_info(ui, tr, &mut self.export_theme_err, SettingsTab::Theme, true) {
+								self.pending_io = true;
+								result = Some(SettingsWindowResult::ExportTheme);
 							}
 						}
 					}
@@ -541,7 +619,7 @@ pub fn debug(ui: &Ui, tr: &Translation, selected_provider: Option<&Provider>, pr
 
 			ui.heading(format!("Δt: {:.4} ms", frame_times[*frame_i] * 1000.0));
 
-			#[allow(clippy::cast_precision_loss)]
+			#[expect(clippy::cast_precision_loss)]
 			let avg_timing = frame_times.iter().sum::<f32>() / frame_times.len() as f32;
 			ui.label(format!("Avg Δt: {:.4} ms", avg_timing * 1000.0));
 
@@ -571,7 +649,7 @@ pub fn debug(ui: &Ui, tr: &Translation, selected_provider: Option<&Provider>, pr
 						header.col(|ui| { ui.label("Refresh"); });
 					})
 					.body(|body| {
-						#[allow(clippy::cast_precision_loss)]
+						#[expect(clippy::cast_precision_loss)]
 						body.rows(18.0, CacheFlag::SIZE, |mut row| {
 							let i = row.index();
 							let (time, refresh) = editor_osm_data.cache_debug.0[i];
@@ -711,7 +789,7 @@ impl DataViewerModal {
 		}
 	}
 
-	#[allow(clippy::too_many_lines)]
+	#[expect(clippy::too_many_lines)]
 	pub fn show(&mut self, ctx: &Context, tr: &Translation, osm: &OsmData) -> bool {
 		let screen = ctx.content_rect();
 		let width = screen.width() * 0.8;
@@ -829,7 +907,7 @@ impl DataViewerModal {
 											}
 										}
 										ElementRef::Way(w) => {
-											#[allow(clippy::literal_string_with_formatting_args)]
+											#[expect(clippy::literal_string_with_formatting_args)]
 											CollapsingHeader::new(tr[TrID::NodeCount as usize].replace("{n}", &w.nodes.len().to_string()))
 												.id_salt("node_list")
 												.show(ui, |ui| {
@@ -868,68 +946,88 @@ impl DataViewerModal {
 }
 
 #[cfg(not(target_family = "wasm"))]
-pub enum SettingsIOErrorModalResult {
-	Quit,
-	Retry,
-	Continue,
-}
+pub mod settings_io {
+	use super::*;
+	use std::io;
 
-#[cfg(not(target_family = "wasm"))]
-pub fn settings_io_error_modal(ctx: &Context, tr: &Translation, result: &SettingsIOResult, save: bool, buttons: &[&str]) -> Option<SettingsIOErrorModalResult> {
-	Modal::new("settings_io_error".into()).show(ctx, |ui| {
-		let max_width = ctx.content_rect().width() * 0.8;
-		ui.set_max_width(max_width);
-
+	fn settings_io_section_header(ui: &mut Ui, tr: &Translation, save: bool) {
 		ui.horizontal(|ui| {
 			prepare_icon_with_tint(icons::WARNING, ICON_SIZE, Color32::LIGHT_RED).ui(ui);
 			ui.heading(tr[if save { TrID::SavingConfigFailed } else { TrID::LoadingConfigFailed } as usize]);
 		});
 		ui.label(tr[if save { TrID::SavingConfigFailedText } else { TrID::LoadingConfigFailedText } as usize]);
+	}
 
-		ui.add_space(4.);
-		ui.group(|ui| {
-			ui.heading(tr[TrID::Config as usize]);
-			if let Some(e) = &result.0 {
-				let text = e.to_string();
-				ui.monospace(&text);
-				if ui.button(tr[TrID::CopyError as usize]).clicked() { ctx.copy_text(text); }
-			} else {
-				ui.horizontal(|ui| {
-					prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN).ui(ui);
-					ui.label(tr[if save { TrID::SavingSuccess } else { TrID::LoadingSuccess} as usize]);
-				});
-			}
-		});
+	fn settings_io_section_body(ui: &mut Ui, tr: &Translation, err: Option<&io::Error>, save: bool) {
+		if let Some(e) = &err {
+			let text = e.to_string();
+			ui.monospace(&text);
+			if ui.button(tr[TrID::CopyError as usize]).clicked() { ui.ctx().copy_text(text); }
+		} else {
+			ui.horizontal(|ui| {
+				prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN).ui(ui);
+				ui.label(tr[if save { TrID::SavingSuccess } else { TrID::LoadingSuccess } as usize]);
+			});
+		}
+	}
 
-		ui.add_space(4.);
-		ui.group(|ui| {
-			ui.heading(tr[TrID::Theme as usize]);
-			if let Some(e) = &result.1 {
-				let text = e.to_string();
-				ui.monospace(&text);
-				if ui.button(tr[TrID::CopyError as usize]).clicked() { ctx.copy_text(text); }
-			} else {
-				ui.horizontal(|ui| {
-					prepare_icon_with_tint(icons::CHECK, ICON_SIZE, Color32::LIGHT_GREEN).ui(ui);
-					ui.label(tr[if save { TrID::SavingSuccess } else { TrID::LoadingSuccess} as usize]);
-				});
-			}
-		});
+	fn settings_io_section_footer(ui: &mut Ui, buttons: &[(&str, ImageSource)]) -> Option<usize> {
+		ui.horizontal_wrapped(|ui| {
+			let mut clicked_btn = None;
 
-		ui.add_space(4.);
-		ui.horizontal(|ui| {
-			if let Some(text) = buttons.first() && Button::new((prepare_icon(ui.ctx(), icons::CROSS, ICON_SIZE), *text)).min_size(WIDE_BUTTON_SIZE).ui(ui).clicked() {
-				return Some(SettingsIOErrorModalResult::Quit);
+			for (i, (text, icon)) in buttons.iter().enumerate() {
+				let img = prepare_icon(ui.ctx(), icon.to_owned(), ICON_SIZE);
+				if Button::new((img, *text)).min_size(WIDE_BUTTON_SIZE).ui(ui).clicked() {
+					clicked_btn = Some(i);
+				}
 			}
-			if let Some(text) = buttons.get(1) && Button::new((prepare_icon(ui.ctx(), icons::RELOAD, ICON_SIZE), *text)).min_size(WIDE_BUTTON_SIZE).ui(ui).clicked() {
-				return Some(SettingsIOErrorModalResult::Retry);
-			}
-			if let Some(text) = buttons.get(2) && Button::new((prepare_icon(ui.ctx(), icons::CHECK, ICON_SIZE), *text)).min_size(WIDE_BUTTON_SIZE).ui(ui).clicked() {
-				return Some(SettingsIOErrorModalResult::Continue);
-			}
-			None
+
+			clicked_btn
 		}).inner
-	}).inner
+	}
+
+	pub fn error_modal(ctx: &Context, tr: &Translation, config_err: Option<&io::Error>, theme_err: Option<&io::Error>, save: bool, buttons: &[(&str, ImageSource)]) -> Option<usize> {
+		Modal::new("settings_io_modal".into()).show(ctx, |ui| {
+			ui.set_max_width(ctx.content_rect().width() * 0.8);
+
+			settings_io_section_header(ui, tr, save);
+
+			ui.add_space(4.);
+			ui.group(|ui| {
+				ui.heading(tr[TrID::Config as usize]);
+				settings_io_section_body(ui, tr, config_err, save);
+			});
+
+			ui.add_space(4.);
+			ui.group(|ui| {
+				ui.heading(tr[TrID::Theme as usize]);
+				settings_io_section_body(ui, tr, theme_err, save);
+			});
+
+			ui.add_space(4.);
+			settings_io_section_footer(ui, buttons)
+		}).inner
+	}
+
+	pub fn error_modal_single(ctx: &Context, tr: &Translation, err: &io::Error, kind: SettingsTab, save: bool, buttons: &[(&str, ImageSource)]) -> Option<usize> {
+		Modal::new("settings_io_modal_single".into()).show(ctx, |ui| {
+			ui.set_max_width(ctx.content_rect().width() * 0.8);
+
+			match kind {
+				SettingsTab::Config => {
+					ui.heading(if save { "Exporting Configuration Failed" } else { "Importing Configuration Failed" });
+					settings_io_section_body(ui, tr, Some(err), save);
+				}
+				SettingsTab::Theme => {
+					ui.heading(if save { "Exporting Theme Failed" } else { "Importing Theme Failed" });
+					settings_io_section_body(ui, tr, Some(err), save);
+				}
+			}
+
+			ui.add_space(4.);
+			settings_io_section_footer(ui, buttons)
+		}).inner
+	}
 }
 
 pub enum OverlapSelectorResult<'a> {
