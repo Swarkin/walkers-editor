@@ -210,10 +210,10 @@ pub enum ChangesetUploadState {
 impl ChangesetUploadState {
 	pub fn translate(self, tr: &Translation) -> &str {
 		match self {
-			ChangesetUploadState::Idle => tr[TrID::Idle as usize],
-			ChangesetUploadState::Creating => tr[TrID::CreatingChangeset as usize],
-			ChangesetUploadState::Uploading => tr[TrID::UploadingChangeset as usize],
-			ChangesetUploadState::Closing => tr[TrID::ClosingChangeset as usize],
+			Self::Idle => tr[TrID::Idle as usize],
+			Self::Creating => tr[TrID::CreatingChangeset as usize],
+			Self::Uploading => tr[TrID::UploadingChangeset as usize],
+			Self::Closing => tr[TrID::ClosingChangeset as usize],
 		}
 	}
 }

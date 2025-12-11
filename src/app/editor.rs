@@ -67,8 +67,8 @@ impl EditMode {
 
 	pub fn translate(self, tr: &Translation) -> &str {
 		match self {
-			EditMode::View => tr[TrID::View as usize],
-			EditMode::Edit => tr[TrID::Edit as usize],
+			Self::View => tr[TrID::View as usize],
+			Self::Edit => tr[TrID::Edit as usize],
 		}
 	}
 }
