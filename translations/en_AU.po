@@ -1,0 +1,317 @@
+msgid ""
+msgstr ""
+"PO-Revision-Date: 2025-12-11 09:20+0000\n"
+"Last-Translator: Ethan Grobin <ethan@grobin.com.au>\n"
+"Language: en_AU\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=n != 1;\n"
+"X-Generator: Weblate 5.15-dev\n"
+
+msgid "edit"
+msgstr "Edit"
+
+msgid "upload"
+msgstr "Upload"
+
+msgid "login"
+msgstr "Login"
+
+msgid "settings"
+msgstr "Settings"
+
+msgid "tags"
+msgstr "Tags"
+
+msgid "map"
+msgstr "Map"
+
+msgid "toolbar"
+msgstr "Toolbar"
+
+msgid "debug"
+msgstr "Debug"
+
+msgid "attribution"
+msgstr "Attribution"
+
+msgid "open_source_licenses"
+msgstr "Open Source Licences"
+
+msgid "packages"
+msgstr "Packages"
+
+msgid "packages_notice"
+msgstr "This editor has been made possible by the following awesome open source libraries:"
+
+msgid "packages_tree"
+msgstr "View package tree"
+
+msgid "packages_deduplication"
+msgstr ""
+"Packages marked with (*) have been unduplicated.\n"
+"The dependencies for the package have already been shown elsewhere in the graph, and so are not repeated."
+
+msgid "icons"
+msgstr "Icons"
+
+msgid "icons_notice"
+msgstr "All icons under {directory} are taken from {tabler_icons_url}, licenced under the MIT licence."
+
+msgid "translations"
+msgstr "Translations"
+
+msgid "translations_notice"
+msgstr "Translations are managed and can be contributed to on {weblate_url}."
+
+msgid "icons_view_license"
+msgstr "View {name} licence"
+
+msgid "translations_view_statistics"
+msgstr "View translation statistics"
+
+msgid "close"
+msgstr "Close"
+
+msgid "imagery"
+msgstr "Imagery"
+
+msgid "map_data"
+msgstr "Map data"
+
+msgid "reset_config"
+msgstr "Reset Config"
+
+msgid "reset_theme"
+msgstr "Reset Theme"
+
+msgid "key"
+msgstr "Key"
+
+msgid "value"
+msgstr "Value"
+
+msgid "tile_provider"
+msgstr "Tile Provider"
+
+msgid "none"
+msgstr "None"
+
+msgid "fill_mode"
+msgstr "Fill Mode"
+
+msgid "visualization"
+msgstr "Visualisation"
+
+msgid "data_viewer"
+msgstr "Data Viewer"
+
+msgid "zoom_with_ctrl"
+msgstr "Zoom with Ctrl"
+
+msgid "scale_factor"
+msgstr "Scale"
+
+msgid "elements_shown"
+msgstr "Showing {n} elements"
+
+msgid "version"
+msgstr "Version"
+
+msgid "type"
+msgstr "Type"
+
+msgid "id"
+msgstr "ID"
+
+msgid "changeset_id"
+msgstr "Changeset ID"
+
+msgid "username"
+msgstr "Username"
+
+msgid "timestamp"
+msgstr "Timestamp"
+
+msgid "node_count"
+msgstr "{n} Nodes"
+
+msgid "copy_position"
+msgstr "Copy Position"
+
+msgid "no_element_selected"
+msgstr "No element selected."
+
+msgid "position_lat_lon"
+msgstr "Position: {lat}, {lon}"
+
+msgid "unnamed_element"
+msgstr "Unnamed {type}"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"{mode} mode\n"
+"Press {key} to toggle"
+
+msgid "redraw_continuously"
+msgstr "Refresh view continuously"
+
+msgid "language"
+msgstr "Language"
+
+msgid "config"
+msgstr "Config"
+
+msgid "theme"
+msgstr "Theme"
+
+msgid "copy_error"
+msgstr "Copy Error"
+
+msgid "loading_config_failed"
+msgstr "Loading settings failed"
+
+msgid "saving_config_failed"
+msgstr "Saving settings failed"
+
+msgid "loading_success"
+msgstr "Loaded successfully."
+
+msgid "saving_success"
+msgstr "Saved successfully."
+
+msgid "loading_config_failed_text"
+msgstr "There was an error loading your settings:"
+
+msgid "saving_config_failed_text"
+msgstr "There was an error saving your settings:"
+
+msgid "quit"
+msgstr "Exit"
+
+msgid "retry"
+msgstr "Try again"
+
+msgid "use_defaults"
+msgstr "Use defaults"
+
+msgid "loading_settings"
+msgstr "Loading settings…"
+
+msgid "quit_without_saving"
+msgstr "Exit without saving"
+
+msgid "cancel"
+msgstr "Cancel"
+
+msgid "saving_settings"
+msgstr "Saving settings…"
+
+msgid "closing"
+msgstr "Closing…"
+
+msgid "changes"
+msgstr "Changes"
+
+msgid "upload_to_osm"
+msgstr "Upload to OpenStreetMap"
+
+msgid "copy"
+msgstr "Copy"
+
+msgid "view_osc"
+msgstr "View osmChange"
+
+msgid "cs_comment_placeholder"
+msgstr "Describe your changes."
+
+msgid "cs_comment_too_long"
+msgstr "Changeset comment is over 255 characters"
+
+msgid "technical_info"
+msgstr "Technical info"
+
+msgid "creating_changeset"
+msgstr "Creating changeset"
+
+msgid "copy_link"
+msgstr "Copy Link"
+
+msgid "copy_id"
+msgstr "Copy ID"
+
+msgid "uploading_osc"
+msgstr "Uploading osmChange"
+
+msgid "copy_response"
+msgstr "Copy Response"
+
+msgid "closing_changeset"
+msgstr "Closing changeset"
+
+msgid "upload_success"
+msgstr "Upload successful"
+
+msgid "view_on_osm"
+msgstr "View on OpenStreetMap"
+
+msgid "upload_failed"
+msgstr "Upload failed"
+
+msgid "upload_failed_info"
+msgstr "Check the technical info section for details and back up the osmChange document."
+
+msgid "login_notice"
+msgstr "Please log in to OpenStreetMap using the {name} tab."
+
+msgid "login_to_osm"
+msgstr "Log in to OpenStreetMap"
+
+msgid "login_success"
+msgstr "Login successful"
+
+msgid "logout"
+msgstr "Log out"
+
+msgid "clear"
+msgstr "Clear"
+
+msgid "login_auth_failed"
+msgstr "Authentication failed"
+
+msgid "logging_in"
+msgstr "Logging in…"
+
+msgid "login_instruction_1"
+msgstr "1. Open this URL and follow the authorisation process:"
+
+msgid "login_instruction_2"
+msgstr "2. Paste the resulting code into the field below:"
+
+msgid "login_instruction_3"
+msgstr "3. Log in:"
+
+msgid "export"
+msgstr "Export"
+
+msgid "import"
+msgstr "Import"
+
+msgid "dismiss"
+msgstr "Dismiss"
+
+msgid "fetch_token"
+msgstr "Fetch token"
+
+msgid "server"
+msgstr "Server:"
+
+msgid "view"
+msgstr "View"
+
+msgid "uploading_changeset"
+msgstr "Uploading changeset"
+
+msgid "idle"
+msgstr "Idle"
