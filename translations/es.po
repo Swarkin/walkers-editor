@@ -1,7 +1,7 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-27 18:20+0000\n"
-"Last-Translator: ooosssay <ydoUkill2@gmail.com>\n"
+"PO-Revision-Date: 2025-12-11 09:20+0000\n"
+"Last-Translator: Will Hubsch <wahubsch@gmail.com>\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
@@ -28,7 +28,7 @@ msgid "map"
 msgstr "Mapa"
 
 msgid "toolbar"
-msgstr "Barra de Herramientas"
+msgstr "Barra de herramientas"
 
 msgid "debug"
 msgstr "Depurar"
@@ -189,3 +189,111 @@ msgstr "Hubo un error al cargar su configuración:"
 
 msgid "saving_config_failed_text"
 msgstr "Hubo un error al guardar su configuración:"
+
+msgid "retry"
+msgstr "Reintentar"
+
+msgid "quit"
+msgstr "Salir"
+
+msgid "loading_settings"
+msgstr "Cargando configuraciones…"
+
+msgid "quit_without_saving"
+msgstr "Salir sin guardar"
+
+msgid "cancel"
+msgstr "Cancelar"
+
+msgid "saving_settings"
+msgstr "Guardando configuraciones…"
+
+msgid "closing"
+msgstr "Cerrando…"
+
+msgid "changes"
+msgstr "Cambios"
+
+msgid "upload_to_osm"
+msgstr "Subir a OpenStreetMap"
+
+msgid "copy"
+msgstr "Copiar"
+
+msgid "view_osc"
+msgstr "Ver osmChange"
+
+msgid "cs_comment_placeholder"
+msgstr "Describa sus cambios"
+
+msgid "technical_info"
+msgstr "Información técnica"
+
+msgid "creating_changeset"
+msgstr "Creando conjunto de cambios"
+
+msgid "copy_link"
+msgstr "Copiar enlace"
+
+msgid "copy_id"
+msgstr "Copiar ID"
+
+msgid "uploading_osc"
+msgstr "Subiendo osmChange"
+
+msgid "copy_response"
+msgstr "Copiar respuesta"
+
+msgid "closing_changeset"
+msgstr "Cerrando conjunto de cambios"
+
+msgid "upload_success"
+msgstr "Subida fue exitosa"
+
+msgid "view_on_osm"
+msgstr "Ver en OpenStreetMap"
+
+msgid "upload_failed"
+msgstr "Subida fracasó"
+
+msgid "login_to_osm"
+msgstr "Iniciar sesión en OpenStreetMap"
+
+msgid "export"
+msgstr "Exportar"
+
+msgid "import"
+msgstr "Importar"
+
+msgid "dismiss"
+msgstr "Descartar"
+
+msgid "server"
+msgstr "Servidor"
+
+msgid "view"
+msgstr "Ver"
+
+msgid "idle"
+msgstr "Ocioso"
+
+msgid "logout"
+msgstr "Cerrar sesión"
+
+msgid "fetch_token"
+msgstr "Traer autentificador"
+
+msgid "clear"
+msgstr "Borrar"
+
+msgid "use_defaults"
+msgstr "Usar predeterminados"
+
+msgid "login_success"
+msgstr "Ingreso exitoso"
+
+msgid "logging_in"
+msgstr "Iniciando sesión…"
+
+msgid "uploading_changeset"
+msgstr "Subiendo conjunto de cambios"
