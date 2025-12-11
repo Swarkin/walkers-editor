@@ -1,9 +1,9 @@
 msgid ""
 msgstr ""
-"Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-12-10 14:23+0000\n"
-"Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
-"Language: en\n"
+"PO-Revision-Date: 2025-12-11 09:20+0000\n"
+"Last-Translator: Ethan Grobin <ethan@grobin.com.au>\n"
+"Language: en_AU\n"
+"MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
@@ -36,31 +36,28 @@ msgstr "Debug"
 msgid "attribution"
 msgstr "Attribution"
 
-msgid "position"
-msgstr "Position"
-
 msgid "open_source_licenses"
-msgstr "Open-Source Licenses"
+msgstr "Open Source Licences"
 
 msgid "packages"
 msgstr "Packages"
 
 msgid "packages_notice"
-msgstr "This editor has been made possible by the following awesome open-source libraries:"
+msgstr "This editor has been made possible by the following awesome open source libraries:"
 
 msgid "packages_tree"
 msgstr "View package tree"
 
 msgid "packages_deduplication"
 msgstr ""
-"Packages marked with (*) have been \"de-duplicated\".\n"
+"Packages marked with (*) have been unduplicated.\n"
 "The dependencies for the package have already been shown elsewhere in the graph, and so are not repeated."
 
 msgid "icons"
 msgstr "Icons"
 
 msgid "icons_notice"
-msgstr "All icons under {directory} are taken from {tabler_icons_url}, licensed under the MIT license."
+msgstr "All icons under {directory} are taken from {tabler_icons_url}, licenced under the MIT licence."
 
 msgid "translations"
 msgstr "Translations"
@@ -69,7 +66,7 @@ msgid "translations_notice"
 msgstr "Translations are managed and can be contributed to on {weblate_url}."
 
 msgid "icons_view_license"
-msgstr "View {name} license"
+msgstr "View {name} licence"
 
 msgid "translations_view_statistics"
 msgstr "View translation statistics"
@@ -105,7 +102,7 @@ msgid "fill_mode"
 msgstr "Fill Mode"
 
 msgid "visualization"
-msgstr "Visualization"
+msgstr "Visualisation"
 
 msgid "data_viewer"
 msgstr "Data Viewer"
@@ -114,7 +111,7 @@ msgid "zoom_with_ctrl"
 msgstr "Zoom with Ctrl"
 
 msgid "scale_factor"
-msgstr "Scale factor"
+msgstr "Scale"
 
 msgid "elements_shown"
 msgstr "Showing {n} elements"
@@ -191,10 +188,10 @@ msgid "saving_config_failed_text"
 msgstr "There was an error saving your settings:"
 
 msgid "quit"
-msgstr "Quit"
+msgstr "Exit"
 
 msgid "retry"
-msgstr "Retry"
+msgstr "Try again"
 
 msgid "use_defaults"
 msgstr "Use defaults"
@@ -203,7 +200,7 @@ msgid "loading_settings"
 msgstr "Loading settings…"
 
 msgid "quit_without_saving"
-msgstr "Quit without saving"
+msgstr "Exit without saving"
 
 msgid "cancel"
 msgstr "Cancel"
@@ -227,10 +224,10 @@ msgid "view_osc"
 msgstr "View osmChange"
 
 msgid "cs_comment_placeholder"
-msgstr "Describe your changes"
+msgstr "Describe your changes."
 
 msgid "cs_comment_too_long"
-msgstr "Changeset comment exceeds 255 characters"
+msgstr "Changeset comment is over 255 characters"
 
 msgid "technical_info"
 msgstr "Technical info"
@@ -269,7 +266,7 @@ msgid "login_notice"
 msgstr "Please log in to OpenStreetMap using the {name} tab."
 
 msgid "login_to_osm"
-msgstr "Login to OpenStreetMap"
+msgstr "Log in to OpenStreetMap"
 
 msgid "login_success"
 msgstr "Login successful"
@@ -287,13 +284,13 @@ msgid "logging_in"
 msgstr "Logging in…"
 
 msgid "login_instruction_1"
-msgstr "1. Open this URL and follow the authorization process:"
+msgstr "1. Open this URL and follow the authorisation process:"
 
 msgid "login_instruction_2"
 msgstr "2. Paste the resulting code into the field below:"
 
 msgid "login_instruction_3"
-msgstr "3. Login:"
+msgstr "3. Log in:"
 
 msgid "export"
 msgstr "Export"
@@ -308,7 +305,7 @@ msgid "fetch_token"
 msgstr "Fetch token"
 
 msgid "server"
-msgstr "Server"
+msgstr "Server:"
 
 msgid "view"
 msgstr "View"

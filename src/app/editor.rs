@@ -20,10 +20,10 @@ use osm_parser::*;
 use r_star::{NodeEntry, WebMercatorPoint};
 use rstar::primitives::Rectangle;
 use rstar::AABB;
-use std::fmt::Display;
 use std::sync::Arc;
 use visual::{FillMode, Visualization};
 use walkers::{MapMemory, Position, Projector};
+use crate::app::translations::TranslationID as TrID;
 
 /// State related to the editor
 #[derive(Default)]
@@ -64,6 +64,13 @@ impl EditMode {
 			Self::View => VIEW_MODE_COLOR,
 		}
 	}
+
+	pub fn translate(self, tr: &Translation) -> &str {
+		match self {
+			Self::View => tr[TrID::View as usize],
+			Self::Edit => tr[TrID::Edit as usize],
+		}
+	}
 }
 
 #[derive(Default, Clone)]
@@ -71,15 +78,6 @@ pub enum EditOperation {
 	#[default] Idle,
 	AddNode,
 	AddWay(Vec<Coordinate>),
-}
-
-impl Display for EditMode {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", match self {
-			Self::View => "View",
-			Self::Edit => "Edit",
-		})
-	}
 }
 
 // drawing nodes

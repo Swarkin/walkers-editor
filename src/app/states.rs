@@ -14,7 +14,7 @@ use std::fmt::{Display, Formatter};
 #[cfg(not(target_family = "wasm"))]
 use std::io;
 use walkers::MapMemory;
-
+use crate::app::translations::{Translation, TranslationID as TrID};
 //#[cfg(not(target_family = "wasm"))]
 //pub type SettingsIOResult = (Option<std::io::Error>, Option<std::io::Error>);
 
@@ -199,7 +199,7 @@ impl ChangesetUpload {
 	}
 }
 
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub enum ChangesetUploadState {
 	#[default] Idle,
 	Creating,
@@ -207,14 +207,14 @@ pub enum ChangesetUploadState {
 	Closing,
 }
 
-impl Display for ChangesetUploadState {
-	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{}", match self {
-			Self::Idle => "Idle",
-			Self::Creating => "Creating changeset",
-			Self::Uploading => "Uploading changes",
-			Self::Closing => "Closing changeset",
-		})
+impl ChangesetUploadState {
+	pub fn translate(self, tr: &Translation) -> &str {
+		match self {
+			Self::Idle => tr[TrID::Idle as usize],
+			Self::Creating => tr[TrID::CreatingChangeset as usize],
+			Self::Uploading => tr[TrID::UploadingChangeset as usize],
+			Self::Closing => tr[TrID::ClosingChangeset as usize],
+		}
 	}
 }
 

@@ -332,7 +332,7 @@ impl MyApp {
 						}
 
 						ui.add_space(5.);
-						if ui.add_enabled(can_upload, Button::new((prepare_icon(ctx, icons::UPLOAD, ICON_SIZE), "Upload")).min_size(WIDE_BUTTON_SIZE)).clicked() {
+						if ui.add_enabled(can_upload, Button::new((prepare_icon(ctx, icons::UPLOAD, ICON_SIZE), tr[TrID::Upload as usize])).min_size(WIDE_BUTTON_SIZE)).clicked() {
 							self.app_state.top_bar_disabled = true;
 							self.uploader_state.osmchange_text = self.uploader_state.osmchange.to_string_pretty().unwrap();
 							self.worker_handle.send_message(Request::UploadChanges {
@@ -346,7 +346,7 @@ impl MyApp {
 						if !upload_state_idle {
 							ui.horizontal(|ui| {
 								ui.spinner();
-								ui.label(format!("{}...", self.uploader_state.changeset_upload.state));
+								ui.label(format!("{}...", self.uploader_state.changeset_upload.state.translate(tr)));
 							});
 						}
 
@@ -481,7 +481,7 @@ impl MyApp {
 				CentralPanel::default().show(ctx, |ui| {
 					ui.heading(tr[TrID::LoginToOsm as usize]);
 
-					if server_selector(ui, &mut self.app_state.target_server_ui) {
+					if server_selector(ui, tr, &mut self.app_state.target_server_ui) {
 						// update target server for OsmClient of worker
 						self.worker_handle.send_message(Request::SetTargetServer(self.app_state.target_server_ui));
 					}
@@ -495,7 +495,7 @@ impl MyApp {
 
 						if let Some(result) = self.authenticator_state.token.get(&self.app_state.target_server_ui) {
 							CollapsingHeader::new(tr[TrID::TechnicalInfo as usize]).default_open(cfg!(feature = "debug")).show(ui, |ui| {
-								status_message(ui, Some(result), "Fetch token");
+								status_message(ui, Some(result), tr[TrID::FetchToken as usize]);
 
 								match result {
 									Ok(token) => {
@@ -984,11 +984,11 @@ fn title_bar_button<'a>(text: &str, img: Image<'a>) -> Button<'a> {
 	}
 }
 
-fn server_selector(ui: &mut Ui, value: &mut TargetServer) -> bool {
+fn server_selector(ui: &mut Ui, tr: &Translation, value: &mut TargetServer) -> bool {
 	let mut changed = false;
 
 	ui.horizontal(|ui| {
-		ui.label("Server");
+		ui.label(tr[TrID::Server as usize]);
 		ComboBox::from_id_salt(ui.id())
 			.selected_text(value.description())
 			.show_ui(ui, |ui| {

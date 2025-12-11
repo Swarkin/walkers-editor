@@ -84,7 +84,6 @@ fn generate_translations() -> std::io::Result<()> {
 	let tr_file_names = read_translation_file_names(&tr_dir)?;
 
 	let mut s = String::new();
-
 	s.push_str("pub type Translation = [&'static str];\n\n");
 
 	s.push_str("#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]\n");
@@ -101,7 +100,7 @@ fn generate_translations() -> std::io::Result<()> {
 	for tr_name in &tr_file_names {
 		s.push_str("\n\t");
 		if tr_name == "en" { s.push_str("#[default] "); }
-		s.push_str(&tr_name.to_ascii_uppercase());
+		s.push_str(&tr_name.replace('@', "_").to_ascii_uppercase());
 		s.push(',');
 	}
 	s.push_str("\n}\n\n");
@@ -110,7 +109,7 @@ fn generate_translations() -> std::io::Result<()> {
 	write!(s, "\tpub const ITER: [Self; {}] = [", tr_file_names.len()).unwrap();
 	for tr_name in &tr_file_names {
 		s.push_str("Self::");
-		s.push_str(&tr_name.to_ascii_uppercase());
+		s.push_str(&tr_name.replace('@', "_").to_ascii_uppercase());
 		s.push_str(", ");
 	}
 	s.push_str("];\n}\n\n");
@@ -126,7 +125,7 @@ fn generate_translations() -> std::io::Result<()> {
 	for tr_name in &tr_file_names {
 		if tr_name == "en" { continue; }
 
-		write!(s, "\npub static {}: &Translation = &[\n", tr_name.to_ascii_uppercase()).unwrap();
+		write!(s, "\npub static {}: &Translation = &[\n", tr_name.replace('@', "_").to_ascii_uppercase()).unwrap();
 		let tr_file = open_translation_file(&parser, &tr_dir, &format!("{tr_name}.po"));
 
 		let mut words = main_lang_entries.iter().map(|(_, v)| v.clone()).collect::<Vec<_>>();
@@ -150,11 +149,11 @@ fn generate_translations() -> std::io::Result<()> {
 
 	s.push_str("\npub fn get_translation(lang: Language) -> &'static Translation {\n");
 	s.push_str("\tmatch lang {");
-	for translation in &tr_file_names {
+	for tr_name in &tr_file_names {
 		s.push_str("\n\t\tLanguage::");
-		s.push_str(&translation.to_ascii_uppercase());
+		s.push_str(&tr_name.replace('@', "_").to_ascii_uppercase());
 		s.push_str(" => ");
-		s.push_str(&translation.to_ascii_uppercase());
+		s.push_str(&tr_name.replace('@', "_").to_ascii_uppercase());
 		s.push(',');
 	}
 	s.push_str("\n\t}\n}\n");
