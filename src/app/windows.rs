@@ -576,9 +576,109 @@ impl SettingsWindow {
 
 								ui.label("Hover Color");
 								ui.color_edit_button_srgba(&mut theme.hover_color);
+							 ui.end_row();
+							 ui.label("Selection Color");
+							 ui.color_edit_button_srgba(&mut theme.selection_color);
+							 ui.end_row();
+							});
+
+							ui.add_space(4.0);
+							ui.heading("Highways");
+							egui::Grid::new("theme_highways").striped(true).num_columns(2).show(ui, |ui| {
+								ui.label("Path Width");
+								egui::Slider::new(&mut theme.path_width, 0.5..=10.0).ui(ui);
 								ui.end_row();
-								ui.label("Selection Color");
-								ui.color_edit_button_srgba(&mut theme.selection_color);
+								ui.label("Service Road Width");
+								egui::Slider::new(&mut theme.service_road_width, 0.5..=15.0).ui(ui);
+								ui.end_row();
+								ui.label("Minor Road Width");
+								egui::Slider::new(&mut theme.minor_road_width, 0.5..=15.0).ui(ui);
+								ui.end_row();
+								ui.label("Major Road Width");
+								egui::Slider::new(&mut theme.major_road_width, 0.5..=20.0).ui(ui);
+								ui.end_row();
+								ui.label("Path Color");
+								ui.color_edit_button_srgba(&mut theme.highway_path_color);
+								ui.end_row();
+								ui.label("Footway Color");
+								ui.color_edit_button_srgba(&mut theme.highway_footway_color);
+								ui.end_row();
+								ui.label("Steps Color");
+								ui.color_edit_button_srgba(&mut theme.highway_steps_color);
+								ui.end_row();
+								ui.label("Track Color");
+								ui.color_edit_button_srgba(&mut theme.highway_track_color);
+								ui.end_row();
+							});
+
+							ui.add_space(4.0);
+							ui.heading("Land Use");
+							egui::Grid::new("theme_landuse").striped(true).num_columns(2).show(ui, |ui| {
+								ui.label("Farmland Color");
+								ui.color_edit_button_srgba(&mut theme.landuse_farmland_color);
+								ui.end_row();
+								ui.label("Residential Color");
+								ui.color_edit_button_srgba(&mut theme.landuse_residential_color);
+								ui.end_row();
+								ui.label("Forest Color");
+								ui.color_edit_button_srgba(&mut theme.landuse_forest_color);
+								ui.end_row();
+								ui.label("Grass Color");
+								ui.color_edit_button_srgba(&mut theme.landuse_grass_color);
+								ui.end_row();
+								ui.label("Commercial Color");
+								ui.color_edit_button_srgba(&mut theme.landuse_commercial_color);
+								ui.end_row();
+							});
+
+							ui.add_space(4.0);
+							ui.heading("Natural");
+							egui::Grid::new("theme_natural").striped(true).num_columns(2).show(ui, |ui| {
+								ui.label("Water Color");
+								ui.color_edit_button_srgba(&mut theme.natural_water_color);
+								ui.end_row();
+								ui.label("Wood Color");
+								ui.color_edit_button_srgba(&mut theme.natural_wood_color);
+								ui.end_row();
+								ui.label("Scrub Color");
+								ui.color_edit_button_srgba(&mut theme.natural_scrub_color);
+								ui.end_row();
+								ui.label("Wetland Color");
+								ui.color_edit_button_srgba(&mut theme.natural_wetland_color);
+								ui.end_row();
+								ui.label("Grassland Color");
+								ui.color_edit_button_srgba(&mut theme.natural_grassland_color);
+								ui.end_row();
+							});
+
+							ui.add_space(4.0);
+							ui.heading("Buildings");
+							egui::Grid::new("theme_buildings").striped(true).num_columns(2).show(ui, |ui| {
+								ui.label("Building Width");
+								egui::Slider::new(&mut theme.building_width, 0.5..=5.0).ui(ui);
+								ui.end_row();
+								ui.label("Building Color");
+								ui.color_edit_button_srgba(&mut theme.building_color);
+								ui.end_row();
+							});
+
+							ui.add_space(4.0);
+							ui.heading("Sidewalks");
+							egui::Grid::new("theme_sidewalks").striped(true).num_columns(2).show(ui, |ui| {
+								ui.label("Sidewalk Width");
+								egui::Slider::new(&mut theme.sidewalk_width, 0.5..=10.0).ui(ui);
+								ui.end_row();
+								ui.label("Sidewalk Yes Color");
+								ui.color_edit_button_srgba(&mut theme.sidewalk_yes_color);
+								ui.end_row();
+								ui.label("Sidewalk No Color");
+								ui.color_edit_button_srgba(&mut theme.sidewalk_no_color);
+								ui.end_row();
+								ui.label("Sidewalk Separate Color");
+								ui.color_edit_button_srgba(&mut theme.sidewalk_separate_color);
+								ui.end_row();
+								ui.label("Sidewalk Unknown Color");
+								ui.color_edit_button_srgba(&mut theme.sidewalk_unknown_color);
 								ui.end_row();
 							});
 

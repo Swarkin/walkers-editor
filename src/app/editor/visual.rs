@@ -56,21 +56,43 @@ pub fn width_default(theme: &theme::Theme, w: &Way) -> f32 {
 	)
 }
 
+// todo: cache this
+#[expect(clippy::option_if_let_else)]
 pub fn color_default(theme: &theme::Theme, w: &Way) -> Color32 {
-	w.tags.get("building").map_or_else(
-		|| w.tags.get("highway")
-			.map_or(theme.way_color, |highway| match highway.as_str() {
-				"path" => theme.path_color,
-				"footway" => theme.footway_color,
-				"steps" => theme.steps_color,
-				"track" => theme.track_color,
-				_ => Color32::WHITE,
-			}),
-		|building| match building.as_str() {
+	if let Some(t) = w.tags.get("building") {
+		match t.as_str() {
 			"no" => theme.way_color,
 			_ => theme.building_color,
 		}
-	)
+	} else if let Some(t) = w.tags.get("highway") {
+		match t.as_str() {
+			"path" => theme.highway_path_color,
+			"footway" => theme.highway_footway_color,
+			"steps" => theme.highway_steps_color,
+			"track" => theme.highway_track_color,
+			_ => Color32::WHITE,
+		}
+	} else if let Some(t) = w.tags.get("landuse") {
+		match t.as_str() {
+			"farmland" => theme.landuse_farmland_color,
+			"residential" => theme.landuse_residential_color,
+			"forest" => theme.landuse_forest_color,
+			"grass" => theme.landuse_grass_color,
+			"commercial" => theme.landuse_commercial_color,
+			_ => theme.way_color,
+		}
+	} else if let Some(t) = w.tags.get("natural") {
+		match t.as_str() {
+			"water" => theme.natural_water_color,
+			"wood" => theme.natural_wood_color,
+			"scrub" => theme.natural_scrub_color,
+			"wetland" => theme.natural_wetland_color,
+			"grassland" => theme.natural_grassland_color,
+			_ => theme.way_color,
+		}
+	} else {
+		theme.way_color
+	}
 }
 
 pub fn sidewalks(theme: &theme::Theme, tags: &Tags, points: &[Pos2], width: f32, scale_factor: f32) -> [Shape; 2] {
