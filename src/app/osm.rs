@@ -1,4 +1,5 @@
 use super::osmchange::Tag;
+use rustc_hash::FxBuildHasher;
 
 #[cfg(not(target_family = "wasm"))]
 pub use native::OsmClient;
@@ -16,7 +17,7 @@ const TIMEOUT_GLOBAL: u64 = 120;
 type AnyError = Box<dyn std::error::Error + Sync + Send>;
 pub type OsmResult<T> = Result<T, AnyError>;
 
-pub type OrderedTags = indexmap::IndexMap<String, String>;
+pub type OrderedTags = indexmap::IndexMap<String, String, FxBuildHasher>;
 
 #[derive(Debug, Default, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TargetServer {

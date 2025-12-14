@@ -3,8 +3,8 @@ use super::r_star::*;
 use crate::app::icons::*;
 use crate::app::states::CacheFlag;
 use crate::{HashMap, HashSet};
-use eframe::egui::{Color32, ImageSource, Mesh, Pos2, TextureId, Vec2};
-use eframe::epaint::{Vertex, WHITE_UV};
+use eframe::egui::{Color32, ImageSource, Mesh, Pos2, Vec2};
+use eframe::epaint::{TextureId, Vertex, WHITE_UV};
 use indexmap::IndexMap;
 use lyon_tessellation::geom::Point;
 use lyon_tessellation::path::Path;
@@ -14,6 +14,7 @@ use rstar::AABB;
 use rustc_hash::FxBuildHasher;
 use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
+use std::sync::Arc;
 use walkers::{Position, Projector};
 
 pub const MAX_VIEW_OFFSET: f32 = 100.0; // arbitrary threshold, may not be required?
@@ -42,7 +43,7 @@ pub struct NodeDedupCache {
 pub type NodeUsageCache = HashMap<Id, Vec<Id>>;
 
 // Contains cached MeshData, used by FillMode::Full.
-pub type WayMeshCache = HashMap<Id, MeshData>;
+pub type WayMeshCache = HashMap<Id, Arc<Mesh>>;
 
 /// Stores a list of area IDs ordered by the area size, used for rendering.
 pub type AreaSizeOrderedCache = IndexMap<Id, f32, FxBuildHasher>;
@@ -58,11 +59,6 @@ impl CacheDebug {
 		entry.0 = time;
 		entry.1 += 1;
 	}
-}
-
-pub struct MeshData {
-	pub indices: Vec<u32>,
-	pub vertices: Vec<Vertex>,
 }
 
 // todo: use more precise changes to save memory
@@ -135,7 +131,6 @@ pub struct EditorOsmData {
 	pub data: OsmData, // latest state of the osm data
 	pub rtree_data: RStarOsmData,
 
-	pub view_start: Position,
 	pub nodes_in_view: Vec<Id>,
 	pub ways_in_view: Vec<Id>,
 	pub refresh_in_view_flag: bool,
@@ -164,13 +159,12 @@ pub struct EditorOsmData {
 	pub node_offset_move: Vec2,
 	pub mesh_offset_move: Vec2,
 	pub node_offset_resize: Vec2,
-	pub mesh_offset_resize: Vec2,
 }
 
 #[cfg(feature = "debug")]
 impl EditorOsmData {
 	pub fn init_debug(mut self) -> Self {
-		self.frame_timing = (0, vec![0f32; 100]);
+		self.frame_timing = (0, vec![0f32; 120]);
 		self
 	}
 }
@@ -337,10 +331,16 @@ impl EditorOsmData {
 	}
 
 	pub fn get_projected_positions_in_way(&self, way_id: &Id) -> Vec<Pos2> {
-		self.data.ways.get(way_id).expect("way id must be valid")
-			.nodes.iter()
-			.map(|node_id| self.get_projected_pos(node_id).expect("id not found in cache"))
-			.collect()
+		let way = self.data.ways.get(way_id).expect("way not found in data");
+		let offset = self.node_offset_move + self.node_offset_resize;
+		let mut positions = Vec::with_capacity(way.nodes.len());
+
+		for node_id in &way.nodes {
+			let pos = self.projected_nodes.get(node_id).expect("id not found in cache");
+			positions.push(*pos + offset);
+		}
+
+		positions
 	}
 
 	pub fn get_projected_pos(&self, node_id: &Id) -> Option<Pos2> {
@@ -348,7 +348,7 @@ impl EditorOsmData {
 	}
 
 	pub fn get_projected_origin_positions_in_way(&self, way_id: &Id) -> Vec<Pos2> {
-		self.data.ways.get(way_id).expect("way id must be valid")
+		self.data.ways.get(way_id).expect("way not found in data")
 			.nodes.iter()
 			.map(|node_id| self.get_projected_origin_pos(node_id).expect("id not found in cache"))
 			.collect()
@@ -358,17 +358,15 @@ impl EditorOsmData {
 		self.projected_nodes.get(node_id).map(ToOwned::to_owned)
 	}
 
-	pub fn get_way_mesh(&self, way_id: &Id, color: Color32) -> Mesh {
-		let data = self.way_mesh.get(way_id).expect("id not found in cache");
-		Mesh {
-			indices: data.indices.clone(),
-			vertices: data.vertices.iter().copied().map(|mut x| {
-				x.color = color;
-				x.pos += self.mesh_offset_move + self.mesh_offset_resize;
-				x
-			}).collect(),
-			texture_id: TextureId::Managed(0),
-		}
+	pub fn get_way_mesh(&mut self, way_id: &Id, color: Color32) -> Arc<Mesh> {
+		let arc_mesh = self.way_mesh.get_mut(way_id).expect("id not found in cache");
+		let mesh = Arc::get_mut(arc_mesh).expect("mesh must not be in use");
+
+		mesh.vertices.iter_mut().for_each(|vertex| {
+			vertex.color = color;
+		});
+
+		arc_mesh.clone()
 	}
 
 	// Required caches:
@@ -513,7 +511,6 @@ impl EditorOsmData {
 		self.cache_debug.update(CacheFlag::NodeUsage, t.elapsed().as_micros() as u32);
 	}
 
-	// This cache would greatly benefit from https://github.com/Swarkin/walkers-editor/issues/38
 	// Required caches:
 	// - WayArea
 	pub fn refresh_way_mesh_and_area_size_cache(&mut self, start_pos: Position) {
@@ -527,7 +524,6 @@ impl EditorOsmData {
 		self.cache_flags &= !(CacheFlag::WayMeshAndAreaSize as u8);
 
 		for id in &self.way_area.areas {
-			// next 15 lines take ~10% of the total time
 			// todo: separate cache to eliminate doing this twice
 			let mut points = self.get_projected_positions_in_way(id).into_iter();
 
@@ -542,8 +538,7 @@ impl EditorOsmData {
 				builder.close();
 				let path = builder.build();
 
-				// next 15 lines take ~70% of the total time
-				// todo: re-use vertexbuffers allocation
+				// re-use vertexbuffers allocation?
 				let mut geometry: VertexBuffers<Vertex, u32> = VertexBuffers::new();
 				let mut tessellator = FillTessellator::new();
 
@@ -560,10 +555,11 @@ impl EditorOsmData {
 					}),
 				).expect("path tesselation failed");
 
-				self.way_mesh.insert(*id, MeshData {
+				self.way_mesh.insert(*id, Arc::new(Mesh {
 					indices: geometry.indices,
 					vertices: geometry.vertices,
-				});
+					texture_id: TextureId::Managed(0),
+				}));
 			}
 		}
 
@@ -576,7 +572,7 @@ impl EditorOsmData {
 	// - NodeProjection
 	// - WayArea
 	pub fn refresh_area_size_ordered_cache(&mut self) {
-		// Shoelace formula for area calculation, returns twice the area.
+		/// Shoelace formula for area calculation, returns twice the area.
 		fn area_size(points: &[Pos2]) -> f32 {
 			let n = points.len();
 			if n < 3 {
@@ -677,8 +673,16 @@ impl EditorOsmData {
 
 	const fn reset_mesh_offsets(&mut self, start: Position) {
 		self.mesh_offset_move = Vec2::ZERO;
-		self.mesh_offset_resize = Vec2::ZERO;
 		self.mesh_start = start;
+	}
+
+	pub fn apply_relative_mesh_offset(&mut self, offset: Vec2) {
+		for mesh in self.way_mesh.values_mut() {
+			let mesh = Arc::get_mut(mesh).expect("mesh must not be in use");
+			for vertex in &mut mesh.vertices {
+				vertex.pos += offset;
+			}
+		}
 	}
 }
 

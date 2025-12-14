@@ -38,25 +38,28 @@ pub const HIGHWAYS_WITH_SIDEWALK: &[&str; 15] = &[
 	MOTORWAY_LINK, TRUNK_LINK, PRIMARY_LINK, SECONDARY_LINK, TERTIARY_LINK,
 ];
 
+#[expect(clippy::option_if_let_else)]
 pub fn width_default(theme: &theme::Theme, w: &Way) -> f32 {
-	w.tags.get("building").map_or_else(
-		|| w.tags.get("highway")
-			.map_or(theme.way_width, |highway| match highway.as_str() {
-				"path" | "footway" | "steps" => theme.path_width,
-				"service" | "track" => theme.service_road_width,
-				"residential" => theme.minor_road_width,
-				"tertiary" | "secondary" | "primary" | "trunk" | "motorway" | "tertiary_link"
-				| "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" => theme.major_road_width,
-				_ => theme.way_width,
-			}),
-		|building| match building.as_str() {
+	if let Some(building) = w.tags.get("building") {
+		match building.as_str() {
 			"no" => theme.way_width,
 			_ => theme.building_width,
 		}
-	)
+	} else if let Some(highway) = w.tags.get("highway") {
+		match highway.as_str() {
+				"path" | "footway" | "steps" => theme.path_width,
+				"service" | "track" => theme.service_road_width,
+				"residential" => theme.minor_road_width,
+			"tertiary" | "secondary" | "primary" | "trunk" | "motorway"
+			| "tertiary_link" | "secondary_link" | "primary_link" | "trunk_link" | "motorway_link" =>
+				theme.major_road_width,
+				_ => theme.way_width,
+		}
+	} else {
+		theme.way_width
+	}
 }
 
-// todo: cache this
 #[expect(clippy::option_if_let_else)]
 pub fn color_default(theme: &theme::Theme, w: &Way) -> Color32 {
 	if let Some(t) = w.tags.get("building") {

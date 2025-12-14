@@ -5,12 +5,11 @@ pub mod attribute2d;
 pub mod r_star;
 pub mod theme;
 
-use crate::app::editor::r_star::WayEntry;
-use crate::app::osm::{Bbox, OrderedTags};
-use crate::app::states::SelectionFlag;
-use crate::app::states::{CacheFlag, MapState};
-use crate::app::translations::Translation;
-use crate::app::windows::{DataViewerModal, OverlapSelectorResult, SettingsWindow, WindowBitflag};
+use super::editor::r_star::WayEntry;
+use super::osm::{Bbox, OrderedTags};
+use super::states::{CacheFlag, MapState, SelectionFlag};
+use super::translations::{Translation, TranslationID as TrID};
+use super::windows::{DataViewerModal, OverlapSelectorResult, SettingsWindow, WindowBitflag};
 use cache::Change;
 use cache::{EditorOsmData, ElementId, ElementRef, MAX_VIEW_OFFSET};
 use consts::{osm::*, *};
@@ -20,19 +19,22 @@ use osm_parser::*;
 use r_star::{NodeEntry, WebMercatorPoint};
 use rstar::primitives::Rectangle;
 use rstar::AABB;
-use std::sync::Arc;
 use visual::{FillMode, Visualization};
 use walkers::{MapMemory, Position, Projector};
-use crate::app::translations::TranslationID as TrID;
 
 /// State related to the editor
 #[derive(Default)]
 pub struct Editor {
 	pub map_state: MapState,
 	pub osm_data: EditorOsmData,
-	pub window_flags: WindowBitflag,
+
 	pub prev_size: Vec2,
 	pub prev_zoom: f64,
+	pub prev_zoomed: bool,
+	pub prev_pos: Position,
+	pub last_refresh_pos: Position,
+
+	pub window_flags: WindowBitflag,
 	pub edit_window: Option<(ElementId, OrderedTags)>,
 	pub data_viewer: Option<DataViewerModal>,
 	pub settings_window: SettingsWindow,
@@ -267,8 +269,8 @@ impl Editor {
 	pub fn run(&mut self, ui: &Ui, response: &Response, projector: &Projector, map_memory: &MapMemory, tr: &Translation, theme: &theme::Theme) {
 		 #[cfg(feature = "debug")] /* update frame timing */ {
 			let (i, vec) = &mut self.osm_data.frame_timing;
+			 *i = (*i + 1) % vec.len();
 			vec[*i] = ui.input(|i| i.unstable_dt);
-			*i = (*i + 1) % vec.len();
 		}
 
 		let curr_zoom = map_memory.zoom();
@@ -277,9 +279,24 @@ impl Editor {
 		self.shapes.clear();
 		self.shapes_top.clear();
 
+		let current_pos = map_memory.detached().unwrap_or_default();
+		let current_pos_projected = projector.project(current_pos);
+
 		#[expect(clippy::float_cmp)]
-		if self.prev_zoom != curr_zoom {
-			self.osm_data.refresh_in_view_flag = true;
+		if self.prev_zoom == curr_zoom {
+  			self.prev_zoomed = false;
+  		} else {
+  			self.osm_data.refresh_in_view_flag = true;
+  			self.prev_zoom = curr_zoom;
+  			self.prev_zoomed = true;
+  		}
+
+		if self.prev_zoomed {
+			self.prev_pos = current_pos;
+		} else if self.prev_pos != current_pos {
+			let diff = projector.project(self.prev_pos) - projector.project(current_pos);
+			self.osm_data.apply_relative_mesh_offset(diff);
+			self.prev_pos = current_pos;
 		}
 
 		let mouse = response.hover_pos();
@@ -290,9 +307,6 @@ impl Editor {
 		let interact_nodes = self.should_detect_interactions(mouse, SelectionFlag::Nodes);
 		let interact_ways = self.should_detect_interactions(mouse, SelectionFlag::Ways);
 
-		let current_pos = map_memory.detached().unwrap_or_default();
-		let current_pos_projected = projector.project(current_pos);
-
 		// override fill mode
 		let mut target_fill = self.map_state.selected_fill_mode;
 		if target_fill == FillMode::Partial && curr_zoom < PARTIAL_FILL_THRESHOLD {
@@ -302,7 +316,6 @@ impl Editor {
 		self.hovered.clear();
 
 		/* update editor state */ {
-			self.prev_zoom = curr_zoom;
 			if clicked {
 				self.last_click_coords = projector.unproject(response.interact_pointer_pos().unwrap().to_vec2());
 			}
@@ -317,8 +330,8 @@ impl Editor {
 
 		/* update elements in view */ {
 			if !self.osm_data.data.nodes.is_empty() || self.osm_data.refresh_in_view_flag {
-				let p_start = projector.project(self.osm_data.view_start);
-				let diff = p_start - current_pos_projected;
+				let last_refresh_pos = projector.project(self.last_refresh_pos);
+				let diff = last_refresh_pos - current_pos_projected;
 
 				if diff.x.abs() > MAX_VIEW_OFFSET || diff.y.abs() > MAX_VIEW_OFFSET || self.osm_data.refresh_in_view_flag {
 					#[expect(clippy::cast_possible_truncation)]
@@ -328,7 +341,7 @@ impl Editor {
 					);
 
 					self.osm_data.refresh_elements_in_view(aabb);
-					self.osm_data.view_start = current_pos;
+					self.last_refresh_pos = current_pos;
 					self.osm_data.refresh_in_view_flag = false;
 
 					self.osm_data.cache_flags = CacheFlag::ALL;
@@ -485,15 +498,16 @@ impl Editor {
 
 		/* draw osm data and detect interactions */ {
 			// 1. draw areas
-			// todo: is it faster to iterate over the key-value pairs directly?
-			for area_id in self.osm_data.area_size_ordered.keys() {
-				let way = self.osm_data.data.ways.get(area_id).expect("id not found in data");
-				let points = self.osm_data.get_projected_positions_in_way(area_id);
+			let area_ids = self.osm_data.area_size_ordered.keys().copied().collect::<Vec<_>>();
+			for area_id in area_ids {
+				let way = self.osm_data.data.ways.get(&area_id).expect("id not found in data");
+				let way_id = way.id;
+				let points = self.osm_data.get_projected_positions_in_way(&area_id);
 				let width = self.way_width(theme, way);
 				let color = self.way_color(theme, way);
 
 				if interact_ways && distance_to_way(&points, mouse.unwrap()) < width.powi(2) {
-					self.hovered.push(ElementId::Way(*area_id));
+					self.hovered.push(ElementId::Way(area_id));
 				}
 
 				match target_fill {
@@ -504,7 +518,7 @@ impl Editor {
 
 						// partial fill
 						// todo: https://github.com/Swarkin/walkers-editor/issues/9
-						let area = *self.osm_data.area_size_ordered.get(area_id).unwrap();
+						let area = *self.osm_data.area_size_ordered.get(&area_id).unwrap();
 						let points = if area > 0.0 {
 							points.into_iter().skip(1).collect()
 						} else if area < 0.0 {
@@ -516,13 +530,13 @@ impl Editor {
 						self.shapes.push(Self::draw_fill_partial_from(
 							points,
 							PARTIAL_FILL_WIDTH,
-							color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY),
+							gamma_multiply(color, PARTIAL_FILL_GAMMA_MULTIPLY),
 						).into());
 					}
 					FillMode::Full => {
 						// draw area
-						let mesh = self.osm_data.get_way_mesh(&way.id, color.gamma_multiply(PARTIAL_FILL_GAMMA_MULTIPLY));
-						self.shapes.push(Arc::new(mesh).into());
+						let mesh = self.osm_data.get_way_mesh(&way_id, gamma_multiply(color, PARTIAL_FILL_GAMMA_MULTIPLY));
+						self.shapes.push(mesh.into());
 
 						// draw stroke
 						self.shapes.push(PathShape {
@@ -903,4 +917,14 @@ fn is_way_closed(way: &Way) -> bool {
 
 pub fn consume_key(ctx: &Context, key: Key, modifiers: Modifiers) -> bool {
 	ctx.input_mut(|i| i.consume_key(modifiers, key))
+}
+
+#[expect(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn gamma_multiply(color: Color32, factor: f32) -> Color32 {
+	Color32::from_rgba_premultiplied(
+		f32::from(color.r()).mul_add(factor, 0.5) as u8,
+		f32::from(color.g()).mul_add(factor, 0.5) as u8,
+		f32::from(color.b()).mul_add(factor, 0.5) as u8,
+		127,
+	)
 }
