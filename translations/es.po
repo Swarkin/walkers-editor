@@ -1,6 +1,6 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-12-11 09:20+0000\n"
+"PO-Revision-Date: 2025-12-12 15:00+0000\n"
 "Last-Translator: Will Hubsch <wahubsch@gmail.com>\n"
 "Language: es\n"
 "MIME-Version: 1.0\n"
@@ -254,7 +254,7 @@ msgid "view_on_osm"
 msgstr "Ver en OpenStreetMap"
 
 msgid "upload_failed"
-msgstr "Subida fracasó"
+msgstr "Subida falló"
 
 msgid "login_to_osm"
 msgstr "Iniciar sesión en OpenStreetMap"
@@ -297,3 +297,24 @@ msgstr "Iniciando sesión…"
 
 msgid "uploading_changeset"
 msgstr "Subiendo conjunto de cambios"
+
+msgid "cs_comment_too_long"
+msgstr "Comentario de conjunto de cambios excede 255 caracteres"
+
+msgid "login_notice"
+msgstr "Por favor inicie sesión en OpenStreetMap usando la pestaña {name}."
+
+msgid "login_auth_failed"
+msgstr "Autenticación falló"
+
+msgid "login_instruction_1"
+msgstr "1. Abra este URL y siga el proceso de autorización:"
+
+msgid "login_instruction_2"
+msgstr "2. Pegue el código resultante en el campo a continuación:"
+
+msgid "login_instruction_3"
+msgstr "3. Inicie sesión:"
+
+msgid "upload_failed_info"
+msgstr "Consulte la sección de información técnica para más detalles y haga un respaldo del documento osmChange."
