@@ -56,7 +56,6 @@ impl MyApp {
 				ui.horizontal_centered(|ui| {
 					egui::Sides::new().show(ui,
 						|ui| {
-
 							if self.app_state.top_bar_disabled { ui.disable(); }
 
 							let btn = title_bar_button(tr[TrID::Edit as usize], prepare_icon(ctx, icons::PRIMITIVE_WAY_ICON, ICON_SIZE));

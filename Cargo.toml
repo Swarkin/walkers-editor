@@ -71,3 +71,8 @@ lto = true
 [profile.release-thin-lto]
 inherits = "release"
 lto = "thin"
+
+[profile.release-thin-lto-profiling]
+inherits = "release"
+lto = "thin"
+debug = "line-tables-only"
