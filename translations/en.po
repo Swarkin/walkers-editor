@@ -1,13 +1,13 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: walkers-editor\n"
-"PO-Revision-Date: 2025-12-10 14:23+0000\n"
+"PO-Revision-Date: 2025-12-15 19:07+0000\n"
 "Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: en\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n != 1;\n"
-"X-Generator: Weblate 5.15-dev\n"
+"X-Generator: Weblate 5.15.1-dev\n"
 
 msgid "edit"
 msgstr "Edit"
@@ -318,3 +318,6 @@ msgstr "Uploading changeset"
 
 msgid "idle"
 msgstr "Idle"
+
+msgid "member_count"
+msgstr "{n} Members"
