@@ -9,7 +9,7 @@ use indexmap::IndexMap;
 use lyon_tessellation::geom::Point;
 use lyon_tessellation::path::Path;
 use lyon_tessellation::{BuffersBuilder, FillOptions, FillTessellator, FillVertex, VertexBuffers};
-use osm_parser::{Coordinate, Id, Node, OsmData, Tags, Way};
+use osm_parser::{Coordinate, Id, Node, OsmData, Relation, Tags, Way};
 use rstar::AABB;
 use rustc_hash::FxBuildHasher;
 use std::cmp::Ordering;
@@ -173,6 +173,7 @@ impl EditorOsmData {
 pub enum ElementRef<'a> {
 	Node(&'a Node),
 	Way(&'a Way),
+	Relation(&'a Relation),
 }
 
 impl ElementRef<'_> {
@@ -180,6 +181,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => ElementId::Node(n.id),
 			ElementRef::Way(w) => ElementId::Way(w.id),
+			ElementRef::Relation(r) => ElementId::Relation(r.id),
 		}
 	}
 
@@ -187,6 +189,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(_) => PRIMITIVE_NODE_ICON,
 			ElementRef::Way(_) => PRIMITIVE_WAY_ICON,
+			ElementRef::Relation(_) => PRIMITIVE_RELATION_ICON,
 		}
 	}
 
@@ -194,6 +197,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => &n.id,
 			ElementRef::Way(w) => &w.id,
+			ElementRef::Relation(r) => &r.id,
 		}
 	}
 
@@ -201,6 +205,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => &n.tags,
 			ElementRef::Way(w) => &w.tags,
+			ElementRef::Relation(r) => &r.tags,
 		}
 	}
 
@@ -208,6 +213,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => n.tags.get("name").map(String::as_str),
 			ElementRef::Way(w) => w.tags.get("name").map(String::as_str),
+			ElementRef::Relation(r) => r.tags.get("name").map(String::as_str),
 		}
 	}
 
@@ -215,6 +221,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(_) => "Node",
 			ElementRef::Way(_) => "Way",
+			ElementRef::Relation(_) => "Relation",
 		}
 	}
 
@@ -222,6 +229,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => n.version,
 			ElementRef::Way(w) => w.version,
+			ElementRef::Relation(r) => r.version,
 		}
 	}
 
@@ -229,6 +237,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => n.changeset,
 			ElementRef::Way(w) => w.changeset,
+			ElementRef::Relation(r) => r.changeset,
 		}
 	}
 
@@ -236,6 +245,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => &n.user,
 			ElementRef::Way(w) => &w.user,
+			ElementRef::Relation(r) => &r.user,
 		}
 	}
 
@@ -243,6 +253,7 @@ impl ElementRef<'_> {
 		match self {
 			ElementRef::Node(n) => &n.timestamp,
 			ElementRef::Way(w) => &w.timestamp,
+			ElementRef::Relation(r) => &r.timestamp,
 		}
 	}
 }
@@ -251,6 +262,7 @@ impl ElementRef<'_> {
 pub enum ElementId {
 	Node(Id),
 	Way(Id),
+	Relation(Id),
 }
 
 impl PartialOrd for ElementId {
@@ -262,9 +274,9 @@ impl PartialOrd for ElementId {
 impl Ord for ElementId {
 	fn cmp(&self, other: &Self) -> Ordering {
 		match (self, other) {
-			(Self::Node(a), Self::Node(b)) | (Self::Way(a), Self::Way(b)) => a.cmp(b),
-			(Self::Node(_), Self::Way(_)) => Ordering::Less,
-			(Self::Way(_), Self::Node(_)) => Ordering::Greater,
+			(Self::Node(id1), Self::Node(id2)) | (Self::Way(id1), Self::Way(id2)) | (Self::Relation(id1), Self::Relation(id2)) => id1.cmp(id2),
+			(Self::Relation(_), _) | (Self::Way(_), Self::Node(_)) => Ordering::Greater,
+			(Self::Node(_), _) | (Self::Way(_), Self::Relation(_)) => Ordering::Less,
 		}
 	}
 }
@@ -272,7 +284,7 @@ impl Ord for ElementId {
 impl ElementId {
 	pub const fn id_ref(&self) -> &Id {
 		match self {
-			Self::Node(id) | Self::Way(id) => id,
+			Self::Node(id) | Self::Way(id) | Self::Relation(id) => id,
 		}
 	}
 
@@ -280,6 +292,15 @@ impl ElementId {
 		match self {
 			Self::Node(_) => "Node",
 			Self::Way(_) => "Way",
+			Self::Relation(_) => "Relation",
+		}
+	}
+
+	pub const fn element_icon(&self) -> ImageSource<'_> {
+		match self {
+			Self::Node(_) => PRIMITIVE_NODE_ICON,
+			Self::Way(_) => PRIMITIVE_WAY_ICON,
+			Self::Relation(_) => PRIMITIVE_RELATION_ICON,
 		}
 	}
 }
@@ -360,11 +381,13 @@ impl EditorOsmData {
 
 	pub fn get_way_mesh(&mut self, way_id: &Id, color: Color32) -> Arc<Mesh> {
 		let arc_mesh = self.way_mesh.get_mut(way_id).expect("id not found in cache");
-		let mesh = Arc::get_mut(arc_mesh).expect("mesh must not be in use");
-
-		mesh.vertices.iter_mut().for_each(|vertex| {
-			vertex.color = color;
-		});
+		if let Some(mesh) = Arc::get_mut(arc_mesh) {
+			mesh.vertices.iter_mut().for_each(|vertex| {
+				vertex.color = color;
+			});
+		} else {
+			eprintln!("mesh of way {way_id} is in use {}x during get_way_mesh call", Arc::strong_count(arc_mesh));
+		}
 
 		arc_mesh.clone()
 	}
@@ -616,15 +639,24 @@ impl EditorOsmData {
 		self.cache_debug.update(CacheFlag::AreaSizeOrdered, t.elapsed().as_micros() as u32);
 	}
 
-	pub fn append_new_nodes_ways(&mut self, from: OsmData) {
+	pub fn append_new_elements(&mut self, from: OsmData) {
 		if from.is_empty() { return; }
+
+		if !from.nodes.is_empty() {
+			self.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::NodeOrphan as u8 | CacheFlag::NodeDedup as u8 | CacheFlag::NodeUsage as u8;
+		}
 
 		if !from.ways.is_empty() {
 			self.cache_flags |= CacheFlag::WayArea as u8 | CacheFlag::WayMeshAndAreaSize as u8 | CacheFlag::AreaSizeOrdered as u8;
 		}
 
-		if !from.nodes.is_empty() {
-			self.cache_flags |= CacheFlag::NodeProjection as u8 | CacheFlag::NodeOrphan as u8 | CacheFlag::NodeDedup as u8 | CacheFlag::NodeUsage as u8;
+		for (id, node) in from.nodes {
+			// todo: handle new versions
+			if self.data.nodes.contains_key(&id) {
+				continue;
+			}
+
+			self.data.nodes.insert(id, node);
 		}
 
 		for (id, way) in from.ways {
@@ -636,13 +668,13 @@ impl EditorOsmData {
 			self.data.ways.insert(id, way);
 		}
 
-		for (id, node) in from.nodes {
+		for (id, relation) in from.relations {
 			// todo: handle new versions
-			if self.data.nodes.contains_key(&id) {
+			if self.data.relations.contains_key(&id) {
 				continue;
 			}
 
-			self.data.nodes.insert(id, node);
+			self.data.relations.insert(id, relation);
 		}
 
 		self.rtree_data = RStarOsmData::from(&self.data);

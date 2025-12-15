@@ -535,8 +535,11 @@ impl Editor {
 					}
 					FillMode::Full => {
 						// draw area
-						let mesh = self.osm_data.get_way_mesh(&way_id, gamma_multiply(color, PARTIAL_FILL_GAMMA_MULTIPLY));
-						self.shapes.push(mesh.into());
+						// workaround: egui keeps the previous shapes when doing multiple passes which causes issues with the arcs
+						if ui.ctx().current_pass_index() == 0 {
+							let mesh = self.osm_data.get_way_mesh(&way_id, gamma_multiply(color, PARTIAL_FILL_GAMMA_MULTIPLY));
+							self.shapes.push(mesh.into());
+						}
 
 						// draw stroke
 						self.shapes.push(PathShape {
@@ -730,6 +733,7 @@ impl Editor {
 							}
 						}
 					}
+					ElementRef::Relation(_relation) => todo!(),
 				}
 			} else if clicked { // on empty space
 				self.selected = None;
@@ -777,6 +781,7 @@ impl Editor {
 							true
 						} else { false }
 					}
+					ElementRef::Relation(_relation) => todo!(),
 				}
 			} else { false }
 		};

@@ -181,6 +181,7 @@ impl MyApp {
 												let change = Change::ModifyWay(way.id, new_way);
 												self.editor_state.editor.osm_data.apply_change(change);
 											}
+											ElementRef::Relation(_relation) => todo!(),
 										}
 									}
 								}
@@ -285,10 +286,7 @@ impl MyApp {
 								let change = &self.editor_state.editor.osm_data.changes[i];
 
 								row.col(|ui| {
-									ui.add(prepare_icon(ctx, match change.element_ref() {
-										ElementRef::Node(_) => icons::PRIMITIVE_NODE_ICON,
-										ElementRef::Way(_) => icons::PRIMITIVE_WAY_ICON,
-									}, ICON_SIZE));
+									ui.add(prepare_icon(ctx, change.element_ref().element_icon(), ICON_SIZE));
 								});
 								row.col(|ui| {
 									ui.horizontal_centered(|ui| {
@@ -785,7 +783,7 @@ impl MyApp {
 					});
 					data.ways.retain(|id, _| !local_changes.contains(&ElementId::Way(*id)));
 
-					self.editor_state.editor.osm_data.append_new_nodes_ways(data);
+					self.editor_state.editor.osm_data.append_new_elements(data);
 					self.editor_state.editor.osm_data.refresh_in_view_flag = true;
 				});
 

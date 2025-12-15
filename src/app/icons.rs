@@ -3,7 +3,7 @@ use eframe::egui::{include_image, ImageSource};
 pub const PRIMITIVE_NODE_ICON: ImageSource = include_image!("../../assets/primitives/node24.svg");
 pub const PRIMITIVE_WAY_ICON: ImageSource = include_image!("../../assets/primitives/way24.svg");
 //pub const PRIMITIVE_AREA_ICON: ImageSource = include_image!("../../assets/primitives/area24.svg");
-//pub const PRIMITIVE_RELATION_ICON: ImageSource = include_image!("../../assets/primitives/relation24.svg");
+pub const PRIMITIVE_RELATION_ICON: ImageSource = include_image!("../../assets/primitives/relation24.svg");
 
 pub const CHECK: ImageSource = include_image!("../../assets/ui/check.svg");
 pub const CLOCK: ImageSource = include_image!("../../assets/ui/clock.svg");

@@ -11,6 +11,7 @@ use eframe::egui::{ComboBox, ScrollArea};
 use egui::text::LayoutJob;
 use egui::{Align2, Area, AtomExt, Button, CollapsingHeader, Color32, Context, CornerRadius, CursorIcon, Event, FontId, Frame, Hyperlink, Image, ImageSource, InnerResponse, Key, Label, Margin, Modal, Modifiers, Order, Pos2, Rect, Sense, Shadow, Stroke, TextEdit, TextFormat, TextWrapMode, Ui, Vec2, Widget, WidgetText};
 use egui_extras::{Column, TableBuilder};
+use osm_parser::types::RelationMember;
 use osm_parser::OsmData;
 #[cfg(not(target_family = "wasm"))]
 use std::io;
@@ -882,6 +883,7 @@ impl DataViewerModal {
 			cached_id_list: {
 				let mut ids = osm.nodes.keys().map(|x| ElementId::Node(*x))
 					.chain(osm.ways.keys().map(|x| ElementId::Way(*x)))
+					.chain(osm.relations.keys().map(|x| ElementId::Relation(*x)))
 					.collect::<Vec<_>>();
 				ids.sort_unstable();
 				ids
@@ -916,7 +918,7 @@ impl DataViewerModal {
 						.resizable(false)
 						.sense(Sense::click())
 						.max_scroll_height(available_height)
-						.column(Column::exact(40.0).clip(true))
+						.column(Column::exact(60.0).clip(true))
 						.column(Column::exact(120.0).clip(true))
 						.header(18.0, |mut header| {
 							header.col(|ui| { ui.strong(tr[TrID::Type as usize]); });
@@ -948,18 +950,20 @@ impl DataViewerModal {
 				columns[1].set_width(columns[1].available_width());
 				columns[1].vertical(|ui| {
 					ScrollArea::vertical()
-						.max_height(available_height)
+						.auto_shrink(false)
+						// .max_height(available_height)
 						.show(ui, |ui| {
 							if let Some(selected_id) = &self.selected_element {
 								let element = match selected_id {
 									ElementId::Node(n) => osm.nodes.get(n).map(ElementRef::Node),
 									ElementId::Way(w) => osm.ways.get(w).map(ElementRef::Way),
+									ElementId::Relation(r) => osm.relations.get(r).map(ElementRef::Relation),
 								};
 
 								if let Some(element) = element {
 									let id = element.id_ref();
 
-									ui.horizontal(|ui| {
+									ui.horizontal_wrapped(|ui| {
 										ui.image(element.element_icon());
 										if let Some(name) = element.name() {
 											ui.heading(format!("{} {}: {name}", element.type_str(), id));
@@ -1016,12 +1020,31 @@ impl DataViewerModal {
 													}
 												});
 										}
+										ElementRef::Relation(r) => {
+											#[expect(clippy::literal_string_with_formatting_args)]
+											CollapsingHeader::new(tr[TrID::MemberCount as usize].replace("{n}", &r.members.len().to_string()))
+												.id_salt("member_list")
+												.show(ui, |ui| {
+													for member in &r.members {
+														ui.horizontal(|ui| {
+															let element_id = match member {
+																RelationMember::Node(id) => ElementId::Node(*id),
+																RelationMember::Way(id) => ElementId::Way(*id),
+																RelationMember::Relation(id) => ElementId::Relation(*id),
+															};
+															ui.image(element_id.element_icon());
+															ui.label(format!("{} {}", element_id.type_str(), element_id.id_ref()));
+														});
+													}
+												});
+										}
 									}
 
 									ui.add_space(8.0);
 
 									egui::Grid::new("data_view_tags")
 										.min_col_width(100.0)
+										.max_col_width(300.0)
 										.striped(true)
 										.spacing([8.0, 4.0])
 										.show(ui, |ui| {
