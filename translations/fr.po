@@ -1,13 +1,13 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-12-10 23:27+0000\n"
-"Last-Translator: wolfy1339 <4595477+wolfy1339@users.noreply.github.com>\n"
+"PO-Revision-Date: 2025-12-19 12:00+0000\n"
+"Last-Translator: Swarkin <102416174+Swarkin@users.noreply.github.com>\n"
 "Language: fr\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=2; plural=n > 1;\n"
-"X-Generator: Weblate 5.15-dev\n"
+"X-Generator: Weblate 5.15.1\n"
 
 msgid "settings"
 msgstr "Paramètres"
@@ -131,3 +131,187 @@ msgstr "Exporter"
 
 msgid "import"
 msgstr "Importer"
+
+msgid "tags"
+msgstr "Etiquettes"
+
+msgid "packages_tree"
+msgstr "Voir l'arborescence"
+
+msgid "packages_deduplication"
+msgstr ""
+"Les paquets marqués d'un astérisque (*) ont été supprimés.\n"
+"Les dépendances du paquet sont déjà indiquées ailleurs dans le graphique et ne sont donc pas répétées."
+
+msgid "key"
+msgstr "Clé"
+
+msgid "value"
+msgstr "Valeur"
+
+msgid "type"
+msgstr "Type"
+
+msgid "id"
+msgstr "ID"
+
+msgid "changeset_id"
+msgstr "ID groupe de modifications"
+
+msgid "username"
+msgstr "Nom d'utilisateur"
+
+msgid "node_count"
+msgstr "{n} Nœuds"
+
+msgid "copy_position"
+msgstr "Copier la Position"
+
+msgid "unnamed_element"
+msgstr "{type} sans nom"
+
+msgid "edit_mode_tooltip"
+msgstr ""
+"Mode {mode}\n"
+"Appuyez sur {touche} pour activer/désactiver"
+
+msgid "redraw_continuously"
+msgstr "Actualiser la vue en continu"
+
+msgid "config"
+msgstr "Configuration"
+
+msgid "theme"
+msgstr "Thème"
+
+msgid "copy_error"
+msgstr "Erreur de copie"
+
+msgid "loading_config_failed"
+msgstr "Échec du chargement des paramètres"
+
+msgid "saving_config_failed"
+msgstr "Échec de l'enregistrement des paramètres"
+
+msgid "loading_success"
+msgstr "Chargement réussi."
+
+msgid "saving_success"
+msgstr "Sauvegarde réussi."
+
+msgid "loading_config_failed_text"
+msgstr "Une erreur est survenue lors du chargement de vos paramètres."
+
+msgid "saving_config_failed_text"
+msgstr "Une erreur est survenue lors de la sauvegarde de vos paramètres."
+
+msgid "quit"
+msgstr "Quitter"
+
+msgid "retry"
+msgstr "Réessayer"
+
+msgid "use_defaults"
+msgstr "Utiliser les valeurs par défaut"
+
+msgid "loading_settings"
+msgstr "Chargement des paramètres…"
+
+msgid "quit_without_saving"
+msgstr "Quitter sans sauvegarder"
+
+msgid "cancel"
+msgstr "Annuler"
+
+msgid "saving_settings"
+msgstr "Enregistrement des paramètres…"
+
+msgid "closing"
+msgstr "Fermeture…"
+
+msgid "changes"
+msgstr "Changements"
+
+msgid "upload_to_osm"
+msgstr "Envoyer sur OpenStreetMap"
+
+msgid "copy"
+msgstr "Copier"
+
+msgid "view_osc"
+msgstr "Regarder osmChange"
+
+msgid "cs_comment_placeholder"
+msgstr "Décrivez vos modifications"
+
+msgid "cs_comment_too_long"
+msgstr "Le commentaire de modification dépasse 255 caractères"
+
+msgid "technical_info"
+msgstr "Information technique"
+
+msgid "creating_changeset"
+msgstr "Creation de modifications"
+
+msgid "copy_link"
+msgstr "Copier le lien"
+
+msgid "copy_id"
+msgstr "Copier l'ID"
+
+msgid "uploading_osc"
+msgstr "Téléchargement d'osmChange"
+
+msgid "copy_response"
+msgstr "Copier la réponse"
+
+msgid "closing_changeset"
+msgstr "Fermer les modifications"
+
+msgid "upload_success"
+msgstr "Envoie réussi"
+
+msgid "view_on_osm"
+msgstr "Voir sur OpenStreetMap"
+
+msgid "upload_failed"
+msgstr "Échec de l'envoie"
+
+msgid "upload_failed_info"
+msgstr "Consultez la section « informations techniques » pour plus de détails et sauvegardez le document osmChange."
+
+msgid "login_notice"
+msgstr "Connectez-vous à OpenStreetMap via l'onglet {name}."
+
+msgid "login_to_osm"
+msgstr "Se connecter à OpenStreetMap"
+
+msgid "logout"
+msgstr "Déconnection"
+
+msgid "clear"
+msgstr "Effacer"
+
+msgid "login_auth_failed"
+msgstr "Échec de l'authentification"
+
+msgid "dismiss"
+msgstr "Ignorer"
+
+msgid "fetch_token"
+msgstr "Récupérer token"
+
+msgid "server"
+msgstr "Serveur"
+
+msgid "view"
+msgstr "Voir"
+
+msgid "uploading_changeset"
+msgstr "Envoyer les changements"
+
+msgid "idle"
+msgstr "Marche"
+
+msgid "packages_notice"
+msgstr "Cet éditeur a été créé grâce aux superbes bibliothèques open-source suivantes :"
