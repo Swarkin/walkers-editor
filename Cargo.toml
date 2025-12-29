@@ -24,7 +24,7 @@ renderer_disable_vsync = []
 build_offline = []
 
 [dependencies]
-walkers = { version = "0.50.0", default-features = false }
+walkers = { version = "0.51.0", default-features = false }
 eframe = { version = "*", default-features = false }
 egui = { version = "*", default-features = false, features = ["default_fonts", "serde"] }
 wgpu = { version = "*", default-features = false, features = ["std", "parking_lot"], optional = true }
