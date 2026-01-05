@@ -38,7 +38,7 @@ lyon_tessellation = "1.0"
 rustc-hash = "2.1.1"
 indexmap = "2.12"
 rstar = "0.12"
-rfd = "0.16"
+rfd = "0.17"
 
 [target.'cfg(target_family = "unix")'.dependencies]
 eframe = { version = "*", default-features = false, features = ["wayland", "x11"] }
