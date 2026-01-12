@@ -30,7 +30,7 @@ egui = { version = "*", default-features = false, features = ["default_fonts", "
 wgpu = { version = "*", default-features = false, features = ["std", "parking_lot"], optional = true }
 egui_extras = { version = "*", default-features = false, features = ["svg", "syntect"] }
 serde = { version = "1", features = ["derive"] }
-quick-xml = { version = "0.38", features = ["serialize"] }
+quick-xml = { version = "0.39", features = ["serialize"] }
 crossbeam-channel = "0.5"
 osm-parser = { version = "=6.0", features = ["rustc_hash"], git = "https://github.com/Swarkin/osm-parser.git" }
 webmercator_tiles = "1.0"
