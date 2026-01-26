@@ -1,13 +1,13 @@
 msgid ""
 msgstr ""
-"PO-Revision-Date: 2025-11-27 20:48+0000\n"
+"PO-Revision-Date: 2026-01-15 19:01+0000\n"
 "Last-Translator: dreigiau <dreigiau@users.noreply.hosted.weblate.org>\n"
 "Language: cy\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=6; plural=(n==0) ? 0 : (n==1) ? 1 : (n==2) ? 2 : (n==3) ? 3 :(n==6) ? 4 : 5;\n"
-"X-Generator: Weblate 5.15-dev\n"
+"X-Generator: Weblate 5.15.2\n"
 
 msgid "edit"
 msgstr "Golygu"
@@ -294,3 +294,30 @@ msgstr "2. Gludwch y cod a gawsoch i'r maes isod:"
 
 msgid "login_instruction_3"
 msgstr "3. Mewngofnodwch:"
+
+msgid "export"
+msgstr "Allforio"
+
+msgid "import"
+msgstr "Mewnforio"
+
+msgid "dismiss"
+msgstr "Cau"
+
+msgid "fetch_token"
+msgstr "Nôl tocyn"
+
+msgid "server"
+msgstr "Gweinydd"
+
+msgid "view"
+msgstr "Gweld"
+
+msgid "uploading_changeset"
+msgstr "Wrthi'n uwchlwytho grŵp newid"
+
+msgid "idle"
+msgstr "Sefydlog"
+
+msgid "member_count"
+msgstr "{n} Aelod"
