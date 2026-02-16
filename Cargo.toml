@@ -46,7 +46,7 @@ eframe = { version = "*", default-features = false, features = ["wayland", "x11"
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 ureq = { version = "3.1", default-features = false, features = ["rustls", "json", "gzip"] }
 dirs = "6.0"
-toml = "0.9"
+toml = "1.0"
 
 [target.'cfg(target_family = "wasm")'.dependencies]
 ehttp = { version = "0.6", default-features = false, features = ["json"] }
